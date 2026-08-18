@@ -1,5 +1,11 @@
 <?php
+
 session_start();
+
+if (isset($_SESSION['user_id'])) {
+    header("Location: dashboard.php");
+    exit;
+}
 
 if (!isset($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
@@ -8,119 +14,205 @@ if (!isset($_SESSION['csrf_token'])) {
 $error = $_SESSION['register_error'] ?? "";
 unset($_SESSION['register_error']);
 
-$old_username = $_SESSION['old_username'] ?? "";
-$old_email = $_SESSION['old_email'] ?? "";
-
-unset($_SESSION['old_username'], $_SESSION['old_email']);
 ?>
 
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>Register</title>
+    <title>Register | BloodLife</title>
 
     <link rel="stylesheet" href="assets/style.css">
 </head>
 
 <body>
 
-<div class="auth-container">
+    <div class="auth-container register-container">
 
-    <div class="auth-card">
+        <!-- LEFT SIDE - REGISTER FORM -->
+        <div class="auth-card">
 
-        <h1>Create Account</h1>
-
-        <p class="subtitle">
-            Register a new account
-        </p>
-
-        <?php if (!empty($error)): ?>
-            <div class="error-message">
-                <?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?>
+            <div class="brand">
+                <div class="blood-icon">♥</div>
+                <span>BloodLife</span>
             </div>
-        <?php endif; ?>
 
-        <form action="register_process.php" method="POST">
+            <h1>Create Account</h1>
 
-            <input
-                type="hidden"
-                name="csrf_token"
-                value="<?= htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8') ?>"
+            <p class="subtitle">
+                Join our community and become part of something that can save lives.
+            </p>
+
+            <?php if (!empty($error)): ?>
+
+                <div class="error-message">
+                    <?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?>
+                </div>
+
+            <?php endif; ?>
+
+
+            <form action="register_process.php" method="POST">
+
+                <input
+                    type="hidden"
+                    name="csrf_token"
+                    value="<?= htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8') ?>"
+                >
+
+
+                <!-- USERNAME -->
+
+                <div class="form-group">
+
+                    <label for="username">
+                        Username
+                    </label>
+
+                    <input
+                        type="text"
+                        id="username"
+                        name="username"
+                        required
+                        autocomplete="username"
+                        placeholder="Choose a username"
+                    >
+
+                </div>
+
+
+                <!-- EMAIL -->
+
+                <div class="form-group">
+
+                    <label for="email">
+                        Email Address
+                    </label>
+
+                    <input
+                        type="email"
+                        id="email"
+                        name="email"
+                        required
+                        autocomplete="email"
+                        placeholder="Enter your email"
+                    >
+
+                </div>
+
+
+                <!-- PASSWORD -->
+
+                <div class="form-group">
+
+                    <label for="password">
+                        Password
+                    </label>
+
+                    <input
+                        type="password"
+                        id="password"
+                        name="password"
+                        required
+                        autocomplete="new-password"
+                        placeholder="Create a password"
+                    >
+
+                </div>
+
+
+                <!-- CONFIRM PASSWORD -->
+
+                <div class="form-group">
+
+                    <label for="confirm_password">
+                        Confirm Password
+                    </label>
+
+                    <input
+                        type="password"
+                        id="confirm_password"
+                        name="confirm_password"
+                        required
+                        autocomplete="new-password"
+                        placeholder="Confirm your password"
+                    >
+
+                </div>
+
+
+                <button type="submit" class="btn">
+                    Create Account
+                </button>
+
+            </form>
+
+
+            <p class="switch">
+                Already have an account?
+                <a href="login.php">Login</a>
+            </p>
+
+        </div>
+
+
+        <!-- RIGHT SIDE - REGISTER IMAGE -->
+
+        <div class="auth-image register-image">
+
+            <img
+                src="assets/images/blood-donor-register.jpg"
+                alt="Join the blood donor community"
             >
 
-            <div class="form-group">
-                <label for="username">Username</label>
+            <div class="image-overlay"></div>
 
-                <input
-                    type="text"
-                    id="username"
-                    name="username"
-                    maxlength="50"
-                    required
-                    autocomplete="username"
-                    value="<?= htmlspecialchars($old_username, ENT_QUOTES, 'UTF-8') ?>"
-                >
+
+            <div class="image-content">
+
+                <div class="blood-drop">
+                    ♥
+                </div>
+
+                <h2>
+                    Join the<br>
+                    Life-Saving Community.
+                </h2>
+
+                <p>
+                    Create your account today and become part of a community
+                    dedicated to helping people in need of blood.
+                </p>
+
+
+                <div class="register-benefits">
+
+                    <div class="benefit">
+                        <span>✓</span>
+                        <p>Be part of a life-saving community</p>
+                    </div>
+
+                    <div class="benefit">
+                        <span>✓</span>
+                        <p>Stay informed about blood donation events</p>
+                    </div>
+
+                    <div class="benefit">
+                        <span>✓</span>
+                        <p>Help make a difference in someone's life</p>
+                    </div>
+
+                </div>
+
             </div>
 
-            <div class="form-group">
-                <label for="email">Email</label>
-
-                <input
-                    type="email"
-                    id="email"
-                    name="email"
-                    maxlength="100"
-                    required
-                    autocomplete="email"
-                    value="<?= htmlspecialchars($old_email, ENT_QUOTES, 'UTF-8') ?>"
-                >
-            </div>
-
-            <div class="form-group">
-                <label for="password">Password</label>
-
-                <input
-                    type="password"
-                    id="password"
-                    name="password"
-                    minlength="8"
-                    required
-                    autocomplete="new-password"
-                >
-            </div>
-
-            <div class="form-group">
-                <label for="confirm_password">
-                    Confirm Password
-                </label>
-
-                <input
-                    type="password"
-                    id="confirm_password"
-                    name="confirm_password"
-                    minlength="8"
-                    required
-                    autocomplete="new-password"
-                >
-            </div>
-
-            <button type="submit" class="btn">
-                Register
-            </button>
-
-        </form>
-
-        <p class="switch">
-            Already have an account?
-            <a href="login.php">Login</a>
-        </p>
+        </div>
 
     </div>
 
-</div>
-
 </body>
+
 </html>
