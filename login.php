@@ -66,27 +66,17 @@ $success = isset($_GET['registered']) && $_GET['registered'] === '1';
 
             <form action="login_process.php" method="POST">
 
-                <input
-                    type="hidden"
-                    name="csrf_token"
-                    value="<?= htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8') ?>"
-                >
+                <input type="hidden" name="csrf_token"
+                    value="<?= htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8') ?>">
 
                 <div class="form-group">
+                    <label for="login">Email</label>
 
-                    <label for="login">
-                        Username or Email
-                    </label>
-
-                    <input
-                        type="text"
-                        id="login"
-                        name="login"
-                        required
-                        autocomplete="username"
-                        placeholder="Enter your username or email"
-                    >
-
+                    <div class="input-wrapper">
+                        <img src="mail.png" alt="Email icon">
+                        <input type="text" id="login" name="login" autocomplete="username"
+                            placeholder="eg. jbits@gmail.com">
+                    </div>
                 </div>
 
                 <div class="form-group">
@@ -95,14 +85,12 @@ $success = isset($_GET['registered']) && $_GET['registered'] === '1';
                         Password
                     </label>
 
-                    <input
-                        type="password"
-                        id="password"
-                        name="password"
-                        required
-                        autocomplete="current-password"
-                        placeholder="Enter your password"
-                    >
+                    <div class="input-wrapper">
+                        <img src="padlock.png" alt="Password icon">
+                        <input type="password" id="password" name="password" autocomplete="current-password"
+                            placeholder="******">
+                    </div>
+
 
                 </div>
 
@@ -121,16 +109,13 @@ $success = isset($_GET['registered']) && $_GET['registered'] === '1';
 
         <div class="auth-image">
 
-            <img
-                src="assets/images/blood-donation.jpg"
-                alt="Blood donation"
-            >
+            <img src="side_login2.png" alt="Blood donation">
 
             <div class="image-overlay"></div>
 
             <div class="image-content">
 
-                <div class="blood-drop">♥</div>
+                <!-- <div class="blood-drop">♥</div> -->
 
                 <h2>Donate Blood.<br>Save Lives.</h2>
 
@@ -139,13 +124,13 @@ $success = isset($_GET['registered']) && $_GET['registered'] === '1';
                     Your generosity can give someone another chance at life.
                 </p>
 
-                <div class="donation-stat">
+                <!-- <div class="donation-stat">
 
                     <strong>1 Donation</strong>
 
                     <span>Can Help Save Lives</span>
 
-                </div>
+                </div> -->
 
             </div>
 

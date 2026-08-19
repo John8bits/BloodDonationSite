@@ -32,7 +32,6 @@ unset($_SESSION['register_error']);
 
     <div class="auth-container register-container">
 
-        <!-- LEFT SIDE - REGISTER FORM -->
         <div class="auth-card">
 
             <div class="brand">
@@ -57,29 +56,49 @@ unset($_SESSION['register_error']);
 
             <form action="register_process.php" method="POST">
 
-                <input
-                    type="hidden"
-                    name="csrf_token"
-                    value="<?= htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8') ?>"
-                >
+                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(
+                    $_SESSION['csrf_token'],
+                    ENT_QUOTES,
+                    'UTF-8'
+                ) ?>">
 
 
-                <!-- USERNAME -->
+                <div class="form-row">
 
-                <div class="form-group">
+                    <div class="form-group">
 
-                    <label for="username">
-                        Username
-                    </label>
+                        <label for="first_name">
+                            First name
+                        </label>
 
-                    <input
-                        type="text"
-                        id="username"
-                        name="username"
-                        required
-                        autocomplete="username"
-                        placeholder="Choose a username"
-                    >
+                        <div class="input-wrapper">
+
+                            <img src="user.png" alt="">
+
+                            <input type="text" id="first_name" name="first_name" maxlength="50"
+                                autocomplete="given-name" placeholder="John" required>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label for="last_name">
+                            Last name
+                        </label>
+
+                        <div class="input-wrapper">
+
+                            <img src="user.png" alt="">
+
+                            <input type="text" id="last_name" name="last_name" maxlength="50" autocomplete="family-name"
+                                placeholder="Bits" required>
+
+                        </div>
+
+                    </div>
 
                 </div>
 
@@ -89,22 +108,74 @@ unset($_SESSION['register_error']);
                 <div class="form-group">
 
                     <label for="email">
-                        Email Address
+                        Email address
                     </label>
 
-                    <input
-                        type="email"
-                        id="email"
-                        name="email"
-                        required
-                        autocomplete="email"
-                        placeholder="Enter your email"
-                    >
+                    <div class="input-wrapper">
+
+                        <img src="mail.png" alt="">
+
+                        <input type="email" id="email" name="email" maxlength="255" autocomplete="email"
+                            placeholder="jbits@example.com" required>
+
+                    </div>
 
                 </div>
 
 
-                <!-- PASSWORD -->
+                <div class="form-row">
+
+                    <div class="form-group">
+
+                        <label for="blood_type">
+                            Blood type
+                        </label>
+
+                        <div class="input-wrapper">
+
+                            <img src="blood-drop.png" alt=btype">
+
+                            <select id="blood_type" name="blood_type" required>
+                                <option value="" disabled selected>
+                                    Select blood type
+                                </option>
+
+                                <option value="A+">A+</option>
+                                <option value="A-">A-</option>
+
+                                <option value="B+">B+</option>
+                                <option value="B-">B-</option>
+
+                                <option value="AB+">AB+</option>
+                                <option value="AB-">AB-</option>
+
+                                <option value="O+">O+</option>
+                                <option value="O-">O-</option>
+
+                            </select>
+
+                        </div>
+
+                    </div>
+
+                    <div class="form-group">
+
+                        <label for="phone">
+                            Phone number
+                        </label>
+
+                        <div class="input-wrapper">
+
+                            <img src="telephone.png" alt="phone">
+
+                            <input type="tel" id="phone" name="phone" maxlength="20" autocomplete="tel"
+                                placeholder="09XXXXXXXXX" required>
+
+                        </div>
+
+                    </div>
+
+                </div>
 
                 <div class="form-group">
 
@@ -112,37 +183,46 @@ unset($_SESSION['register_error']);
                         Password
                     </label>
 
-                    <input
-                        type="password"
-                        id="password"
-                        name="password"
-                        required
-                        autocomplete="new-password"
-                        placeholder="Create a password"
-                    >
+                    <div class="input-wrapper">
+
+                        <img src="padlock.png" alt="">
+
+                        <input type="password" id="password" name="password" autocomplete="new-password"
+                            placeholder="Create a password" required>
+
+                    </div>
 
                 </div>
-
-
-                <!-- CONFIRM PASSWORD -->
 
                 <div class="form-group">
 
                     <label for="confirm_password">
-                        Confirm Password
+                        Confirm password
                     </label>
 
-                    <input
-                        type="password"
-                        id="confirm_password"
-                        name="confirm_password"
-                        required
-                        autocomplete="new-password"
-                        placeholder="Confirm your password"
-                    >
+                    <div class="input-wrapper">
+
+                        <img src="padlock.png" alt="">
+
+                        <input type="password" id="confirm_password" name="confirm_password" autocomplete="new-password"
+                            placeholder="Confirm your password" required>
+
+                    </div>
 
                 </div>
 
+                <label class="terms">
+
+                    <input type="checkbox" name="terms" required>
+
+                    <span>
+                        I agree to the
+                        <a href="#">Terms &amp; Conditions</a>
+                        and
+                        <a href="#">Privacy Policy</a>.
+                    </span>
+
+                </label>
 
                 <button type="submit" class="btn">
                     Create Account
@@ -158,24 +238,18 @@ unset($_SESSION['register_error']);
 
         </div>
 
-
-        <!-- RIGHT SIDE - REGISTER IMAGE -->
-
         <div class="auth-image register-image">
 
-            <img
-                src="assets/images/blood-donor-register.jpg"
-                alt="Join the blood donor community"
-            >
+            <img src="side_login.png" alt="Join the blood donor community">
 
             <div class="image-overlay"></div>
 
 
             <div class="image-content">
 
-                <div class="blood-drop">
+                <!-- <div class="blood-drop">
                     ♥
-                </div>
+                </div> -->
 
                 <h2>
                     Join the<br>
@@ -188,7 +262,7 @@ unset($_SESSION['register_error']);
                 </p>
 
 
-                <div class="register-benefits">
+                <!-- <div class="register-benefits">
 
                     <div class="benefit">
                         <span>✓</span>
@@ -205,7 +279,7 @@ unset($_SESSION['register_error']);
                         <p>Help make a difference in someone's life</p>
                     </div>
 
-                </div>
+                </div> -->
 
             </div>
 

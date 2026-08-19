@@ -8,7 +8,8 @@ body {
     font-family: Arial, sans-serif;
     min-height: 100vh;
 
-    background: #A41214;
+    /* background: #A41214; */
+    background: #fff;
 
     display: flex;
     align-items: center;
@@ -17,10 +18,7 @@ body {
     padding: 30px;
 }
 
-
-/* =========================================
-   MAIN CONTAINER
-========================================= */
+/* main cont */
 
 .auth-container {
     width: 100%;
@@ -41,11 +39,7 @@ body {
         0 25px 60px rgba(0, 0, 0, 0.25);
 }
 
-
-/* =========================================
-   LOGIN CARD
-========================================= */
-
+/* log card */
 .auth-card {
     background: #ffffff;
 
@@ -55,11 +49,6 @@ body {
     flex-direction: column;
     justify-content: center;
 }
-
-
-/* =========================================
-   BRAND
-========================================= */
 
 .brand {
     display: flex;
@@ -91,11 +80,7 @@ body {
 
     font-size: 20px;
 }
-
-
-/* =========================================
-   HEADINGS
-========================================= */
+/* head */
 
 .auth-card h1 {
     color: #222;
@@ -113,10 +98,7 @@ body {
     margin-bottom: 30px;
 }
 
-
-/* =========================================
-   FORM
-========================================= */
+/* form */
 
 .form-group {
     margin-bottom: 20px;
@@ -124,39 +106,59 @@ body {
 
 .form-group label {
     display: block;
-
     margin-bottom: 8px;
-
-    font-weight: bold;
-
-    color: #333;
-
     font-size: 14px;
+    font-weight: 600;
 }
 
-.form-group input {
+/* inputs icon */
+.input-wrapper {
+    position: relative;
     width: 100%;
+}
 
-    padding: 14px 15px;
+.input-wrapper img {
+    position: absolute;
+    left: 15px;
+    top: 50%;
+
+    transform: translateY(-50%);
+
+    width: 20px;
+    height: 20px;
+
+    object-fit: contain;
+
+    pointer-events: none;
+    z-index: 2;
+}
+
+.input-wrapper input {
+    width: 100%;
+    height: 50px;
+
+    padding: 0 15px 0 48px;
 
     border: 1px solid #ddd;
-
     border-radius: 9px;
-
-    font-size: 15px;
 
     outline: none;
 
-    transition: 0.2s;
+    font-size: 15px;
 
     background: #fafafa;
+
+    color: #333;
+
+    transition: 0.2s ease;
 }
 
-.form-group input::placeholder {
+.input-wrapper input::placeholder {
     color: #aaa;
+    opacity: 1;
 }
 
-.form-group input:focus {
+.input-wrapper input:focus {
     border-color: #A41214;
 
     background: #fff;
@@ -165,11 +167,7 @@ body {
         0 0 0 3px rgba(164, 18, 20, 0.12);
 }
 
-
-/* =========================================
-   LOGIN BUTTON
-========================================= */
-
+/* login btn */
 .btn {
     width: 100%;
 
@@ -202,9 +200,10 @@ body {
 }
 
 
-/* =========================================
-   SWITCH REGISTER
-========================================= */
+
+
+
+/* Register css */
 
 .switch {
     text-align: center;
@@ -228,10 +227,6 @@ body {
     text-decoration: underline;
 }
 
-
-/* =========================================
-   ERROR / SUCCESS
-========================================= */
 
 .error-message {
     background: #ffe5e5;
@@ -266,10 +261,6 @@ body {
 }
 
 
-/* =========================================
-   RIGHT IMAGE
-========================================= */
-
 .auth-image {
     position: relative;
 
@@ -297,17 +288,11 @@ body {
     inset: 0;
 
     background:
-        linear-gradient(
-            135deg,
+        linear-gradient(135deg,
             rgba(164, 18, 20, 0.92),
-            rgba(90, 5, 8, 0.65)
-        );
+            rgba(90, 5, 8, 0.65));
 }
 
-
-/* =========================================
-   IMAGE CONTENT
-========================================= */
 
 .image-content {
     position: relative;
@@ -327,7 +312,7 @@ body {
     color: white;
 }
 
-.blood-drop {
+/* .blood-drop {
     width: 65px;
     height: 65px;
 
@@ -346,7 +331,7 @@ body {
     margin-bottom: 25px;
 
     backdrop-filter: blur(5px);
-}
+} */
 
 .image-content h2 {
     font-size: 42px;
@@ -368,11 +353,7 @@ body {
     margin-bottom: 30px;
 }
 
-
-/* =========================================
-   DONATION STAT
-========================================= */
-
+/* 
 .donation-stat {
     display: flex;
 
@@ -401,26 +382,19 @@ body {
     font-size: 13px;
 
     color: rgba(255, 255, 255, 0.8);
-}
+} */
 
 
 
 /* reg */
 
-/* =========================================
-   REGISTER PAGE
-========================================= */
 
 .register-container {
     max-width: 1050px;
 }
 
 
-/* =========================================
-   REGISTER BENEFITS
-========================================= */
-
-.register-benefits {
+/* .register-benefits {
     display: flex;
 
     flex-direction: column;
@@ -438,7 +412,7 @@ body {
     gap: 12px;
 
     color: white;
-}
+} */
 
 .benefit span {
     flex-shrink: 0;
@@ -473,23 +447,168 @@ body {
 }
 
 
-/* =========================================
-   REGISTER IMAGE
-========================================= */
-
 .register-image .image-overlay {
-    background:
-        linear-gradient(
-            135deg,
+    /* background:
+        linear-gradient(135deg,
             rgba(164, 18, 20, 0.88),
-            rgba(90, 5, 8, 0.68)
-        );
+            rgba(90, 5, 8, 0.68)); */
+            background:
+        linear-gradient(135deg,
+            rgba(164, 18, 20, 0.92),
+            rgba(90, 5, 8, 0.65));
 }
 
 
-/* =========================================
-   REGISTER MOBILE
-========================================= */
+.form-row {
+    display: grid;
+
+    grid-template-columns: 1fr 1fr;
+
+    gap: 15px;
+}
+
+
+.form-row .form-group {
+    min-width: 0;
+}
+
+
+.terms {
+    display: flex;
+
+    align-items: flex-start;
+
+    gap: 8px;
+
+    margin: 5px 0 18px;
+
+    color: #666;
+
+    font-size: 12px;
+
+    line-height: 1.5;
+
+    cursor: pointer;
+}
+
+.terms input {
+    width: 15px;
+    height: 15px;
+
+    margin-top: 1px;
+
+    flex-shrink: 0;
+
+    accent-color: #A41214;
+
+    cursor: pointer;
+}
+
+.terms a {
+    color: #A41214;
+
+    text-decoration: none;
+
+    font-weight: 600;
+}
+
+.terms a:hover {
+    text-decoration: underline;
+}
+
+/* btype */
+
+.input-wrapper select {
+    width: 100%;
+    height: 50px;
+
+    padding: 0 35px 0 48px;
+
+    border: 1px solid #ddd;
+
+    border-radius: 9px;
+
+    outline: none;
+
+    font-size: 15px;
+
+    background-color: #fafafa;
+
+    color: #555;
+
+    cursor: pointer;
+
+    appearance: auto;
+
+    transition: 0.2s ease;
+}
+
+
+.input-wrapper select:invalid {
+    color: #aaa;
+}
+
+.input-wrapper select:focus {
+    border-color: #A41214;
+
+    background: #fff;
+
+    box-shadow:
+        0 0 0 3px rgba(164, 18, 20, 0.12);
+}
+
+
+.input-wrapper select option {
+    color: #333;
+
+    background: #fff;
+}
+
+/* reg btn */
+.btn {
+    width: 100%;
+
+    border: none;
+
+    padding: 14px;
+
+    border-radius: 9px;
+
+    background: #A41214;
+
+    color: white;
+
+    font-size: 15px;
+
+    font-weight: bold;
+
+    cursor: pointer;
+
+    transition: 0.2s ease;
+}
+
+.btn:hover {
+    background: #850e10;
+
+    transform: translateY(-1px);
+
+    box-shadow:
+        0 8px 20px rgba(164, 18, 20, 0.25);
+}
+
+
+/* reg resp mob */
+
+@media (max-width: 600px) {
+
+    .form-row {
+        grid-template-columns: 1fr;
+
+        gap: 0;
+    }
+
+}
+
 
 @media (max-width: 800px) {
 
@@ -532,10 +651,6 @@ body {
     }
 }
 
-/* =========================================
-   MOBILE
-========================================= */
-
 @media (max-width: 800px) {
 
     body {
@@ -572,18 +687,18 @@ body {
         margin-bottom: 15px;
     }
 
-    .blood-drop {
+    /* .blood-drop {
         width: 45px;
         height: 45px;
 
         font-size: 22px;
 
         margin-bottom: 15px;
-    }
+    } */
 
-    .donation-stat {
+    /* .donation-stat {
         display: none;
-    }
+    } */
 
     .auth-card {
         padding: 40px 30px;
@@ -595,9 +710,6 @@ body {
 }
 
 
-/* =========================================
-   SMALL PHONES
-========================================= */
 
 @media (max-width: 480px) {
 
@@ -636,4 +748,4 @@ body {
     .brand {
         margin-bottom: 20px;
     }
-}   
+}
