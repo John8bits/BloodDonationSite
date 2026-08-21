@@ -20,41 +20,69 @@ unset($_SESSION['register_error']);
 <html lang="en">
 
 <head>
+
     <meta charset="UTF-8">
+
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     <title>Register | BloodLife</title>
 
     <link rel="stylesheet" href="assets/style.css">
+
 </head>
 
 <body>
 
     <div class="auth-container register-container">
 
+        <!-- REGISTER CARD -->
         <div class="auth-card">
 
             <div class="brand">
-                <div class="blood-icon">♥</div>
-                <span>BloodLife</span>
+
+                <div class="blood-icon">
+                    ♥
+                </div>
+
+                <span>
+                    BloodLife
+                </span>
+
             </div>
 
-            <h1>Create Account</h1>
+
+            <h1>
+                Create Account
+            </h1>
+
 
             <p class="subtitle">
-                Join our community and become part of something that can save lives.
+                Join our community and become part of something
+                that can save lives.
             </p>
+
 
             <?php if (!empty($error)): ?>
 
                 <div class="error-message">
-                    <?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?>
+
+                    <?= htmlspecialchars(
+                        $error,
+                        ENT_QUOTES,
+                        'UTF-8'
+                    ) ?>
+
                 </div>
 
             <?php endif; ?>
 
 
-            <form action="register_process.php" method="POST">
+            <!-- JAVASCRIPT MESSAGE AREA -->
+
+            <div id="registerMessage" class="form-message" aria-live="polite"></div>
+
+
+            <form action="register_process.php" method="POST" id="registerForm" novalidate>
 
                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(
                     $_SESSION['csrf_token'],
@@ -62,6 +90,8 @@ unset($_SESSION['register_error']);
                     'UTF-8'
                 ) ?>">
 
+
+                <!-- FIRST NAME + LAST NAME -->
 
                 <div class="form-row">
 
@@ -73,12 +103,14 @@ unset($_SESSION['register_error']);
 
                         <div class="input-wrapper">
 
-                            <img src="user.png" alt="">
+                            <img src="user.png" alt="User icon">
 
                             <input type="text" id="first_name" name="first_name" maxlength="50"
-                                autocomplete="given-name" placeholder="John" required>
+                                autocomplete="given-name" placeholder="John">
 
                         </div>
+
+                        <small id="firstNameError" class="field-error"></small>
 
                     </div>
 
@@ -91,12 +123,14 @@ unset($_SESSION['register_error']);
 
                         <div class="input-wrapper">
 
-                            <img src="user.png" alt="">
+                            <img src="user.png" alt="User icon">
 
                             <input type="text" id="last_name" name="last_name" maxlength="50" autocomplete="family-name"
-                                placeholder="Bits" required>
+                                placeholder="Bits">
 
                         </div>
+
+                        <small id="lastNameError" class="field-error"></small>
 
                     </div>
 
@@ -113,15 +147,19 @@ unset($_SESSION['register_error']);
 
                     <div class="input-wrapper">
 
-                        <img src="mail.png" alt="">
+                        <img src="mail.png" alt="Email icon">
 
                         <input type="email" id="email" name="email" maxlength="255" autocomplete="email"
-                            placeholder="jbits@example.com" required>
+                            placeholder="jbits@example.com">
 
                     </div>
 
+                    <small id="emailError" class="field-error"></small>
+
                 </div>
 
+
+                <!-- BLOOD TYPE + PHONE -->
 
                 <div class="form-row">
 
@@ -133,30 +171,54 @@ unset($_SESSION['register_error']);
 
                         <div class="input-wrapper">
 
-                            <img src="blood-drop.png" alt=btype">
+                            <img src="blood-drop.png" alt="Blood type icon">
 
-                            <select id="blood_type" name="blood_type" required>
-                                <option value="" disabled selected>
+                            <select id="blood_type" name="blood_type">
+
+                                <option value="" selected>
                                     Select blood type
                                 </option>
 
-                                <option value="A+">A+</option>
-                                <option value="A-">A-</option>
+                                <option value="A+">
+                                    A+
+                                </option>
 
-                                <option value="B+">B+</option>
-                                <option value="B-">B-</option>
+                                <option value="A-">
+                                    A-
+                                </option>
 
-                                <option value="AB+">AB+</option>
-                                <option value="AB-">AB-</option>
+                                <option value="B+">
+                                    B+
+                                </option>
 
-                                <option value="O+">O+</option>
-                                <option value="O-">O-</option>
+                                <option value="B-">
+                                    B-
+                                </option>
+
+                                <option value="AB+">
+                                    AB+
+                                </option>
+
+                                <option value="AB-">
+                                    AB-
+                                </option>
+
+                                <option value="O+">
+                                    O+
+                                </option>
+
+                                <option value="O-">
+                                    O-
+                                </option>
 
                             </select>
 
                         </div>
 
+                        <small id="bloodTypeError" class="field-error"></small>
+
                     </div>
+
 
                     <div class="form-group">
 
@@ -166,16 +228,21 @@ unset($_SESSION['register_error']);
 
                         <div class="input-wrapper">
 
-                            <img src="telephone.png" alt="phone">
+                            <img src="telephone.png" alt="Phone icon">
 
                             <input type="tel" id="phone" name="phone" maxlength="20" autocomplete="tel"
-                                placeholder="09XXXXXXXXX" required>
+                                placeholder="09XXXXXXXXX">
 
                         </div>
+
+                        <small id="phoneError" class="field-error"></small>
 
                     </div>
 
                 </div>
+
+
+                <!-- PASSWORD -->
 
                 <div class="form-group">
 
@@ -185,14 +252,24 @@ unset($_SESSION['register_error']);
 
                     <div class="input-wrapper">
 
-                        <img src="padlock.png" alt="">
+                        <img src="padlock.png" alt="Password icon">
 
                         <input type="password" id="password" name="password" autocomplete="new-password"
-                            placeholder="Create a password" required>
+                            placeholder="Create a password">
 
                     </div>
 
+                    <small id="passwordHint" class="password-hint">
+                        Password must be at least 8 characters,
+                        including uppercase, lowercase, and a number.
+                    </small>
+
+                    <small id="passwordError" class="field-error"></small>
+
                 </div>
+
+
+                <!-- CONFIRM PASSWORD -->
 
                 <div class="form-group">
 
@@ -202,41 +279,69 @@ unset($_SESSION['register_error']);
 
                     <div class="input-wrapper">
 
-                        <img src="padlock.png" alt="">
+                        <img src="padlock.png" alt="Password icon">
 
                         <input type="password" id="confirm_password" name="confirm_password" autocomplete="new-password"
-                            placeholder="Confirm your password" required>
+                            placeholder="Confirm your password">
 
                     </div>
 
+                    <small id="confirmPasswordError" class="field-error"></small>
+
                 </div>
+
+
+                <!-- TERMS -->
 
                 <label class="terms">
 
-                    <input type="checkbox" name="terms" required>
+                    <input type="checkbox" id="terms" name="terms">
 
                     <span>
+
                         I agree to the
-                        <a href="#">Terms &amp; Conditions</a>
+
+                        <a href="#">
+                            Terms &amp; Conditions
+                        </a>
+
                         and
-                        <a href="#">Privacy Policy</a>.
+
+                        <a href="#">
+                            Privacy Policy
+                        </a>.
+
                     </span>
 
                 </label>
 
-                <button type="submit" class="btn">
+                <small id="termsError" class="field-error"></small>
+
+
+                <!-- SUBMIT -->
+
+                <button type="submit" class="btn" id="registerButton">
                     Create Account
                 </button>
+
 
             </form>
 
 
             <p class="switch">
+
                 Already have an account?
-                <a href="login.php">Login</a>
+
+                <a href="login.php">
+                    Login
+                </a>
+
             </p>
 
         </div>
+
+
+        <!-- RIGHT IMAGE -->
 
         <div class="auth-image register-image">
 
@@ -247,45 +352,25 @@ unset($_SESSION['register_error']);
 
             <div class="image-content">
 
-                <!-- <div class="blood-drop">
-                    ♥
-                </div> -->
-
                 <h2>
                     Join the<br>
                     Life-Saving Community.
                 </h2>
 
                 <p>
-                    Create your account today and become part of a community
-                    dedicated to helping people in need of blood.
+                    Create your account today and become part
+                    of a community dedicated to helping people
+                    in need of blood.
                 </p>
-
-
-                <!-- <div class="register-benefits">
-
-                    <div class="benefit">
-                        <span>✓</span>
-                        <p>Be part of a life-saving community</p>
-                    </div>
-
-                    <div class="benefit">
-                        <span>✓</span>
-                        <p>Stay informed about blood donation events</p>
-                    </div>
-
-                    <div class="benefit">
-                        <span>✓</span>
-                        <p>Help make a difference in someone's life</p>
-                    </div>
-
-                </div> -->
 
             </div>
 
         </div>
 
     </div>
+
+
+    <script src="validation/register.js"></script>
 
 </body>
 

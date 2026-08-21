@@ -597,6 +597,45 @@ body {
 }
 
 
+/* js valid message */
+.form-message {
+    display: none;
+    margin-bottom: 15px;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.form-message:not(:empty) {
+    display: block;
+}
+
+
+.field-error {
+    display: block;
+    margin-top: 5px;
+    color: #d62839;
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+
+.password-hint {
+    display: none;
+    margin-top: 5px;
+    color: #777;
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.error-message {
+    color: #d62839;
+}
+
+.success-message {
+    color: #218739;
+}
+
+
 /* reg resp mob */
 
 @media (max-width: 600px) {

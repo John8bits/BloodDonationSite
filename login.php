@@ -1,20 +1,20 @@
 <?php
 
-session_start();
+    session_start();
 
-if (isset($_SESSION['user_id'])) {
-    header("Location: dashboard.php");
-    exit;
-}
+    if (isset($_SESSION['user_id'])) {
+        header("Location: dashboard.php");
+        exit;
+    }
 
-if (!isset($_SESSION['csrf_token'])) {
-    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-}
+    if (!isset($_SESSION['csrf_token'])) {
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+    }
 
-$error = $_SESSION['login_error'] ?? "";
-unset($_SESSION['login_error']);
+    $error = $_SESSION['login_error'] ?? "";
+    unset($_SESSION['login_error']);
 
-$success = isset($_GET['registered']) && $_GET['registered'] === '1';
+    $success = isset($_GET['registered']) && $_GET['registered'] === '1';
 
 ?>
 
@@ -34,7 +34,6 @@ $success = isset($_GET['registered']) && $_GET['registered'] === '1';
 
     <div class="auth-container">
 
-        <!-- LEFT SIDE - LOGIN -->
         <div class="auth-card">
 
             <div class="brand">
@@ -64,19 +63,42 @@ $success = isset($_GET['registered']) && $_GET['registered'] === '1';
 
             <?php endif; ?>
 
-            <form action="login_process.php" method="POST">
+            <div id="loginMessage" class="form-message" aria-live="polite"></div>
 
-                <input type="hidden" name="csrf_token"
-                    value="<?= htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8') ?>">
+            <form action="login_process.php" method="POST" id="loginForm" novalidate >
+
+                <input
+                    type="hidden"
+                    name="csrf_token"
+                    value="<?= htmlspecialchars(
+                        $_SESSION['csrf_token'],
+                        ENT_QUOTES,
+                        'UTF-8'
+                    ) ?>"
+                >
 
                 <div class="form-group">
-                    <label for="login">Email</label>
+
+                    <label for="login">
+                        Email
+                    </label>
 
                     <div class="input-wrapper">
+
                         <img src="mail.png" alt="Email icon">
-                        <input type="text" id="login" name="login" autocomplete="username"
-                            placeholder="eg. jbits@gmail.com">
+
+                        <input
+                            type="text"
+                            id="login"
+                            name="login"
+                            autocomplete="username"
+                            placeholder="eg. jbits@gmail.com"
+                        >
+
                     </div>
+
+                    <small id="loginError" class="field-error"></small>
+
                 </div>
 
                 <div class="form-group">
@@ -86,15 +108,32 @@ $success = isset($_GET['registered']) && $_GET['registered'] === '1';
                     </label>
 
                     <div class="input-wrapper">
+
                         <img src="padlock.png" alt="Password icon">
-                        <input type="password" id="password" name="password" autocomplete="current-password"
-                            placeholder="******">
+
+                        <input
+                            type="password"
+                            id="password"
+                            name="password"
+                            autocomplete="current-password"
+                            placeholder="******"
+                        >
+
                     </div>
 
+                    <!-- <small id="passwordHint" class="password-hint">
+                        Password must be at least 6 characters.
+                    </small> -->
+
+                    <small id="passwordError" class="field-error"></small>
 
                 </div>
 
-                <button type="submit" class="btn">
+                <button
+                    type="submit"
+                    class="btn"
+                    id="loginButton"
+                >
                     Login
                 </button>
 
@@ -109,34 +148,32 @@ $success = isset($_GET['registered']) && $_GET['registered'] === '1';
 
         <div class="auth-image">
 
-            <img src="side_login2.png" alt="Blood donation">
+            <img
+                src="side_login2.png"
+                alt="Blood donation"
+            >
 
             <div class="image-overlay"></div>
 
             <div class="image-content">
 
-                <!-- <div class="blood-drop">♥</div> -->
-
-                <h2>Donate Blood.<br>Save Lives.</h2>
+                <h2>
+                    Donate Blood.<br>
+                    Save Lives.
+                </h2>
 
                 <p>
                     Every blood donation can make a difference.
                     Your generosity can give someone another chance at life.
                 </p>
 
-                <!-- <div class="donation-stat">
-
-                    <strong>1 Donation</strong>
-
-                    <span>Can Help Save Lives</span>
-
-                </div> -->
-
             </div>
 
         </div>
 
     </div>
+
+    <script src="validation/login.js"></script>
 
 </body>
 
