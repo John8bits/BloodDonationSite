@@ -3,38 +3,27 @@ document.addEventListener("DOMContentLoaded", function () {
     const registerForm =
         document.getElementById("registerForm");
 
-    const registerButton =
-        document.getElementById("registerButton");
+    const registerButton = document.getElementById("registerButton");
 
-    const firstName =
-        document.getElementById("first_name");
+    const firstName = document.getElementById("first_name");
 
-    const lastName =
-        document.getElementById("last_name");
+    const lastName = document.getElementById("last_name");
 
-    const email =
-        document.getElementById("email");
+    const email = document.getElementById("email");
 
-    const bloodType =
-        document.getElementById("blood_type");
+    const bloodType =document.getElementById("blood_type");
 
-    const phone =
-        document.getElementById("phone");
+    const phone =document.getElementById("phone");
 
-    const password =
-        document.getElementById("password");
+    const password = document.getElementById("password");
 
-    const confirmPassword =
-        document.getElementById("confirm_password");
+    const confirmPassword =document.getElementById("confirm_password");
 
-    const terms =
-        document.getElementById("terms");
+    const terms =document.getElementById("terms");
 
-    const registerMessage =
-        document.getElementById("registerMessage");
+    const registerMessage = document.getElementById("registerMessage");
 
-    const passwordHint =
-        document.getElementById("passwordHint");
+    const passwordHint =document.getElementById("passwordHint");
 
 
     //event handler
