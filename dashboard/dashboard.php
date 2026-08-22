@@ -93,9 +93,7 @@ $lastName = $_SESSION['last_name'] ?? '';
             top:50px;
             right:10px;
             text-decoration: none;
-
             border-radius: 8px;
-
             transition: 0.2s;
         }
 

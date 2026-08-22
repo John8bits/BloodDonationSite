@@ -251,21 +251,17 @@ document.addEventListener("DOMContentLoaded", function () {
 
         if (hasError) {
 
-            registerMessage.textContent =
-                "Please correct the errors above.";
+            registerMessage.textContent = "Please correct the errors above.";
 
-            registerMessage.className =
-                "form-message error-message";
+            registerMessage.className = "form-message error-message";
 
             return;
 
         }
 
-        registerMessage.textContent =
-            "Creating your account...";
+        registerMessage.textContent = "Creating your account...";
 
-        registerMessage.className =
-            "form-message success-message";
+        registerMessage.className = "form-message success-message";
 
         // SEND TO PHP
 
@@ -276,13 +272,6 @@ document.addEventListener("DOMContentLoaded", function () {
         }, 300);
 
     }
-
-
-    // MOUSE EVENT
-    //
-    // Event Source -> Register button
-    // Event Listener -> Click
-    // Event Handler -> handleRegister
 
     /*registerButton.addEventListener(
         "click",
@@ -309,7 +298,6 @@ document.addEventListener("DOMContentLoaded", function () {
             if (event.key === "Enter") {
 
                 event.preventDefault();
-
                 registerForm.requestSubmit();
 
             }
@@ -325,7 +313,6 @@ document.addEventListener("DOMContentLoaded", function () {
             if (event.key === "Enter") {
 
                 event.preventDefault();
-
                 registerForm.requestSubmit();
 
             }
@@ -391,7 +378,6 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     );
 
-
     password.addEventListener(
         "input",
         function () {
@@ -400,7 +386,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
         }
     );
-
 
     confirmPassword.addEventListener(
         "input",
@@ -413,7 +398,6 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     );
 
-
     bloodType.addEventListener(
         "change",
         function () {
@@ -422,7 +406,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
         }
     );
-
 
     terms.addEventListener(
         "change",
@@ -435,17 +418,14 @@ document.addEventListener("DOMContentLoaded", function () {
 
     function showError(id, message) {
 
-        document.getElementById(id).textContent =
-            message;
+        document.getElementById(id).textContent = message;
 
     }
 
 
     function clearFieldError(id) {
 
-        document.getElementById(id).textContent =
-            "";
-
+        document.getElementById(id).textContent = "";
         registerMessage.textContent = "";
 
     }
@@ -453,9 +433,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     function clearErrors() {
 
-        const errors = document.querySelectorAll(
-            ".field-error"
-        );
+        const errors = document.querySelectorAll(".field-error");
 
         errors.forEach(function (error) {
 
@@ -464,9 +442,7 @@ document.addEventListener("DOMContentLoaded", function () {
         });
 
         registerMessage.textContent = "";
-
-        registerMessage.className =
-            "form-message";
+        registerMessage.className = "form-message";
 
     }
 
