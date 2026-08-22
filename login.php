@@ -1,20 +1,48 @@
 <?php
 
-    session_start();
+session_start();
 
-    if (isset($_SESSION['user_id'])) {
-        header("Location: dashboard.php");
-        exit;
-    }
+if (isset($_SESSION['user_id'])) {
+    header("Location: dashboard/dashboard.php");
+    exit;
+}
 
-    if (!isset($_SESSION['csrf_token'])) {
-        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-    }
+if (!isset($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
 
-    $error = $_SESSION['login_error'] ?? "";
-    unset($_SESSION['login_error']);
 
-    $success = isset($_GET['registered']) && $_GET['registered'] === '1';
+/*
+|--------------------------------------------------------------------------
+| LOGIN ERRORS
+|--------------------------------------------------------------------------
+*/
+
+$errors = $_SESSION['login_errors'] ?? [];
+
+unset($_SESSION['login_errors']);
+
+
+/*
+|--------------------------------------------------------------------------
+| OLD FORM DATA
+|--------------------------------------------------------------------------
+*/
+
+// $old = $_SESSION['login_old'] ?? [];
+
+// unset($_SESSION['login_old']);
+
+
+/*
+|--------------------------------------------------------------------------
+| REGISTRATION SUCCESS
+|--------------------------------------------------------------------------
+*/
+
+$success =
+    isset($_GET['registered']) &&
+    $_GET['registered'] === '1';
 
 ?>
 
@@ -43,7 +71,7 @@
 
             <h1>Welcome Back</h1>
 
-            <p class="subtitle">  Login to your account and help save lives.</p>
+            <p class="subtitle"> Login to your account and help save lives.</p>
 
             <?php if ($success): ?>
 
@@ -60,10 +88,18 @@
             <?php endif; ?>
 
             <div id="loginMessage" class="form-message" aria-live="polite"></div>
+            <?php if (isset($errors['general'])): ?>
 
-            <form action="login_process.php" method="POST" id="loginForm" novalidate >
+                <div class="error-message">
+                    <?= htmlspecialchars($errors['general'], ENT_QUOTES, 'UTF-8') ?>
+                </div>
 
-                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8') ?>" >
+            <?php endif; ?>
+
+            <form action="login_process.php" method="POST" id="loginForm" novalidate>
+
+                <input type="hidden" name="csrf_token"
+                    value="<?= htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8') ?>">
 
                 <div class="form-group">
 
@@ -72,11 +108,17 @@
                     <div class="input-wrapper">
 
                         <img src="mail.png" alt="Email icon">
-                        <input type="text" id="login" name="login" autocomplete="username" placeholder="eg. jbits@gmail.com">
-
+                        <input type="email" id="login" name="login" autocomplete="username"
+                            placeholder="eg. jbits@gmail.com" >
                     </div>
 
-                    <small id="loginError" class="field-error"></small>
+                    <?php if (isset($errors['email'])): ?>
+
+                        <small class="field-error">
+                            <?= htmlspecialchars($errors['email'], ENT_QUOTES, 'UTF-8') ?>
+                        </small>
+
+                    <?php endif; ?>
 
                 </div>
 
@@ -87,13 +129,17 @@
                     <div class="input-wrapper">
 
                         <img src="padlock.png" alt="Password icon">
-
-                        <input type="password" id="password" name="password" autocomplete="current-password" placeholder="******">
+                        <input type="password" id="password" name="password" autocomplete="current-password"
+                            placeholder="******">
 
                     </div>
+                    <?php if (isset($errors['password'])): ?>
 
-                    <!-- <small id="passwordHint" class="password-hint"> Password must be at least 6 characters.</small> -->
-                    <small id="passwordError" class="field-error"></small>
+                        <small class="field-error">
+                            <?= htmlspecialchars($errors['password'], ENT_QUOTES, 'UTF-8') ?>
+                        </small>
+
+                    <?php endif; ?>
 
                 </div>
 
@@ -107,7 +153,7 @@
 
         <div class="auth-image">
 
-            <img src="side_login2.png" alt="Blood donation" >
+            <img src="side_login2.png" alt="Blood donation">
 
             <div class="image-overlay"></div>
 
@@ -129,4 +175,5 @@
     <script src="validation/login.js"></script>
 
 </body>
+
 </html>

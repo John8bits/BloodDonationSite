@@ -1,14 +1,14 @@
 <?php
 
-session_start();
+    session_start();
 
-if (!isset($_SESSION['user_id'])) {
-    header("Location: .../login.php");
-    exit;
-}
+    if (!isset($_SESSION['user_id'])) {
+        header("Location: ../login.php");
+        exit;
+    }
 
-$firstName = $_SESSION['first_name'] ?? '';
-$lastName = $_SESSION['last_name'] ?? '';
+    $firstName = $_SESSION['first_name'] ?? '';
+    $lastName = $_SESSION['last_name'] ?? '';
 
 ?>
 
@@ -16,18 +16,11 @@ $lastName = $_SESSION['last_name'] ?? '';
 <html lang="en">
 
 <head>
-
     <meta charset="UTF-8">
-
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard | BloodLife</title>
-
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
-
         * {
             box-sizing: border-box;
             margin: 0;
@@ -51,7 +44,7 @@ $lastName = $_SESSION['last_name'] ?? '';
             /* text-align: center; */
         }
 
-        
+
         .blood-icon {
             width: 60px;
             height: 60px;
@@ -89,9 +82,9 @@ $lastName = $_SESSION['last_name'] ?? '';
             padding: 12px 25px;
             background: #d62839;
             color: white;
-            position:absolute;
-            top:50px;
-            right:10px;
+            position: absolute;
+            top: 50px;
+            right: 10px;
             text-decoration: none;
             border-radius: 8px;
             transition: 0.2s;
@@ -100,7 +93,6 @@ $lastName = $_SESSION['last_name'] ?? '';
         .logout-btn:hover {
             background: #b71c2b;
         }
-
     </style>
 
 </head>
@@ -120,22 +112,66 @@ $lastName = $_SESSION['last_name'] ?? '';
         <p class="welcome">
             Hello,
             <span class="user-name">
-                <?= htmlspecialchars(
-                    $firstName . ' ' . $lastName,
-                    ENT_QUOTES,
-                    'UTF-8'
-                ) ?>
+                <?= htmlspecialchars($firstName . ' ' . $lastName, ENT_QUOTES, 'UTF-8') ?>
             </span>
         </p>
 
-        <a
-            href="../logout.php"
-            class="logout-btn"
-        >
-            Logout
-        </a>
+        <a href="../logout.php" class="logout-btn" id="logoutButton">Logout</a>
 
     </main>
+
+    <script>
+
+        const logoutButton = document.getElementById("logoutButton");
+
+        logoutButton.addEventListener("click", function (event) {
+
+            event.preventDefault();
+
+            Swal.fire({
+                title: "Logout?",
+                text: "Are you sure you want to logout?",
+                icon: "warning",
+                showCancelButton: true,
+                confirmButtonText: "Yes, logout",
+                cancelButtonText: "Cancel"
+            }).then((result) => {
+
+                if (result.isConfirmed) {
+
+                    window.location.href =
+                        logoutButton.getAttribute("href");
+
+                }
+
+            });
+
+        });
+
+        const urlParams = new URLSearchParams(
+            window.location.search
+        );
+
+        if (urlParams.get("login") === "success") {
+
+            Swal.fire({
+                title: "Login Successful!",
+                text: "Welcome back to BloodLife.",
+                icon: "success",
+                confirmButtonText: "Continue"
+            }).then(() => {
+
+                window.history.replaceState(
+                    {},
+                    document.title,
+                    window.location.pathname
+                );
+
+            });
+
+        }
+
+    </script>
 
 </body>
 

@@ -3,7 +3,7 @@
     session_start();
 
     if (isset($_SESSION['user_id'])) {
-        header("Location: dashboard.php");
+        header("Location: dashboard/dashboard.php");
         exit;
     }
 
@@ -11,8 +11,10 @@
         $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
     }
 
-    $error = $_SESSION['register_error'] ?? "";
-    unset($_SESSION['register_error']);
+    $errors = $_SESSION['register_errors'] ?? [];
+    unset($_SESSION['register_errors']);
+    $old = $_SESSION['register_old'] ?? [];
+    unset($_SESSION['register_old']);
 
 ?>
 
@@ -46,20 +48,27 @@
                 that can save lives.
             </p>
 
-
             <?php if (!empty($error)): ?>
 
                 <div class="error-message">
-                    <?= htmlspecialchars($error,ENT_QUOTES,'UTF-8') ?>
+                    <?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?>
                 </div>
 
             <?php endif; ?>
 
             <div id="registerMessage" class="form-message" aria-live="polite"></div>
 
+            <?php if (isset($errors['general'])): ?>
+
+                <div class="error-message">
+                    <?= htmlspecialchars($errors['general'], ENT_QUOTES, 'UTF-8') ?>
+                </div>
+
+            <?php endif; ?>
+
             <form action="register_process.php" method="POST" id="registerForm" novalidate>
 
-                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'],ENT_QUOTES,'UTF-8') ?>">
+                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8') ?>">
 
                 <div class="form-row">
 
@@ -70,14 +79,20 @@
                         <div class="input-wrapper">
 
                             <img src="user.png" alt="User icon">
-                            <input type="text" id="first_name" name="first_name" maxlength="50"autocomplete="given-name" placeholder="John">
+                            <input type="text" id="first_name" name="first_name" maxlength="50" autocomplete="given-name" placeholder="John"
+                            value="<?= htmlspecialchars($old['first_name'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
 
                         </div>
 
-                        <small id="firstNameError" class="field-error"></small>
+                        <?php if (isset($errors['first_name'])): ?>
+
+                            <small class="field-error">
+                                <?= htmlspecialchars($errors['first_name'], ENT_QUOTES, 'UTF-8') ?>
+                            </small>
+
+                        <?php endif; ?>
 
                     </div>
-
 
                     <div class="form-group">
 
@@ -86,11 +101,18 @@
                         <div class="input-wrapper">
 
                             <img src="user.png" alt="User icon">
-                            <input type="text" id="last_name" name="last_name" maxlength="50" autocomplete="family-name" placeholder="Bits">
+                            <input type="text" id="last_name" name="last_name" maxlength="50" autocomplete="family-name" placeholder="Bits"
+                            value="<?= htmlspecialchars($old['last_name'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
 
                         </div>
 
-                        <small id="lastNameError" class="field-error"></small>
+                        <?php if (isset($errors['last_name'])): ?>
+
+                            <small class="field-error">
+                                <?= htmlspecialchars($errors['last_name'], ENT_QUOTES, 'UTF-8') ?>
+                            </small>
+
+                        <?php endif; ?>
 
                     </div>
 
@@ -103,11 +125,18 @@
                     <div class="input-wrapper">
 
                         <img src="mail.png" alt="Email icon">
-                        <input type="email" id="email" name="email" maxlength="255" autocomplete="email" placeholder="jbits@example.com">
-
+                        <input type="email" id="email" name="email" maxlength="255" autocomplete="email" placeholder="jbits@example.com"
+                        value="<?= htmlspecialchars($old['email'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+                    
                     </div>
 
-                    <small id="emailError" class="field-error"></small>
+                    <?php if (isset($errors['email'])): ?>
+
+                        <small class="field-error">
+                            <?= htmlspecialchars($errors['email'], ENT_QUOTES, 'UTF-8') ?>
+                        </small>
+
+                    <?php endif; ?>
 
                 </div>
 
@@ -123,22 +152,25 @@
 
                             <select id="blood_type" name="blood_type">
 
-                                <option value="" selected>Select blood type</option>
-
-                                <option value="A+">A+</option>
-                                <option value="A-">A-</option>
-                                <option value="B+">B+</option>
-                                <option value="B-">B-</option>
-                                <option value="AB+">AB+</option>
-                                <option value="AB-">AB-</option>
-                                <option value="O+">O+</option>
-                                <option value="O-">O-</option>
-
+                                <option value="">Select blood type</option>
+                                <option value="A+" <?= (($old['blood_type'] ?? '') === 'A+') ? 'selected' : '' ?>> A+</option>
+                                <option value="A-" <?= (($old['blood_type'] ?? '') === 'A-') ? 'selected' : '' ?>> A-</option>
+                                <option value="B+" <?= (($old['blood_type'] ?? '') === 'B+') ? 'selected' : '' ?>>B+</option>
+                                <option value="B-" <?= (($old['blood_type'] ?? '') === 'B-') ? 'selected' : '' ?>>B-</option>
+                                <option value="AB+" <?= (($old['blood_type'] ?? '') === 'AB+') ? 'selected' : '' ?>>AB+</option>
+                                <option value="AB-" <?= (($old['blood_type'] ?? '') === 'AB-') ? 'selected' : '' ?>>AB-</option>
+                                <option value="O+" <?= (($old['blood_type'] ?? '') === 'O+') ? 'selected' : '' ?>>O+</option>
+                                <option value="O-" <?= (($old['blood_type'] ?? '') === 'O-') ? 'selected' : '' ?>>O-</option>
                             </select>
-
                         </div>
 
-                        <small id="bloodTypeError" class="field-error"></small>
+                        <?php if (isset($errors['blood_type'])): ?>
+
+                            <small class="field-error">
+                                <?= htmlspecialchars($errors['blood_type'], ENT_QUOTES, 'UTF-8') ?>
+                            </small>
+
+                        <?php endif; ?>
 
                     </div>
 
@@ -150,11 +182,18 @@
                         <div class="input-wrapper">
 
                             <img src="telephone.png" alt="Phone icon">
-                            <input type="tel" id="phone" name="phone" maxlength="20" autocomplete="tel" placeholder="09XXXXXXXXX">
-
+                            <input type="tel" id="phone" name="phone" maxlength="20" autocomplete="tel" placeholder="09XXXXXXXXX"
+                            value="<?= htmlspecialchars($old['phone'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+                        
                         </div>
 
-                        <small id="phoneError" class="field-error"></small>
+                        <?php if (isset($errors['phone'])): ?>
+
+                            <small class="field-error">
+                                <?= htmlspecialchars($errors['phone'], ENT_QUOTES, 'UTF-8') ?>
+                            </small>
+
+                        <?php endif; ?>
 
                     </div>
 
@@ -167,16 +206,23 @@
                     <div class="input-wrapper">
 
                         <img src="padlock.png" alt="Password icon">
-                        <input type="password" id="password" name="password" autocomplete="new-password" placeholder="Create a password">
-
+                        <input type="password" id="password" name="password" autocomplete="new-password"placeholder="Create a password">
                     </div>
 
-                    <small id="passwordHint" class="password-hint">
+                    <?php if (isset($errors['password'])): ?>
+
+                        <small class="field-error">
+                            <?= htmlspecialchars($errors['password'], ENT_QUOTES, 'UTF-8') ?>
+                        </small>
+
+                    <?php endif; ?>
+
+                    <!-- <small id="passwordHint" class="password-hint">
                         Password must be at least 8 characters,
                         including uppercase, lowercase, and a number.
                     </small>
 
-                    <small id="passwordError" class="field-error"></small>
+                    <small id="passwordError" class="field-error"></small> -->
 
                 </div>
 
@@ -188,26 +234,39 @@
 
                         <img src="padlock.png" alt="Password icon">
 
-                        <input type="password" id="confirm_password" name="confirm_password" autocomplete="new-password" placeholder="Confirm your password">
-
+                        <input type="password" id="confirm_password" name="confirm_password" autocomplete="new-password"
+                        placeholder="Confirm your password">
+                    
                     </div>
 
-                    <small id="confirmPasswordError" class="field-error"></small>
+                    <?php if (isset($errors['confirm_password'])): ?>
+
+                        <small class="field-error">
+                            <?= htmlspecialchars($errors['confirm_password'], ENT_QUOTES, 'UTF-8') ?>
+                        </small>
+
+                    <?php endif; ?>
 
                 </div>
 
                 <label class="terms">
 
-                    <input type="checkbox" id="terms" name="terms">
-                    <span> I agree to the <a href="#"> Terms &amp; Conditions </a> and <a href="#">Privacy Policy</a>.</span>
+                    <input type="checkbox" id="terms" name="terms" <?= !empty($old['terms']) ? 'checked' : '' ?>>
+                    <span> I agree to the <a href="#">Terms &amp; Conditions</a> and <a href="#">Privacy Policy</a>. </span>
 
                 </label>
 
-                <small id="termsError" class="field-error"></small>
+                <?php if (isset($errors['terms'])): ?>
+
+                    <small class="field-error">
+                        <?= htmlspecialchars($errors['terms'], ENT_QUOTES, 'UTF-8') ?>
+                    </small>
+
+                <?php endif; ?>
+
                 <button type="submit" class="btn" id="registerButton"> Create Account </button>
 
             </form>
-
 
             <p class="switch">Already have an account?<a href="login.php"> Login </a> </p>
 
@@ -237,4 +296,5 @@
     <script src="validation/register.js"></script>
 
 </body>
+
 </html>
