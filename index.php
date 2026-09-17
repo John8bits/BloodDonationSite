@@ -55,9 +55,9 @@ $firstName = $_SESSION['first_name'] ?? '';
 
             <a href="index.php" class="brand" aria-label="BloodLife Home">
 
-                <span class="brand-icon" aria-hidden="true">
+                <!-- <span class="brand-icon" aria-hidden="true">
                     ♥
-                </span>
+                </span> -->
 
                 <span class="brand-name">
                     BloodLife
