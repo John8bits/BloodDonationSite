@@ -212,7 +212,6 @@
         unset($_SESSION['register_old']);
         unset($_SESSION['register_errors']);
 
-
         header("Location: login.php?registered=1");
         exit;
 
@@ -222,8 +221,7 @@
         error_log($e->getMessage());
 
         $_SESSION['register_errors'] = [
-            'general' =>
-                "Something went wrong while creating your account."
+            'general' => "Something went wrong while creating your account."
         ];
 
         header("Location: register.php");

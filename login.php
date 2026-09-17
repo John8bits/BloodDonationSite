@@ -11,34 +11,12 @@ if (!isset($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 
-
-/*
-|--------------------------------------------------------------------------
-| LOGIN ERRORS
-|--------------------------------------------------------------------------
-*/
-
 $errors = $_SESSION['login_errors'] ?? [];
 
 unset($_SESSION['login_errors']);
 
-
-/*
-|--------------------------------------------------------------------------
-| OLD FORM DATA
-|--------------------------------------------------------------------------
-*/
-
 // $old = $_SESSION['login_old'] ?? [];
-
 // unset($_SESSION['login_old']);
-
-
-/*
-|--------------------------------------------------------------------------
-| REGISTRATION SUCCESS
-|--------------------------------------------------------------------------
-*/
 
 $success =
     isset($_GET['registered']) &&
@@ -79,22 +57,10 @@ $success =
 
             <?php endif; ?>
 
-            <?php if (!empty($error)): ?>
-
-                <div class="error-message">
-                    <?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?>
-                </div>
-
-            <?php endif; ?>
-
-            <div id="loginMessage" class="form-message" aria-live="polite"></div>
-            <?php if (isset($errors['general'])): ?>
-
-                <div class="error-message">
-                    <?= htmlspecialchars($errors['general'], ENT_QUOTES, 'UTF-8') ?>
-                </div>
-
-            <?php endif; ?>
+            <div id="loginMessage"
+                 class="form-message"
+                 aria-live="polite">
+            </div>
 
             <form action="login_process.php" method="POST" id="loginForm" novalidate>
 
@@ -107,9 +73,9 @@ $success =
 
                     <div class="input-wrapper">
 
-                        <img src="mail.png" alt="Email icon">
+                        <img src="images/mail.png" alt="Email icon">
                         <input type="email" id="login" name="login" autocomplete="username"
-                            placeholder="eg. jbits@gmail.com" >
+                            placeholder="eg. jbits@gmail.com">
                     </div>
 
                     <?php if (isset($errors['email'])): ?>
@@ -128,7 +94,7 @@ $success =
 
                     <div class="input-wrapper">
 
-                        <img src="padlock.png" alt="Password icon">
+                        <img src="images/padlock.png" alt="Password icon">
                         <input type="password" id="password" name="password" autocomplete="current-password"
                             placeholder="******">
 
@@ -153,7 +119,7 @@ $success =
 
         <div class="auth-image">
 
-            <img src="side_login2.png" alt="Blood donation">
+            <img src="images/side_login2.png" alt="Blood donation">
 
             <div class="image-overlay"></div>
 

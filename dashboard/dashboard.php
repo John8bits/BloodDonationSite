@@ -167,7 +167,7 @@
                     window.location.pathname
                 );
 
-            });
+            }); 
 
         }
 

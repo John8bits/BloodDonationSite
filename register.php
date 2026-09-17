@@ -78,7 +78,7 @@
 
                         <div class="input-wrapper">
 
-                            <img src="user.png" alt="User icon">
+                            <img src="images/user.png" alt="User icon">
                             <input type="text" id="first_name" name="first_name" maxlength="50" autocomplete="given-name" placeholder="John"
                             value="<?= htmlspecialchars($old['first_name'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
 
@@ -100,7 +100,7 @@
 
                         <div class="input-wrapper">
 
-                            <img src="user.png" alt="User icon">
+                            <img src="images/user.png" alt="User icon">
                             <input type="text" id="last_name" name="last_name" maxlength="50" autocomplete="family-name" placeholder="Bits"
                             value="<?= htmlspecialchars($old['last_name'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
 
@@ -124,7 +124,7 @@
 
                     <div class="input-wrapper">
 
-                        <img src="mail.png" alt="Email icon">
+                        <img src="images/mail.png" alt="Email icon">
                         <input type="email" id="email" name="email" maxlength="255" autocomplete="email" placeholder="jbits@example.com"
                         value="<?= htmlspecialchars($old['email'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
                     
@@ -148,7 +148,7 @@
 
                         <div class="input-wrapper">
 
-                            <img src="blood-drop.png" alt="Blood type icon">
+                            <img src="images/blood-drop.png" alt="Blood type icon">
 
                             <select id="blood_type" name="blood_type">
 
@@ -181,7 +181,7 @@
 
                         <div class="input-wrapper">
 
-                            <img src="telephone.png" alt="Phone icon">
+                            <img src="images/telephone.png" alt="Phone icon">
                             <input type="tel" id="phone" name="phone" maxlength="20" autocomplete="tel" placeholder="09XXXXXXXXX"
                             value="<?= htmlspecialchars($old['phone'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
                         
@@ -194,6 +194,7 @@
                             </small>
 
                         <?php endif; ?>
+                        <small id="err-phone"></small>
 
                     </div>
 
@@ -205,7 +206,7 @@
 
                     <div class="input-wrapper">
 
-                        <img src="padlock.png" alt="Password icon">
+                        <img src="images/padlock.png" alt="Password icon">
                         <input type="password" id="password" name="password" autocomplete="new-password"placeholder="Create a password">
                     </div>
 
@@ -232,7 +233,7 @@
 
                     <div class="input-wrapper">
 
-                        <img src="padlock.png" alt="Password icon">
+                        <img src="images/padlock.png" alt="Password icon">
 
                         <input type="password" id="confirm_password" name="confirm_password" autocomplete="new-password"
                         placeholder="Confirm your password">
@@ -274,7 +275,7 @@
 
         <div class="auth-image register-image">
 
-            <img src="side_login.png" alt="Join the blood donor community">
+            <img src="images/side_login.png" alt="Join the blood donor community">
 
             <div class="image-overlay"></div>
 
