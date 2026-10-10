@@ -1,162 +1,61 @@
 document.addEventListener("DOMContentLoaded", function () {
-
     const registerForm = document.getElementById("registerForm");
     const registerButton = document.getElementById("registerButton");
-
-    const firstName = document.getElementById("first_name");
-    const lastName = document.getElementById("last_name");
-    const email = document.getElementById("email");
-    const bloodType = document.getElementById("blood_type");
-    const phone = document.getElementById("phone");
-    const password = document.getElementById("password");
-    const confirmPassword = document.getElementById("confirm_password");
-    const terms = document.getElementById("terms");
+    const emailInput = document.getElementById("email");
+    const passwordInput = document.getElementById("password");
+    const confirmPasswordInput = document.getElementById("confirm_password");
     const registerMessage = document.getElementById("registerMessage");
 
-    // const REGISTRATION_EVENT = "lifeblood:registrationSubmitted";
-
-    // Handler 1 
-    function handleRegistrationLog(event) {
-
-        const data = event.detail;
-
-        console.log("Handler 1: Registration event received.");
-        /*console.log("  Name:", data.firstName, data.lastName);
-        console.log("  Email:", data.email);
-        console.log("  Blood Type:", data.bloodType);
-        console.log("  Registration Time:", data.registrationTime);*/
+    if (!registerForm || !registerButton) {
+        return;
     }
 
-    // 2 
-    function handleRegistrationMessage(event) {
+    function clearMessage() {
+        if (!registerMessage) {
+            return;
+        }
 
-        const data = event.detail;
-        registerMessage.textContent = `Creating account for ${data.firstName}.`;
-        registerMessage.className = "form-message success-message";
-        console.log("Handler 2: Registration status message updated.");
-
+        registerMessage.textContent = "";
+        registerMessage.className = "form-message";
     }
 
-    // 3 
-    function handleRegistrationActivity(event) {
+    registerForm.addEventListener("submit", function (event) {
+        const email = (emailInput ? emailInput.value.trim() : "");
+        const password = passwordInput ? passwordInput.value : "";
+        const confirmPassword = confirmPasswordInput ? confirmPasswordInput.value : "";
 
-        const data = event.detail;  
-        const activity = { event: REGISTRATION_EVENT,bloodType: data.bloodType, registrationTime: data.registrationTime };
-        sessionStorage.setItem("lastRegistrationEvent", JSON.stringify(activity));
-        console.log("Handler 3: Registration activity recorded in session storage.");
+        if (!email || !password || !confirmPassword) {
+            event.preventDefault();
+            if (registerMessage) {
+                registerMessage.textContent = "Please complete all fields.";
+                registerMessage.className = "form-message error-message";
+            }
+            return;
+        }
 
-    }
+        if (password.length < 8) {
+            event.preventDefault();
+            if (registerMessage) {
+                registerMessage.textContent = "Password must be at least 8 characters long.";
+                registerMessage.className = "form-message error-message";
+            }
+            return;
+        }
 
-    const registrationHandlers = [
-        handleRegistrationLog,
-        handleRegistrationMessage,
-        handleRegistrationActivity
-    ];
-
-    registrationHandlers.forEach(function (handler) {
-
-        document.addEventListener(REGISTRATION_EVENT,handler);
-
+        if (password !== confirmPassword) {
+            event.preventDefault();
+            if (registerMessage) {
+                registerMessage.textContent = "Passwords do not match.";
+                registerMessage.className = "form-message error-message";
+            }
+        }
     });
 
-
-    //arrow function
-    document.addEventListener( REGISTRATION_EVENT, (event) => {
-            
-            console.log("registration detected.",event.detail.email);
-
+    [emailInput, passwordInput, confirmPasswordInput].forEach(function (input) {
+        if (!input) {
+            return;
         }
-    );
 
-    const REGISTRATION_EVENT = "lifeblood:registrationSubmitted";
-
-    function handleRegisterSubmit(event) {
-
-        event.preventDefault();
-
-        registerButton.disabled = true;
-
-        const registrationData = {
-            firstName: firstName.value.trim(),
-            lastName: lastName.value.trim(),
-            email: email.value.trim(),
-            bloodType: bloodType.value,
-            phone: phone.value.trim(),
-            registrationTime: new Date().toLocaleString()
-        };
-
-        console.log("Event: User submitted the registration form.");
-        console.log("Event Data:",registrationData);
-
-        const registrationEvent = new CustomEvent(
-            REGISTRATION_EVENT,
-            {
-                detail: registrationData
-            }
-        );
-
-        document.dispatchEvent(registrationEvent);
-
-        setTimeout(function () {
-
-            //console.log("Registration event completed.");
-            registerForm.submit();
-
-        }, 300);
-    }
-
-    registerForm.addEventListener("submit",handleRegisterSubmit);
-
-    function handleInput(event) {
-
-        console.log("Input event:",event.target.id);
-        
-    }
-
-
-    firstName.addEventListener("input", handleInput);
-    lastName.addEventListener("input", handleInput);
-    email.addEventListener("input", handleInput);
-    phone.addEventListener("input", handleInput);
-    password.addEventListener("input", handleInput);
-    confirmPassword.addEventListener("input", handleInput);
-
-
-    function handleChange(event) {
-
-        console.log(
-            "Change event:",
-            event.target.id,
-            "Value:",
-            event.target.value
-        );
-    }
-
-
-    bloodType.addEventListener(
-        "change",
-        handleChange
-    );
-
-
-    terms.addEventListener(
-        "change",
-        function () {
-
-            console.log(
-                "Terms checkbox changed."
-            );
-
-        }
-    );
-
-    registerButton.addEventListener(
-        "click",
-        function () {
-
-            console.log("Create Acc button clicked.");
-
-        }
-    );
-
+        input.addEventListener("input", clearMessage);
+    });
 });

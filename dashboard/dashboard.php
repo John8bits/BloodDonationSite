@@ -1,14 +1,20 @@
 <?php
 
     session_start();
+    require_once __DIR__ . "/../config/auth.php";
 
-    if (!isset($_SESSION['user_id'])) {
-        header("Location: ../login.php");
+    require_login('../login.php');
+
+    // Admins land here too right after login; send them to their own
+    // panel instead of showing them the donor dashboard.
+    if (is_admin()) {
+        header("Location: ../admin/dashboard.php");
         exit;
     }
 
     $firstName = $_SESSION['first_name'] ?? '';
     $lastName = $_SESSION['last_name'] ?? '';
+    $bloodType = $_SESSION['blood_type'] ?? '';
 
 ?>
 
@@ -18,82 +24,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard | BloodLife</title>
+    <title>Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
-        body {
-            font-family: Arial, sans-serif;
-            /* min-height: 100vh; */
-            background: #f8f9fa;
-            /* display: flex;
-            justify-content: center;
-            align-items: center; */
-        }
-
-        .dashboard {
-            /* background: white; */
-            padding: 40px;
-            border-radius: 16px;
-            /* box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08); */
-            /* text-align: center; */
-        }
-
-
-        .blood-icon {
-            width: 60px;
-            height: 60px;
-            margin: 0 auto 20px;
-
-            display: flex;
-            align-items: center;
-            justify-content: center;
-
-            background: #e63946;
-            color: white;
-
-            border-radius: 50%;
-
-            font-size: 28px;
-        }
-
-        h1 {
-            margin-bottom: 10px;
-            color: #222;
-        }
-
-        .welcome {
-            color: #666;
-            margin-bottom: 30px;
-        }
-
-        .user-name {
-            color: #d62839;
-            font-weight: bold;
-        }
-
-        .logout-btn {
-            display: inline-block;
-            padding: 12px 25px;
-            background: #d62839;
-            color: white;
-            position: absolute;
-            top: 50px;
-            right: 10px;
-            text-decoration: none;
-            border-radius: 8px;
-            transition: 0.2s;
-        }
-
-        .logout-btn:hover {
-            background: #b71c2b;
-        }
-    </style>
+    <link rel="stylesheet" href="../assets/dashb.css">
 
 </head>
 
@@ -101,9 +34,9 @@
 
     <main class="dashboard">
 
-        <div class="blood-icon">
+        <!-- <div class="blood-icon">
             ♥
-        </div>
+        </div> -->
 
         <h1>
             Welcome to BloodLife
@@ -115,6 +48,12 @@
                 <?= htmlspecialchars($firstName . ' ' . $lastName, ENT_QUOTES, 'UTF-8') ?>
             </span>
         </p>
+
+        <?php if ($bloodType): ?>
+            <p class="blood-type-pill">
+                Blood type: <strong><?= htmlspecialchars($bloodType, ENT_QUOTES, 'UTF-8') ?></strong>
+            </p>
+        <?php endif; ?>
 
         <a href="../logout.php" class="logout-btn" id="logoutButton">Logout</a>
 

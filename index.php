@@ -1,8 +1,11 @@
 <?php
 
 session_start();
+require_once __DIR__ . "/config/auth.php";
 
-$isLoggedIn = isset($_SESSION['user_id']);
+$isLoggedIn = is_logged_in();
+$isAdmin = is_admin();
+$homeLink = role_home_path();
 
 $firstName = $_SESSION['first_name'] ?? '';
 
@@ -40,6 +43,8 @@ $firstName = $_SESSION['first_name'] ?? '';
         rel="stylesheet"
         href="assets/landing.css"
     >
+
+    <link rel="icon" href="images/blood-drop.png" type="image/png">
 
 </head>
 
@@ -109,10 +114,10 @@ $firstName = $_SESSION['first_name'] ?? '';
                     <?php if ($isLoggedIn): ?>
 
                         <a
-                            href="dashboard/dashboard.php"
+                            href="<?= htmlspecialchars($homeLink, ENT_QUOTES, 'UTF-8') ?>"
                             class="btn btn-outline"
                         >
-                            Dashboard
+                            <?= $isAdmin ? 'Admin Panel' : 'Dashboard' ?>
                         </a>
 
                     <?php else: ?>
@@ -185,10 +190,10 @@ $firstName = $_SESSION['first_name'] ?? '';
                         <?php if ($isLoggedIn): ?>
 
                             <a
-                                href="dashboard/dashboard.php"
+                                href="<?= htmlspecialchars($homeLink, ENT_QUOTES, 'UTF-8') ?>"
                                 class="btn btn-primary btn-large"
                             >
-                                Go to Dashboard
+                                <?= $isAdmin ? 'Go to Admin Panel' : 'Go to Dashboard' ?>
                             </a>
 
                         <?php else: ?>
@@ -211,7 +216,7 @@ $firstName = $_SESSION['first_name'] ?? '';
 
                     </div>
 
-                    <!-- <div class="hero-trust">
+                    <div class="hero-trust">
 
                         <span class="trust-icon">
                             ♥
@@ -221,18 +226,18 @@ $firstName = $_SESSION['first_name'] ?? '';
                             Every donation can make a difference.
                         </span>
 
-                    </div> -->
+                    </div>
 
                 </div>
 
 
-                <!-- <div class="hero-visual reveal">
+                <div class="hero-visual reveal">
 
                     <div class="hero-image-wrapper">
 
                         <img
-                            src="side_login.png"
-                            alt="Healthcare professional assisting a blood donor"
+                            src="images/side_login2.png"
+                            alt="Hands offering a drop of blood, representing donation"
                             class="hero-image"
                         >
 
@@ -263,7 +268,7 @@ $firstName = $_SESSION['first_name'] ?? '';
                     <div class="hero-decoration decoration-one"></div>
                     <div class="hero-decoration decoration-two"></div>
 
-                </div> -->
+                </div>
 
             </div>
 
@@ -274,7 +279,7 @@ $firstName = $_SESSION['first_name'] ?? '';
              STATISTICS
         ========================== -->
 
-        <!-- <section class="stats-section">
+        <section class="stats-section">
 
             <div class="container">
 
@@ -367,7 +372,7 @@ $firstName = $_SESSION['first_name'] ?? '';
 
             </div>
 
-        </section> -->
+        </section>
 
 
         <!-- =========================
@@ -386,8 +391,8 @@ $firstName = $_SESSION['first_name'] ?? '';
                     <div class="about-image-wrapper">
 
                         <img
-                            src="images/community-blood-donation.jpg"
-                            alt="People participating in a blood donation community"
+                            src="images/donation_illustration.png"
+                            alt="A hand offering a heart, representing the gift of blood donation"
                             class="about-image"
                         >
 
@@ -825,10 +830,10 @@ $firstName = $_SESSION['first_name'] ?? '';
                     <?php if ($isLoggedIn): ?>
 
                         <a
-                            href="dashboard/dashboard.php"
+                            href="<?= htmlspecialchars($homeLink, ENT_QUOTES, 'UTF-8') ?>"
                             class="btn btn-white btn-large"
                         >
-                            Go to Dashboard
+                            <?= $isAdmin ? 'Go to Admin Panel' : 'Go to Dashboard' ?>
                         </a>
 
                     <?php else: ?>
@@ -969,8 +974,8 @@ $firstName = $_SESSION['first_name'] ?? '';
 
                 <?php if ($isLoggedIn): ?>
 
-                    <a href="dashboard/dashboard.php">
-                        Dashboard
+                    <a href="<?= htmlspecialchars($homeLink, ENT_QUOTES, 'UTF-8') ?>">
+                        <?= $isAdmin ? 'Admin Panel' : 'Dashboard' ?>
                     </a>
 
                 <?php else: ?>

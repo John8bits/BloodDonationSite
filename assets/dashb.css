@@ -1,0 +1,225 @@
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    /* min-height: 100vh; */
+    background: #f8f9fa;
+    /* display: flex;
+    justify-content: center;
+    align-items: center; */
+}
+
+.dashboard {
+    /* background: white; */
+    padding: 40px;
+    border-radius: 16px;
+    /* box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08); */
+    /* text-align: center; */
+}
+
+
+.blood-icon {
+    width: 60px;
+    height: 60px;
+    margin: 0 auto 20px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    background: #e63946;
+    color: white;
+
+    border-radius: 50%;
+
+    font-size: 28px;
+}
+
+h1 {
+    margin-bottom: 10px;
+    color: #222;
+}
+
+.welcome {
+    color: #666;
+    margin-bottom: 30px;
+}
+
+.user-name {
+    color: #d62839;
+    font-weight: bold;
+}
+
+.logout-btn {
+    display: inline-block;
+    padding: 12px 25px;
+    background: #d62839;
+    color: white;
+    position: absolute;
+    top: 50px;
+    right: 10px;
+    text-decoration: none;
+    border-radius: 8px;
+    transition: 0.2s;
+}
+
+.logout-btn:hover {
+    background: #b71c2b;
+}
+
+.blood-type-pill {
+    display: inline-block;
+    padding: 8px 16px;
+    margin-bottom: 30px;
+    background: #ffe3e6;
+    color: #b71c2b;
+    border-radius: 999px;
+    font-size: 14px;
+}
+
+.blood-type-pill strong {
+    font-size: 15px;
+}
+
+/* =========================================================
+   ADMIN PANEL
+   ========================================================= */
+
+.admin-topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 30px;
+}
+
+.admin-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 16px;
+    margin-bottom: 30px;
+}
+
+.admin-stat-card {
+    background: #fff;
+    border: 1px solid #eee;
+    border-radius: 12px;
+    padding: 18px 20px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.05);
+}
+
+.admin-stat-card .stat-value {
+    font-size: 28px;
+    font-weight: bold;
+    color: #d62839;
+    display: block;
+}
+
+.admin-stat-card .stat-label {
+    color: #666;
+    font-size: 13px;
+}
+
+.admin-table-wrapper {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.05);
+    overflow-x: auto;
+}
+
+table.admin-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 640px;
+}
+
+table.admin-table th,
+table.admin-table td {
+    text-align: left;
+    padding: 14px 16px;
+    border-bottom: 1px solid #f0f0f0;
+    font-size: 14px;
+}
+
+table.admin-table th {
+    background: #f8f9fa;
+    color: #444;
+    font-weight: 600;
+}
+
+.role-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.role-badge.admin {
+    background: #222;
+    color: #fff;
+}
+
+.role-badge.user {
+    background: #eee;
+    color: #444;
+}
+
+.btype-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 6px;
+    background: #ffe3e6;
+    color: #b71c2b;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.admin-filter-form {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.admin-filter-form input,
+.admin-filter-form select {
+    padding: 9px 12px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 14px;
+}
+
+.admin-filter-form button {
+    padding: 9px 16px;
+    border: none;
+    border-radius: 8px;
+    background: #d62839;
+    color: #fff;
+    cursor: pointer;
+}
+
+.delete-btn {
+    background: none;
+    border: 1px solid #d62839;
+    color: #d62839;
+    padding: 5px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.delete-btn:hover {
+    background: #d62839;
+    color: #fff;
+}
+
+.empty-state {
+    padding: 40px;
+    text-align: center;
+    color: #888;
+}

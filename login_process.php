@@ -93,7 +93,8 @@ try {
             email,
             btype,
             phone,
-            password
+            password,
+            role
         FROM uinfo
         WHERE email = :email
         LIMIT 1
@@ -135,16 +136,21 @@ try {
     $_SESSION['email'] = $user['email'];
     $_SESSION['blood_type'] = $user['btype'];
     $_SESSION['phone'] = $user['phone'];
+    $_SESSION['role'] = $user['role'] ?? 'user';
 
 
     unset($_SESSION['login_errors']);
     unset($_SESSION['login_old']);
 
+    // Send admins to the admin panel, everyone else to their dashboard.
+    $redirect = $_SESSION['role'] === 'admin'
+        ? 'admin/dashboard.php?login=success'
+        : 'dashboard/dashboard.php?login=success';
 
     echo json_encode([
         'success' => true,
         'message' => 'Submitting login...',
-        'redirect' => 'dashboard/dashboard.php?login=success'
+        'redirect' => $redirect
     ]);
 
     exit;
