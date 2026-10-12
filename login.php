@@ -1,9 +1,10 @@
 <?php
 
 session_start();
+require_once __DIR__ . "/config/auth.php";
 
-if (isset($_SESSION['user_id'])) {
-    header("Location: dashboard/dashboard.php");
+if (is_logged_in()) {
+    header("Location: " . role_home_path());
     exit;
 }
 
@@ -31,7 +32,7 @@ $success =
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>Login | Blood Donation</title>
+    <title>Login</title>
 
     <link rel="stylesheet" href="assets/style.css">
 </head>
@@ -42,14 +43,15 @@ $success =
 
         <div class="auth-card">
 
-            <div class="brand">
+            <!-- <div class="brand">
                 <div class="blood-icon">♥</div>
-                <span>BloodLife</span>
-            </div>
+                <span style="font-size: 30px;">BloodLife</span>
+            </div> -->
+            <img src="images/Blife_logo.png" style="width: 140px; height: auto; margin-left: 110px; " alt="BloodLife Logo" class="logo">
 
-            <h1>Welcome Back</h1>
+            <h1 style="text-align: center;  font-variant: small-caps;">Sign In</h1>
 
-            <p class="subtitle"> Login to your account and help save lives.</p>
+            <!-- <p class="subtitle" style="text-align: center;">Sign in to continue.</p> -->
 
             <?php if ($success): ?>
 
@@ -69,7 +71,7 @@ $success =
 
                 <div class="form-group">
 
-                    <label for="login">Email</label>
+                    <label for="login" >Email</label>
 
                     <div class="input-wrapper">
 
@@ -117,25 +119,7 @@ $success =
 
         </div>
 
-        <div class="auth-image">
-
-            <img src="images/side_login2.png" alt="Blood donation">
-
-            <div class="image-overlay"></div>
-
-            <div class="image-content">
-
-                <h2>Donate Blood. <br> Save Lives. </h2>
-
-                <p>
-                    Every blood donation can make a difference.
-                    Your generosity can give someone another chance at life.
-                </p>
-
-            </div>
-
-        </div>
-
+        
     </div>
 
     <script src="validation/login.js"></script>
