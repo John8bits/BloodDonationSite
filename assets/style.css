@@ -37,6 +37,27 @@ body {
     padding: 42px 32px;
 }
 
+.auth-logo {
+    display: flex;
+    justify-content: center;
+    margin: 0 auto 22px;
+}
+
+.auth-logo img {
+    display: block;
+    width: 140px;
+    height: auto;
+}
+
+.auth-heading,
+.auth-card > h1 {
+    text-align: center;
+}
+
+.auth-subtitle {
+    text-align: center;
+}
+
 /* log card */
 
 

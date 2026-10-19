@@ -230,7 +230,7 @@ $firstName = $_SESSION['first_name'] ?? '';
 
                 </div>
 
-
+<!-- 
                 <div class="hero-visual reveal">
 
                     <div class="hero-image-wrapper">
@@ -268,7 +268,7 @@ $firstName = $_SESSION['first_name'] ?? '';
                     <div class="hero-decoration decoration-one"></div>
                     <div class="hero-decoration decoration-two"></div>
 
-                </div>
+                </div> -->
 
             </div>
 

@@ -32,13 +32,12 @@ unset($_SESSION['register_old']);
 <body>
     <div class="auth-container register-container">
         <div class="auth-card">
-            <!-- <div class="brand">
-                <div class="blood-icon">♥</div>
-                <span>BloodLife</span>
-            </div> -->
+            <a class="auth-logo" href="index.php" aria-label="BloodLife home">
+                <img src="images/Blife_logo.png" alt="BloodLife">
+            </a>
 
-            <h1 style="text-align: center;">Create Account</h1>
-            <p class="subtitle" style="text-align: center;">Join the community.</p>
+            <h1 class="auth-heading">Create Account</h1>
+            <p class="subtitle auth-subtitle">Join the community.</p>
 
             <?php if (isset($errors['general'])): ?>
                 <div class="error-message">

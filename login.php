@@ -47,9 +47,11 @@ $success =
                 <div class="blood-icon">♥</div>
                 <span style="font-size: 30px;">BloodLife</span>
             </div> -->
-            <img src="images/Blife_logo.png" style="width: 140px; height: auto; margin-left: 110px; " alt="BloodLife Logo" class="logo">
+            <a class="auth-logo" href="index.php" aria-label="BloodLife home">
+                <img src="images/Blife_logo.png" alt="BloodLife">
+            </a>
 
-            <h1 style="text-align: center;  font-variant: small-caps;">Sign In</h1>
+            <h1 style="text-align: center;  margin-bottom:25px;">Sign In</h1>
 
             <!-- <p class="subtitle" style="text-align: center;">Sign in to continue.</p> -->
 
@@ -66,8 +68,7 @@ $success =
 
             <form action="login_process.php" method="POST" id="loginForm" novalidate>
 
-                <input type="hidden" name="csrf_token"
-                    value="<?= htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8') ?>">
+                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8') ?>">
 
                 <div class="form-group">
 
@@ -111,7 +112,7 @@ $success =
 
                 </div>
 
-                <button type="submit" class="btn" id="loginButton">Login</button>
+                <button type="submit" class="btn" id="loginButton">Sign In</button>
 
             </form>
 

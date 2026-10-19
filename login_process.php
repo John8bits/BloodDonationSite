@@ -20,6 +20,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 if (
     !isset($_POST['csrf_token']) ||
     !isset($_SESSION['csrf_token']) ||
+    !is_string($_POST['csrf_token']) ||
     !hash_equals(
         $_SESSION['csrf_token'],
         $_POST['csrf_token']
@@ -35,12 +36,22 @@ if (
 }
 
 
-$email = trim($_POST['login'] ?? '');
+$emailValue = $_POST['login'] ?? '';
 $password = $_POST['password'] ?? '';
+
+if (!is_string($emailValue) || !is_string($password)) {
+    echo json_encode([
+        'success' => false,
+        'message' => 'Enter a valid email and password.'
+    ]);
+    exit;
+}
+
+$email = trim($emailValue);
 
 $errors = [];
 
-if($email==='' && $password===''){
+if ($email === '' && $password === '') {
 
     echo json_encode([
         'success' => false,

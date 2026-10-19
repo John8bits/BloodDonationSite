@@ -55,6 +55,35 @@
 
     $deleteError = $_SESSION['admin_delete_error'] ?? '';
     unset($_SESSION['admin_delete_error']);
+    $reportReviewMessage = $_SESSION['admin_report_message'] ?? '';
+    unset($_SESSION['admin_report_message']);
+    $reportedPosts = [];
+    $reportedPostCount = 0;
+    $reportStorageAvailable = false;
+    $interactionTableCheck = $pdo->prepare(
+        "SELECT COUNT(*) FROM information_schema.TABLES
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('post_interactions', 'community_posts')"
+    );
+    $interactionTableCheck->execute();
+    if ((int) $interactionTableCheck->fetchColumn() === 2) {
+        $reportStorageAvailable = true;
+        $reportCountStmt = $pdo->query(
+            "SELECT COUNT(*) FROM post_interactions WHERE interaction = 'report'"
+        );
+        $reportedPostCount = (int) $reportCountStmt->fetchColumn();
+        $reportedPostsStmt = $pdo->query(
+            "SELECT pi.post_id, pi.user_id AS reporter_id, pi.created_at AS reported_at,
+                    cp.content, cp.post_type, u.fname AS reporter_name,
+                    author.fname AS author_name, author.lname AS author_last_name
+             FROM post_interactions pi
+             JOIN community_posts cp ON cp.id = pi.post_id
+             JOIN uinfo u ON u.id = pi.user_id
+             JOIN uinfo author ON author.id = cp.user_id
+             WHERE pi.interaction = 'report'
+             ORDER BY pi.created_at ASC LIMIT 100"
+        );
+        $reportedPosts = $reportedPostsStmt->fetchAll();
+    }
 
 ?>
 
@@ -107,6 +136,45 @@
                 <span class="stat-label">Most common blood type</span>
             </div>
 
+            <div class="admin-stat-card">
+                <span class="stat-value"><?= $reportStorageAvailable ? $reportedPostCount : '—' ?></span>
+                <span class="stat-label">Community post reports</span>
+            </div>
+
+        </div>
+
+        <?php if ($reportReviewMessage): ?>
+            <div class="success-message"><?= htmlspecialchars($reportReviewMessage, ENT_QUOTES, 'UTF-8') ?></div>
+        <?php endif; ?>
+
+        <h2>Reported community posts</h2>
+        <div class="admin-table-wrapper" style="margin: 14px 0 26px;">
+            <?php if (empty($reportedPosts)): ?>
+                <p class="empty-state"><?= $reportStorageAvailable ? 'No community posts are awaiting review.' : 'Community reports are unavailable until database_sql/dashboard_features_migration.sql is applied.' ?></p>
+            <?php else: ?>
+                <table class="admin-table">
+                    <thead><tr><th>Post</th><th>Author</th><th>Reported by</th><th>Reported</th><th>Action</th></tr></thead>
+                    <tbody>
+                        <?php foreach ($reportedPosts as $reportedPost): ?>
+                            <tr>
+                                <td><?= htmlspecialchars(function_exists('mb_strimwidth') ? mb_strimwidth($reportedPost['content'], 0, 140, '...') : substr($reportedPost['content'], 0, 140), ENT_QUOTES, 'UTF-8') ?></td>
+                                <td><?= htmlspecialchars(trim($reportedPost['author_name'] . ' ' . $reportedPost['author_last_name']), ENT_QUOTES, 'UTF-8') ?></td>
+                                <td><?= htmlspecialchars($reportedPost['reporter_name'] ?: 'Member', ENT_QUOTES, 'UTF-8') ?></td>
+                                <td><?= htmlspecialchars(date('M j, Y', strtotime($reportedPost['reported_at'])), ENT_QUOTES, 'UTF-8') ?></td>
+                                <td>
+                                    <form method="post" action="review_report.php" class="report-review-form" style="display:inline;">
+                                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8') ?>">
+                                        <input type="hidden" name="post_id" value="<?= (int) $reportedPost['post_id'] ?>">
+                                        <input type="hidden" name="reporter_id" value="<?= (int) $reportedPost['reporter_id'] ?>">
+                                        <button type="submit" name="action" value="dismiss" class="delete-btn">Dismiss</button>
+                                        <button type="submit" name="action" value="delete" class="delete-btn">Remove post</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            <?php endif; ?>
         </div>
 
         <form class="admin-filter-form" method="get" action="dashboard.php">
@@ -235,6 +303,15 @@
                         form.submit();
                     }
                 });
+            });
+        });
+
+        document.querySelectorAll(".report-review-form").forEach(function (form) {
+            form.addEventListener("submit", function (event) {
+                const action = event.submitter ? event.submitter.value : "";
+                if (action === "delete" && !window.confirm("Remove this post and all of its comments? This cannot be undone.")) {
+                    event.preventDefault();
+                }
             });
         });
 
