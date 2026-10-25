@@ -33,7 +33,7 @@ unset($_SESSION['register_old']);
     <div class="auth-container register-container">
         <div class="auth-card">
             <a class="auth-logo" href="index.php" aria-label="BloodLife home">
-                <img src="images/Blife_logo.png" alt="BloodLife">
+                <img src="images/BlifePH_no_bg.png" alt="BloodLife">
             </a>
 
             <h1 class="auth-heading">Create Account</h1>

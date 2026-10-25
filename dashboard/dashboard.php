@@ -314,7 +314,7 @@ $firstName = trim((string) ($profile['fname'] ?? ''));
 $initials = member_initials($displayName);
 $navGroups = [
     'Main Menu' => [
-        'home' => ['⌂', 'Home / Feed'],
+        'home' => ['🏠︎', 'Home'],
         'find-blood' => ['⌕', 'Find Blood'],
         'blood-requests' => ['+', 'Blood Requests'],
         'events' => ['◷', 'Donation Events']
@@ -327,8 +327,8 @@ $navGroups = [
         'saved' => ['☆', 'Saved Posts']
     ],
     'Account' => [
-        'notifications' => ['♧', 'Notifications'],
-        'profile' => ['◉', 'My Profile'],
+        'notifications' => ['🕭', 'Notifications'],
+        'profile' => ['👤', 'My Profile'],
         'settings' => ['⚙', 'Settings & Privacy'],
         'help' => ['?', 'Help & Support']
     ]
@@ -370,7 +370,7 @@ $pageTitles = [
         </button>
         <a class="brand" href="dashboard.php?page=home" aria-label="BloodLife home">
             <img src="../images/Blife_logo.png" alt="">
-            <span>BloodLife</span>
+            <span>BLife PH</span>
         </a>
         <form class="global-search" method="get" action="dashboard.php" role="search">
             <input type="hidden" name="page" value="search">
@@ -381,7 +381,7 @@ $pageTitles = [
         </form>
         <div class="topbar-actions">
             <a class="notification-link" href="dashboard.php?page=notifications" aria-label="Notifications<?= $unreadNotifications ? ', ' . $unreadNotifications . ' unread' : '' ?>">
-                <span aria-hidden="true">♧</span>
+                <span aria-hidden="true">🕭</span>
                 <?php if ($unreadNotifications > 0): ?><span class="notification-count"><?= $unreadNotifications > 99 ? '99+' : (int) $unreadNotifications ?></span><?php endif; ?>
             </a>
             <details class="profile-menu">
@@ -421,14 +421,14 @@ $pageTitles = [
                 <?php endforeach; ?>
             </nav>
             <div class="sidebar-bottom">
-                <p>One community. Many ways to help.</p>
+                <!-- <p>One community. Many ways to help.</p> -->
                 <a class="sidebar-link logout-sidebar" href="../logout.php"><span class="nav-icon" aria-hidden="true">↪</span><span class="nav-label">Log Out</span></a>
             </div>
         </aside>
 
         <main class="dashboard-main">
             <?php if ($loginSuccess): ?>
-                <div class="notice notice-success" role="status">Welcome back to BloodLife.</div>
+                <!-- <div class="notice notice-success" role="status">Welcome back to BloodLife.</div> -->
             <?php endif; ?>
             <?php if ($flash): ?>
                 <div class="notice notice-<?= h($flash['type']) ?>" role="status"><?= h($flash['message']) ?></div>
@@ -530,7 +530,7 @@ $pageTitles = [
                             <?php endif; ?>
                         </section>
 
-                        <aside class="right-rail">
+                        <!-- <aside class="right-rail">
                             <section class="panel quick-actions">
                                 <h2>Quick actions</h2>
                                 <a href="dashboard.php?page=find-blood"><span aria-hidden="true">⌕</span> Find Blood</a>
@@ -549,12 +549,12 @@ $pageTitles = [
                                 <span><?= h($profile['city'] ?: 'Add a city to your profile') ?></span>
                                 <a href="dashboard.php?page=profile">View profile</a>
                             </section>
-                        </aside>
+                        </aside> -->
                     </div>
                 <?php elseif ($activePage === 'find-blood'): ?>
                     <section class="panel">
                         <div class="section-heading"><div><p class="eyebrow">COMMUNITY DIRECTORY</p><h2>Find members willing to donate</h2></div></div>
-                        <p class="form-help">Only members who opted in are listed. A member's willingness does not confirm eligibility or blood availability. Contact details and home addresses are not shown.</p>
+                        <!-- <p class="form-help">Only members who opted in are listed. A member's willingness does not confirm eligibility or blood availability. Contact details and home addresses are not shown.</p> -->
                         <form class="filter-form" method="get" action="dashboard.php">
                             <input type="hidden" name="page" value="find-blood">
                             <label>Blood type<select name="btype"><option value="">Any type</option><?php foreach ($bloodTypes as $type): ?><option value="<?= h($type) ?>" <?= $donorBloodType === $type ? 'selected' : '' ?>><?= h($type) ?></option><?php endforeach; ?></select></label>
@@ -688,7 +688,7 @@ $pageTitles = [
                     </section>
                 <?php endif; ?>
 
-                <p class="page-footnote">BloodLife connects people. Actual blood screening, inventory confirmation, and transfusion must be handled by authorized medical providers.</p>
+                <p class="page-footnote">BLife PH connects people. Actual blood screening, inventory confirmation, and transfusion must be handled by authorized medical providers.</p>
             <?php endif; ?>
         </main>
     </div>

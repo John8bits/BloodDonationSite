@@ -48,7 +48,7 @@ $success =
                 <span style="font-size: 30px;">BloodLife</span>
             </div> -->
             <a class="auth-logo" href="index.php" aria-label="BloodLife home">
-                <img src="images/Blife_logo.png" alt="BloodLife">
+                <img src="images/BlifePH_no_bg.png" alt="BloodLife">
             </a>
 
             <h1 style="text-align: center;  margin-bottom:25px;">Sign In</h1>
