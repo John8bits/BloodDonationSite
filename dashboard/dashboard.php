@@ -105,6 +105,7 @@ try {
     $missingTables = array_diff($requiredTables, $availableTables);
     $missingColumns = [];
     $postTypeColumn = null;
+    $eventStatusColumnAvailable = false;
     $columnQuery = $pdo->prepare(
         'SELECT COLUMN_NAME, COLUMN_TYPE FROM information_schema.COLUMNS
          WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?'
@@ -122,6 +123,7 @@ try {
         }
         if ($table === 'community_posts') {
             $postTypeColumn = $columnInfo['post_type'] ?? '';
+            $eventStatusColumnAvailable = array_key_exists('event_status', $columnInfo);
         }
     }
     if ($postTypeColumn !== null && strpos($postTypeColumn, 'success_story') === false) {
@@ -138,12 +140,24 @@ try {
         }
     } else {
         $schemaReady = true;
-        $profileStmt = $pdo->prepare('SELECT fname, lname, email, btype, phone, city, donor_available, notify_request_responses, notify_post_comments FROM uinfo WHERE id = :id LIMIT 1');
+        $accountStatusCheck = $pdo->prepare(
+            "SELECT COUNT(*) FROM information_schema.COLUMNS
+             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'uinfo' AND COLUMN_NAME = 'account_status'"
+        );
+        $accountStatusCheck->execute();
+        $accountStatusAvailable = (int) $accountStatusCheck->fetchColumn() > 0;
+        $accountStatusSelect = $accountStatusAvailable ? ', account_status' : '';
+        $profileStmt = $pdo->prepare('SELECT fname, lname, email, btype, phone, city, donor_available, notify_request_responses, notify_post_comments' . $accountStatusSelect . ' FROM uinfo WHERE id = :id LIMIT 1');
         $profileStmt->execute([':id' => $userId]);
         $storedProfile = $profileStmt->fetch();
         if (!$storedProfile) {
             session_destroy();
             header('Location: ../login.php');
+            exit;
+        }
+        if (($storedProfile['account_status'] ?? 'active') !== 'active') {
+            session_destroy();
+            header('Location: ../login.php?suspended=1');
             exit;
         }
         $profile = array_merge($profile, $storedProfile);
@@ -168,6 +182,9 @@ try {
         $unreadNotifications = (int) $unreadStmt->fetchColumn();
 
         $donorConditions = ['donor_available = 1', 'id <> :member_id'];
+        if ($accountStatusAvailable) {
+            $donorConditions[] = "account_status = 'active'";
+        }
         $donorParams = [':member_id' => $userId];
         if ($donorBloodType !== '' && in_array($donorBloodType, $bloodTypes, true)) {
             $donorConditions[] = 'btype = :blood_type';
@@ -182,10 +199,10 @@ try {
         $donors = $donorStmt->fetchAll();
 
         $myRequestsStmt = $pdo->prepare(
-            'SELECT br.*,
+            "SELECT br.*, CASE WHEN br.status = 'open' AND br.needed_by < CURDATE() THEN 'expired' ELSE br.status END AS effective_status,
                 (SELECT COUNT(*) FROM request_responses rr WHERE rr.request_id = br.id) AS response_count
              FROM blood_requests br WHERE br.requester_id = :user_id
-             ORDER BY br.created_at DESC LIMIT 50'
+             ORDER BY br.created_at DESC LIMIT 50"
         );
         $myRequestsStmt->execute([':user_id' => $userId]);
         $myRequests = $myRequestsStmt->fetchAll();
@@ -201,7 +218,7 @@ try {
         $respondedStmt->execute([':user_id' => $userId]);
         $respondedRequests = $respondedStmt->fetchAll();
 
-        $requestConditions = ["br.status = 'open'", 'br.requester_id <> :own_id'];
+        $requestConditions = ["br.status = 'open'", 'br.needed_by >= CURDATE()', 'br.requester_id <> :own_id'];
         $requestParams = [':own_id' => $userId];
         if ($activePage === 'search' && $searchQuery !== '') {
             foreach (['hospital', 'location', 'type', 'details'] as $field) {
@@ -210,7 +227,8 @@ try {
             $requestConditions[] = '(br.hospital LIKE :request_hospital_search OR br.location LIKE :request_location_search OR br.blood_type LIKE :request_type_search OR br.details LIKE :request_details_search)';
         }
         $communityRequestStmt = $pdo->prepare(
-            "SELECT br.*, u.fname AS requester_name,
+            "SELECT br.*, CASE WHEN br.status = 'open' AND br.needed_by < CURDATE() THEN 'expired' ELSE br.status END AS effective_status,
+                u.fname AS requester_name,
                 EXISTS (SELECT 1 FROM request_responses rr WHERE rr.request_id = br.id AND rr.user_id = :responder_id) AS already_responded
              FROM blood_requests br JOIN uinfo u ON u.id = br.requester_id
              WHERE " . implode(' AND ', $requestConditions) . '
@@ -220,6 +238,9 @@ try {
         $openRequests = $communityRequestStmt->fetchAll();
 
         $postConditions = [];
+        if ($eventStatusColumnAvailable) {
+            $postConditions[] = "(cp.post_type <> 'event' OR cp.event_status = 'published')";
+        }
         $postParams = [
             ':like_viewer' => $userId,
             ':save_viewer' => $userId,
@@ -252,8 +273,12 @@ try {
         $postOrder = $eventSort
             ? 'COALESCE(cp.event_date, DATE(cp.created_at)) ASC, cp.created_at DESC'
             : 'cp.created_at DESC';
+        $eventDetailColumns = $eventStatusColumnAvailable
+            ? 'cp.event_title, cp.event_time, cp.venue, cp.event_city,'
+            : '';
         $postStmt = $pdo->prepare(
             "SELECT cp.id, cp.user_id, cp.post_type, cp.content, cp.event_date, cp.created_at,
+                    {$eventDetailColumns}
                     u.fname AS author_name, u.lname AS author_last_name, u.city AS author_city,
                     (SELECT COUNT(*) FROM post_interactions pi WHERE pi.post_id = cp.id AND pi.interaction = 'like') AS like_count,
                     (SELECT COUNT(*) FROM post_comments pc WHERE pc.post_id = cp.id) AS comment_count,
@@ -531,7 +556,7 @@ $pageTitles = [
                         </section>
 
                         <!-- <aside class="right-rail">
-                            <section class="panel quick-actions">
+                            <section class="panel quick-actions">   
                                 <h2>Quick actions</h2>
                                 <a href="dashboard.php?page=find-blood"><span aria-hidden="true">⌕</span> Find Blood</a>
                                 <a href="dashboard.php?page=blood-requests"><span aria-hidden="true">＋</span> Post a Blood Request</a>
@@ -628,7 +653,7 @@ $pageTitles = [
                         <section class="request-list">
                             <?php foreach ($requestList as $request): ?>
                                 <?php if ($activePage === 'my-requests'): ?><?php render_request_card($request, $csrfToken, true); ?>
-                                <?php else: ?><article class="request-card"><div class="request-heading"><span class="blood-mark"><?= h($request['blood_type']) ?></span><div><h3><?= (int) $request['units'] ?> unit<?= (int) $request['units'] === 1 ? '' : 's' ?> requested</h3><p>Requested by <?= h($request['requester_name'] ?: 'BloodLife member') ?></p></div><span class="status-badge status-<?= h($request['status']) ?>"><?= h(ucfirst($request['status'])) ?></span></div><p><strong><?= h($request['hospital']) ?></strong> · <?= h($request['location']) ?> · needed <?= h(date('M j, Y', strtotime($request['needed_by']))) ?></p><div class="private-response"><strong>Your response</strong><p><?= $request['response_message'] !== '' ? nl2br(h($request['response_message'])) : 'You offered to help without a message.' ?></p></div></article><?php endif; ?>
+                                <?php else: ?><article class="request-card"><div class="request-heading"><span class="blood-mark"><?= h($request['blood_type']) ?></span><div><h3><?= (int) $request['units'] ?> unit<?= (int) $request['units'] === 1 ? '' : 's' ?> requested</h3><p>Requested by <?= h($request['requester_name'] ?: 'BloodLife member') ?></p></div><span class="status-badge status-<?= h($request['effective_status'] ?? $request['status']) ?>"><?= h(ucfirst($request['effective_status'] ?? $request['status'])) ?></span></div><p><strong><?= h($request['hospital']) ?></strong> · <?= h($request['location']) ?> · needed <?= h(date('M j, Y', strtotime($request['needed_by']))) ?></p><div class="private-response"><strong>Your response</strong><p><?= $request['response_message'] !== '' ? nl2br(h($request['response_message'])) : 'You offered to help without a message.' ?></p></div></article><?php endif; ?>
                             <?php endforeach; ?>
                         </section>
                     <?php endif; ?>
@@ -704,14 +729,14 @@ function render_request_card(array $request, string $csrfToken, bool $isOwn): vo
         <div class="request-heading">
             <span class="blood-mark"><?= h($request['blood_type']) ?></span>
             <div><h3><?= (int) $request['units'] ?> unit<?= (int) $request['units'] === 1 ? '' : 's' ?> needed</h3><p><?= $isOwn ? 'Your request' : 'Posted by ' . h($request['requester_name'] ?: 'BloodLife member') ?></p></div>
-            <?php if ($isOwn): ?><span class="status-badge status-<?= h($request['status']) ?>"><?= h(ucfirst($request['status'])) ?></span><?php endif; ?>
+            <?php if ($isOwn): ?><span class="status-badge status-<?= h($request['effective_status'] ?? $request['status']) ?>"><?= h(ucfirst($request['effective_status'] ?? $request['status'])) ?></span><?php endif; ?>
         </div>
         <p class="facility-line"><strong><?= h($request['hospital']) ?></strong> · <?= h($request['location']) ?></p>
         <p class="request-date">Needed by <?= h(date('M j, Y', strtotime($request['needed_by']))) ?><?php if (!$isOwn && strtotime($request['needed_by']) <= strtotime('+3 days')): ?> <span class="urgency-badge">Urgent</span><?php endif; ?></p>
         <?php if ($request['details'] !== ''): ?><p class="request-details"><?= nl2br(h($request['details'])) ?></p><?php endif; ?>
         <?php if ($isOwn): ?>
             <p class="request-date"><?= (int) $request['response_count'] ?> response<?= (int) $request['response_count'] === 1 ? '' : 's' ?> received</p>
-            <?php if ($request['status'] === 'open'): ?>
+            <?php if (($request['effective_status'] ?? $request['status']) === 'open'): ?>
                 <form class="inline-actions confirm-cancel-form" method="post" action="action.php">
                     <input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>"><input type="hidden" name="action" value="request_status"><input type="hidden" name="request_id" value="<?= (int) $request['id'] ?>">
                     <button class="button button-secondary" type="submit" name="status" value="fulfilled">Mark fulfilled</button>
@@ -745,7 +770,9 @@ function render_post_card(array $post, array $comments, string $csrfToken, int $
             <div class="post-author"><strong><?= h($authorName) ?></strong><span><?= h(post_label($post['post_type'])) ?><?php if (!empty($post['author_city'])): ?> · <?= h($post['author_city']) ?><?php endif; ?></span></div>
             <time datetime="<?= h($post['created_at']) ?>"><?= h(date('M j, Y', strtotime($post['created_at']))) ?></time>
         </div>
-        <?php if ($post['post_type'] === 'event' && !empty($post['event_date'])): ?><p class="event-date-label">Event date: <?= h(date('M j, Y', strtotime($post['event_date']))) ?></p><?php endif; ?>
+        <?php if ($post['post_type'] === 'event' && !empty($post['event_title'])): ?><h3 class="event-card-title"><?= h($post['event_title']) ?></h3><?php endif; ?>
+        <?php if ($post['post_type'] === 'event' && !empty($post['event_date'])): ?><p class="event-date-label">Event date: <?= h(date('M j, Y', strtotime($post['event_date']))) ?><?php if (!empty($post['event_time'])): ?> · <?= h(substr($post['event_time'], 0, 5)) ?><?php endif; ?></p><?php endif; ?>
+        <?php if ($post['post_type'] === 'event' && (!empty($post['venue']) || !empty($post['event_city']))): ?><p class="event-date-label"><?= h(trim(($post['venue'] ?? '') . ' ' . ($post['event_city'] ?? ''))) ?></p><?php endif; ?>
         <p class="post-content"><?= nl2br(h($post['content'])) ?></p>
         <div class="post-counts"><span><?= (int) $post['like_count'] ?> likes</span><a href="#comments-<?= (int) $post['id'] ?>"><?= (int) $post['comment_count'] ?> comments</a></div>
         <div class="post-actions">
@@ -762,6 +789,8 @@ function render_post_card(array $post, array $comments, string $csrfToken, int $
             <?php if ((int) $post['user_id'] !== $userId && !$post['reported_by_me']): ?>
                 <form class="confirm-report-form" method="post" action="action.php">
                     <input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>"><input type="hidden" name="action" value="post_interaction"><input type="hidden" name="post_id" value="<?= (int) $post['id'] ?>"><input type="hidden" name="interaction" value="report">
+                    <label class="visually-hidden" for="report-reason-<?= (int) $post['id'] ?>">Reason for reporting this post</label>
+                    <input id="report-reason-<?= (int) $post['id'] ?>" name="report_reason" maxlength="255" required placeholder="Reason for report">
                     <button type="submit">⚑ Report</button>
                 </form>
             <?php elseif ($post['reported_by_me']): ?><span class="reported-label">Reported</span><?php endif; ?>

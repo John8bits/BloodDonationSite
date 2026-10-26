@@ -94,6 +94,13 @@ if (!empty($errors)) {
 try {
 
     $pdo = (new Database())->getConnection();
+    $accountStatusCheck = $pdo->prepare(
+        "SELECT COUNT(*) FROM information_schema.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'uinfo' AND COLUMN_NAME = 'account_status'"
+    );
+    $accountStatusCheck->execute();
+    $accountStatusAvailable = (int) $accountStatusCheck->fetchColumn() > 0;
+    $accountStatusSelect = $accountStatusAvailable ? ', account_status' : '';
 
 
     $stmt = $pdo->prepare("
@@ -106,6 +113,7 @@ try {
             phone,
             password,
             role
+            {$accountStatusSelect}
         FROM uinfo
         WHERE email = :email
         LIMIT 1
@@ -134,6 +142,14 @@ try {
             'message' => 'Invalid email or password.'
         ]);
 
+        exit;
+    }
+
+    if (($user['account_status'] ?? 'active') !== 'active') {
+        echo json_encode([
+            'success' => false,
+            'message' => 'This account is currently suspended. Contact the platform administrators for assistance.'
+        ]);
         exit;
     }
 

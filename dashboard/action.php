@@ -52,6 +52,20 @@ $action = $_POST['action'] ?? '';
 
 try {
     $pdo = (new Database())->getConnection();
+    $accountStatusCheck = $pdo->prepare(
+        "SELECT COUNT(*) FROM information_schema.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'uinfo' AND COLUMN_NAME = 'account_status'"
+    );
+    $accountStatusCheck->execute();
+    if ((int) $accountStatusCheck->fetchColumn() > 0) {
+        $statusStmt = $pdo->prepare('SELECT account_status FROM uinfo WHERE id = :id LIMIT 1');
+        $statusStmt->execute([':id' => $userId]);
+        if ($statusStmt->fetchColumn() !== 'active') {
+            session_destroy();
+            header('Location: ../login.php?suspended=1');
+            exit;
+        }
+    }
 
     switch ($action) {
         case 'profile':
@@ -183,11 +197,34 @@ try {
 
             if ($interaction === 'report') {
                 if (!$exists) {
-                    $insertStmt = $pdo->prepare(
-                        'INSERT INTO post_interactions (post_id, user_id, interaction)
-                         VALUES (:post_id, :user_id, :interaction)'
+                    $reportReason = trim($_POST['report_reason'] ?? '');
+                    if ($reportReason === '' || strlen($reportReason) > 255) {
+                        $pdo->rollBack();
+                        redirect_member('Select or enter a reason for reporting this post.', 'error', 'home');
+                    }
+                    $reasonColumnCheck = $pdo->prepare(
+                        "SELECT COUNT(*) FROM information_schema.COLUMNS
+                         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'post_interactions' AND COLUMN_NAME = 'report_reason'"
                     );
-                    $insertStmt->execute([':post_id' => $postId, ':user_id' => $userId, ':interaction' => $interaction]);
+                    $reasonColumnCheck->execute();
+                    if ((int) $reasonColumnCheck->fetchColumn() > 0) {
+                        $insertStmt = $pdo->prepare(
+                            'INSERT INTO post_interactions (post_id, user_id, interaction, report_reason)
+                             VALUES (:post_id, :user_id, :interaction, :reason)'
+                        );
+                        $insertStmt->execute([
+                            ':post_id' => $postId,
+                            ':user_id' => $userId,
+                            ':interaction' => $interaction,
+                            ':reason' => $reportReason
+                        ]);
+                    } else {
+                        $insertStmt = $pdo->prepare(
+                            'INSERT INTO post_interactions (post_id, user_id, interaction)
+                             VALUES (:post_id, :user_id, :interaction)'
+                        );
+                        $insertStmt->execute([':post_id' => $postId, ':user_id' => $userId, ':interaction' => $interaction]);
+                    }
                 }
             } elseif ($exists) {
                 $deleteStmt = $pdo->prepare(
@@ -312,7 +349,7 @@ try {
             }
             $stmt = $pdo->prepare(
                 "SELECT id FROM blood_requests
-                 WHERE id = :id AND requester_id <> :user_id AND status = 'open'"
+                 WHERE id = :id AND requester_id <> :user_id AND status = 'open' AND needed_by >= CURDATE()"
             );
             $stmt->execute([':id' => $requestId, ':user_id' => $userId]);
             if (!$stmt->fetch()) {
@@ -357,7 +394,7 @@ try {
             }
             $stmt = $pdo->prepare(
                 "UPDATE blood_requests SET status = :status
-                 WHERE id = :id AND requester_id = :user_id AND status = 'open'"
+                 WHERE id = :id AND requester_id = :user_id AND status = 'open' AND needed_by >= CURDATE()"
             );
             $stmt->execute([
                 ':status' => $status,
