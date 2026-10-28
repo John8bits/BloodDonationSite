@@ -345,7 +345,6 @@ $adminName = trim(($firstName ?? '') . ' ' . ($lastName ?? ''));
         <?php endif; ?>
         <?php if (!$schema['account_status'] || !$schema['activity'] || !$schema['settings']): ?>
             <div class="admin-alert info">
-                Some administration features need the migrations <code>database_sql/blife_admin_enhancements.sql</code> and <code>database_sql/blife_admin_modules_migration.sql</code>.
                 <?php if (!$schema['account_status']): ?> Member suspension is unavailable.<?php endif; ?>
                 <?php if (!$schema['activity']): ?> Activity history is unavailable.<?php endif; ?>
                 <?php if (!$schema['settings']): ?> Settings storage is unavailable.<?php endif; ?>

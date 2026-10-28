@@ -168,7 +168,7 @@ try {
                 throw new InvalidArgumentException('That post no longer exists.');
             }
             $log('remove_community_post', 'community_posts', $postId, 'Post removed by admin.', $reason);
-            $notify = $pdo->prepare("DELETE FROM member_notifications WHERE notification_type = 'post_comment' AND target_id = :id");
+            $notify = $pdo->prepare("DELETE FROM member_notifications WHERE notification_type IN ('post_like', 'post_comment', 'post_share', 'post_save') AND target_id = :id");
             $notify->execute([':id' => $postId]);
             $stmt = $pdo->prepare('DELETE FROM community_posts WHERE id = :id');
             $stmt->execute([':id' => $postId]);

@@ -48,7 +48,9 @@ try {
         $logAction = 'remove_reported_post';
         $logDetails = 'Reported community post removed after moderation review.';
         $notifyStmt = $pdo->prepare(
-            "DELETE FROM member_notifications WHERE notification_type = 'post_comment' AND target_id = :post_id"
+            "DELETE FROM member_notifications
+             WHERE notification_type IN ('post_like', 'post_comment', 'post_share', 'post_save')
+               AND target_id = :post_id"
         );
         $notifyStmt->execute([':post_id' => $postId]);
         $postStmt = $pdo->prepare('DELETE FROM community_posts WHERE id = :post_id');

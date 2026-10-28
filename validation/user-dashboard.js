@@ -4,6 +4,29 @@ document.addEventListener("DOMContentLoaded", function () {
     const scrim = document.getElementById("mobileScrim");
     const sidebarLinks = document.querySelectorAll(".sidebar-link");
 
+    document.querySelectorAll("[data-modal-open]").forEach(function (button) {
+        button.addEventListener("click", function () {
+            const modal = document.getElementById(button.dataset.modalOpen);
+            if (modal instanceof HTMLDialogElement) {
+                modal.showModal();
+            }
+        });
+    });
+
+    document.querySelectorAll(".dashboard-modal").forEach(function (modal) {
+        modal.querySelectorAll("[data-modal-close]").forEach(function (button) {
+            button.addEventListener("click", function () {
+                modal.close();
+            });
+        });
+
+        modal.addEventListener("click", function (event) {
+            if (event.target === modal) {
+                modal.close();
+            }
+        });
+    });
+
     function isMobile() {
         return window.matchMedia("(max-width: 760px)").matches;
     }
@@ -74,26 +97,46 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 
-    const postType = document.getElementById("postType");
-    const eventDateField = document.getElementById("eventDateField");
-    const eventDateInput = eventDateField
-        ? eventDateField.querySelector('input[name="event_date"]')
-        : null;
+    document.querySelectorAll("[data-post-composer]").forEach(function (form) {
+        const postType = form.elements.post_type;
+        const donationFields = form.querySelector("[data-donation-fields]");
+        const eventDateField = form.querySelector("[data-event-date-field]");
+        const eventDateInput = eventDateField
+            ? eventDateField.querySelector('input[name="event_date"]')
+            : null;
+        const donationBloodType = donationFields
+            ? donationFields.querySelector('select[name="donation_blood_type"]')
+            : null;
+        const donationLocation = donationFields
+            ? donationFields.querySelector('input[name="donation_location"]')
+            : null;
 
-    function updateEventDateField() {
-        if (!postType || !eventDateField || !eventDateInput) {
-            return;
+        function updatePostFields() {
+            const type = postType ? postType.value : "";
+            const isEvent = type === "event";
+            const isDonation = type === "donation";
+            if (eventDateField) {
+                eventDateField.hidden = !isEvent;
+            }
+            if (eventDateInput) {
+                eventDateInput.required = isEvent;
+            }
+            if (donationFields) {
+                donationFields.hidden = !isDonation;
+            }
+            if (donationBloodType) {
+                donationBloodType.required = isDonation;
+            }
+            if (donationLocation) {
+                donationLocation.required = isDonation;
+            }
         }
 
-        const isEvent = postType.value === "event";
-        eventDateField.hidden = !isEvent;
-        eventDateInput.required = isEvent;
-    }
-
-    if (postType) {
-        postType.addEventListener("change", updateEventDateField);
-        updateEventDateField();
-    }
+        if (postType && postType.tagName === "SELECT") {
+            postType.addEventListener("change", updatePostFields);
+        }
+        updatePostFields();
+    });
 
     function announce(message) {
         let status = document.getElementById("dashboardStatus");
@@ -117,10 +160,35 @@ document.addEventListener("DOMContentLoaded", function () {
         button.addEventListener("click", async function () {
             const shareUrl = new URL(button.dataset.shareUrl, window.location.href).href;
             const shareTitle = button.dataset.shareTitle || "BloodLife community post";
+            const shareForm = document.getElementById(button.dataset.shareForm);
+
+            async function recordShare() {
+                if (!shareForm) {
+                    return;
+                }
+
+                try {
+                    const response = await fetch(shareForm.action, {
+                        method: "POST",
+                        body: new FormData(shareForm),
+                        credentials: "same-origin"
+                    });
+                    const result = await response.json();
+                    if (!response.ok || !result.success) {
+                        throw new Error("The share notification request failed.");
+                    }
+                    return true;
+                } catch (error) {
+                    console.error("Could not record the post share:", error);
+                    announce("The post was shared, but its notification could not be recorded.");
+                    return false;
+                }
+            }
 
             if (navigator.share) {
                 try {
                     await navigator.share({ title: shareTitle, url: shareUrl });
+                    await recordShare();
                     return;
                 } catch (error) {
                     if (error && error.name === "AbortError") {
@@ -136,7 +204,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
             try {
                 await navigator.clipboard.writeText(shareUrl);
-                announce("Post link copied.");
+                if (await recordShare()) {
+                    announce("Post link copied.");
+                }
             } catch (error) {
                 console.error("Could not copy the post link:", error);
                 announce("Could not copy the post link. Please copy the page address manually.");

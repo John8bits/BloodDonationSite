@@ -11,18 +11,22 @@ if (is_admin()) {
     exit;
 }
 
-function redirect_member(string $message, string $type, string $section): void
+function redirect_member(string $message, string $type, string $section, ?int $postId = null): void
 {
     $aliases = ['overview' => 'home', 'community' => 'home', 'donors' => 'find-blood', 'requests' => 'blood-requests'];
     $section = $aliases[$section] ?? $section;
     $_SESSION['member_flash'] = ['message' => $message, 'type' => $type];
-    header('Location: dashboard.php?page=' . rawurlencode($section));
+    $location = 'dashboard.php?page=' . rawurlencode($section);
+    if ($postId !== null && $postId > 0) {
+        $location .= '#post-' . $postId;
+    }
+    header('Location: ' . $location);
     exit;
 }
 
 function member_return_page(): string
 {
-    $allowedPages = ['home', 'events', 'my-posts', 'saved', 'search'];
+    $allowedPages = ['home', 'events', 'donation-offers', 'my-posts', 'saved', 'search'];
     $page = $_POST['return_page'] ?? 'home';
     return is_string($page) && in_array($page, $allowedPages, true) ? $page : 'home';
 }
@@ -143,14 +147,61 @@ try {
                 redirect_member('Choose a valid post category.', 'error', 'community');
             }
             if ($content === '' || strlen($content) > 1000) {
-                redirect_member('Your post must contain 1 to 1,000 characters.', 'error', 'community');
+                redirect_member(
+                    'Your post must contain 1 to 1,000 characters.',
+                    'error',
+                    $postType === 'donation' ? 'donation-offers' : 'community'
+                );
             }
             $eventDate = null;
             if ($postType === 'event') {
                 $eventDate = DateTime::createFromFormat('!Y-m-d', $eventDateValue);
                 if (!$eventDate || $eventDate->format('Y-m-d') !== $eventDateValue || $eventDateValue < date('Y-m-d')) {
-                    redirect_member('Choose a valid event date today or later.', 'home');
+                    redirect_member('Choose a valid event date today or later.', 'error', 'home');
                 }
+            }
+            if ($postType === 'donation') {
+                $donationBloodType = $_POST['donation_blood_type'] ?? '';
+                $donationLocation = trim($_POST['donation_location'] ?? '');
+                $availableDateValue = $_POST['donation_available_date'] ?? '';
+                if (!in_array($donationBloodType, $bloodTypes, true)) {
+                    redirect_member('Select the blood type you are offering to donate.', 'error', 'donation-offers');
+                }
+                if ($donationLocation === '' || strlen($donationLocation) > 120) {
+                    redirect_member('Enter the city or province where you may be available to donate (up to 120 characters).', 'error', 'donation-offers');
+                }
+
+                $availableDate = null;
+                if ($availableDateValue !== '') {
+                    $availableDate = DateTime::createFromFormat('!Y-m-d', $availableDateValue);
+                    if (!$availableDate || $availableDate->format('Y-m-d') !== $availableDateValue || $availableDateValue < date('Y-m-d')) {
+                        redirect_member('Choose a valid availability date today or later.', 'error', 'donation-offers');
+                    }
+                }
+
+                $donationColumns = $pdo->prepare(
+                    "SELECT COUNT(*) FROM information_schema.COLUMNS
+                     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'community_posts'
+                       AND COLUMN_NAME IN ('donation_blood_type', 'donation_location', 'donation_available_date')"
+                );
+                $donationColumns->execute();
+                if ((int) $donationColumns->fetchColumn() !== 3) {
+                    redirect_member('Donation offers are not enabled yet. Apply database_sql/donation_offers_migration.sql, then try again.', 'error', 'donation-offers');
+                }
+
+                $stmt = $pdo->prepare(
+                    "INSERT INTO community_posts
+                        (user_id, post_type, content, event_date, donation_blood_type, donation_location, donation_available_date)
+                     VALUES (:user_id, 'donation', :content, NULL, :blood_type, :location, :available_date)"
+                );
+                $stmt->execute([
+                    ':user_id' => $userId,
+                    ':content' => $content,
+                    ':blood_type' => $donationBloodType,
+                    ':location' => $donationLocation,
+                    ':available_date' => $availableDate ? $availableDate->format('Y-m-d') : null
+                ]);
+                redirect_member('Your donation offer has been published to the community.', 'success', 'donation-offers');
             }
             $stmt = $pdo->prepare(
                 'INSERT INTO community_posts (user_id, post_type, content, event_date)
@@ -239,11 +290,64 @@ try {
                 );
                 $insertStmt->execute([':post_id' => $postId, ':user_id' => $userId, ':interaction' => $interaction]);
             }
+            if (
+                !$exists &&
+                in_array($interaction, ['like', 'save'], true) &&
+                (int) $targetPost['user_id'] !== $userId
+            ) {
+                $notificationType = $interaction === 'like' ? 'post_like' : 'post_save';
+                $notificationMessage = $interaction === 'like' ? 'liked your post.' : 'saved your post.';
+                $notifyStmt = $pdo->prepare(
+                    'INSERT INTO member_notifications (user_id, actor_id, notification_type, target_id, message)
+                     SELECT id, :actor_id, :notification_type, :target_id, :message
+                     FROM uinfo
+                     WHERE id = :user_id AND notify_post_comments = 1'
+                );
+                $notifyStmt->execute([
+                    ':actor_id' => $userId,
+                    ':notification_type' => $notificationType,
+                    ':target_id' => $postId,
+                    ':message' => $notificationMessage,
+                    ':user_id' => (int) $targetPost['user_id']
+                ]);
+            }
             $pdo->commit();
             $message = $interaction === 'report'
                 ? 'The post has been reported for administrator review.'
                 : ($exists ? ($interaction === 'like' ? 'Like removed.' : 'Post removed from saved items.') : ($interaction === 'like' ? 'Post liked.' : 'Post saved for later.'));
             redirect_member($message, 'success', member_return_page());
+
+        case 'post_share':
+            $postId = filter_var($_POST['post_id'] ?? null, FILTER_VALIDATE_INT);
+            if (!$postId) {
+                redirect_member('Choose a valid post to share.', 'error', 'home');
+            }
+            $postStmt = $pdo->prepare('SELECT user_id FROM community_posts WHERE id = :id LIMIT 1');
+            $postStmt->execute([':id' => $postId]);
+            $targetPost = $postStmt->fetch();
+            if (!$targetPost) {
+                redirect_member('That post is no longer available.', 'error', 'home');
+            }
+            if ((int) $targetPost['user_id'] !== $userId) {
+                $notifyStmt = $pdo->prepare(
+                    'INSERT INTO member_notifications (user_id, actor_id, notification_type, target_id, message)
+                     SELECT id, :actor_id, \'post_share\', :target_id, :message
+                     FROM uinfo
+                     WHERE id = :user_id AND notify_post_comments = 1'
+                );
+                $notifyStmt->execute([
+                    ':actor_id' => $userId,
+                    ':target_id' => $postId,
+                    ':message' => 'shared your post.',
+                    ':user_id' => (int) $targetPost['user_id']
+                ]);
+            }
+            if (($_POST['async'] ?? '') === '1') {
+                header('Content-Type: application/json; charset=utf-8');
+                echo json_encode(['success' => true], JSON_THROW_ON_ERROR);
+                exit;
+            }
+            redirect_member('The post share has been recorded.', 'success', member_return_page());
 
         case 'delete_post':
             $postId = filter_var($_POST['post_id'] ?? null, FILTER_VALIDATE_INT);
@@ -257,7 +361,9 @@ try {
             }
             $notifyStmt = $pdo->prepare(
                 "DELETE FROM member_notifications
-                 WHERE user_id = :user_id AND notification_type = 'post_comment' AND target_id = :post_id"
+                 WHERE user_id = :user_id
+                   AND notification_type IN ('post_like', 'post_comment', 'post_share', 'post_save')
+                   AND target_id = :post_id"
             );
             $notifyStmt->execute([':user_id' => $userId, ':post_id' => $postId]);
             redirect_member('Your post and its comments have been deleted.', 'success', 'my-posts');
@@ -304,6 +410,7 @@ try {
             $units = filter_var($_POST['units'] ?? null, FILTER_VALIDATE_INT);
             $hospital = trim($_POST['hospital'] ?? '');
             $location = trim($_POST['location'] ?? '');
+            $urgency = $_POST['urgency'] ?? '';
             $neededBy = $_POST['needed_by'] ?? '';
             $details = trim($_POST['details'] ?? '');
             $date = DateTime::createFromFormat('!Y-m-d', $neededBy);
@@ -311,6 +418,9 @@ try {
 
             if (!in_array($bloodType, $bloodTypes, true)) {
                 redirect_member('Select a valid blood type for this request.', 'error', 'requests');
+            }
+            if (!in_array($urgency, ['routine', 'urgent', 'emergency'], true)) {
+                redirect_member('Select a valid urgency level for this request.', 'error', 'requests');
             }
             if (!$units || $units < 1 || $units > 20) {
                 redirect_member('Requested units must be between 1 and 20.', 'error', 'requests');
@@ -327,8 +437,8 @@ try {
 
             $stmt = $pdo->prepare(
                 'INSERT INTO blood_requests
-                    (requester_id, blood_type, units, hospital, location, needed_by, details)
-                 VALUES (:requester_id, :blood_type, :units, :hospital, :location, :needed_by, :details)'
+                    (requester_id, blood_type, units, hospital, location, needed_by, urgency, details)
+                 VALUES (:requester_id, :blood_type, :units, :hospital, :location, :needed_by, :urgency, :details)'
             );
             $stmt->execute([
                 ':requester_id' => $userId,
@@ -337,6 +447,7 @@ try {
                 ':hospital' => $hospital,
                 ':location' => $location,
                 ':needed_by' => $neededBy,
+                ':urgency' => $urgency,
                 ':details' => $details
             ]);
             redirect_member('Your blood request is now visible to the community.', 'success', 'requests');
@@ -406,13 +517,70 @@ try {
             }
             redirect_member('Your request status has been updated.', 'success', 'requests');
 
+        case 'request_message':
+            $responseId = filter_var($_POST['response_id'] ?? null, FILTER_VALIDATE_INT);
+            $message = trim($_POST['message'] ?? '');
+            if (!$responseId || $message === '' || strlen($message) > 1000) {
+                redirect_member('Enter a reply of 1 to 1,000 characters.', 'error', 'my-requests');
+            }
+
+            $threadStmt = $pdo->prepare(
+                'SELECT rr.id, rr.user_id AS responder_id, br.id AS request_id,
+                        br.requester_id, br.status, br.needed_by
+                 FROM request_responses rr
+                 JOIN blood_requests br ON br.id = rr.request_id
+                 WHERE rr.id = :response_id
+                   AND (br.requester_id = :requester_id OR rr.user_id = :responder_id)
+                 LIMIT 1'
+            );
+            $threadStmt->execute([
+                ':response_id' => $responseId,
+                ':requester_id' => $userId,
+                ':responder_id' => $userId
+            ]);
+            $thread = $threadStmt->fetch();
+            if (!$thread) {
+                redirect_member('That conversation is not available to your account.', 'error', 'my-requests');
+            }
+            if ($thread['status'] !== 'open' || $thread['needed_by'] < date('Y-m-d')) {
+                redirect_member('This blood request is closed, so its conversation can no longer receive replies.', 'error', $thread['requester_id'] == $userId ? 'my-requests' : 'responded');
+            }
+
+            $recipientId = (int) $thread['requester_id'] === $userId
+                ? (int) $thread['responder_id']
+                : (int) $thread['requester_id'];
+            $pdo->beginTransaction();
+            $messageStmt = $pdo->prepare(
+                'INSERT INTO request_response_messages (response_id, sender_id, message)
+                 VALUES (:response_id, :sender_id, :message)'
+            );
+            $messageStmt->execute([
+                ':response_id' => $responseId,
+                ':sender_id' => $userId,
+                ':message' => $message
+            ]);
+            $notifyStmt = $pdo->prepare(
+                'INSERT INTO member_notifications (user_id, actor_id, notification_type, target_id, message)
+                 SELECT id, :actor_id, \'request_message\', :target_id, :message
+                 FROM uinfo
+                 WHERE id = :recipient_id AND notify_request_responses = 1'
+            );
+            $notifyStmt->execute([
+                ':actor_id' => $userId,
+                ':target_id' => (int) $thread['request_id'],
+                ':message' => 'sent you a private message about a blood request.',
+                ':recipient_id' => $recipientId
+            ]);
+            $pdo->commit();
+            redirect_member('Your private reply has been sent.', 'success', (int) $thread['requester_id'] === $userId ? 'my-requests' : 'responded');
+
         case 'notification_open':
             $notificationId = filter_var($_POST['notification_id'] ?? null, FILTER_VALIDATE_INT);
             if (!$notificationId) {
                 redirect_member('Choose a valid notification.', 'error', 'notifications');
             }
             $stmt = $pdo->prepare(
-                'SELECT notification_type FROM member_notifications
+                'SELECT notification_type, target_id FROM member_notifications
                  WHERE id = :id AND user_id = :user_id LIMIT 1'
             );
             $stmt->execute([':id' => $notificationId, ':user_id' => $userId]);
@@ -422,6 +590,29 @@ try {
             }
             $stmt = $pdo->prepare('UPDATE member_notifications SET is_read = 1 WHERE id = :id AND user_id = :user_id');
             $stmt->execute([':id' => $notificationId, ':user_id' => $userId]);
+            if ($notification['notification_type'] === 'request_message') {
+                $threadStmt = $pdo->prepare(
+                    'SELECT br.requester_id, rr.user_id AS responder_id
+                     FROM request_responses rr
+                     JOIN blood_requests br ON br.id = rr.request_id
+                     WHERE br.id = :request_id
+                       AND (br.requester_id = :requester_id OR rr.user_id = :responder_id)
+                     LIMIT 1'
+                );
+                $threadStmt->execute([
+                    ':request_id' => (int) $notification['target_id'],
+                    ':requester_id' => $userId,
+                    ':responder_id' => $userId
+                ]);
+                $thread = $threadStmt->fetch();
+                if (!$thread) {
+                    redirect_member('That conversation is no longer available.', 'error', 'notifications');
+                }
+                redirect_member('Conversation opened.', 'success', (int) $thread['requester_id'] === $userId ? 'my-requests' : 'responded');
+            }
+            if (in_array($notification['notification_type'], ['post_like', 'post_comment', 'post_share', 'post_save'], true)) {
+                redirect_member('Post activity opened.', 'success', 'my-posts', (int) $notification['target_id']);
+            }
             redirect_member('Notification opened.', 'success', $notification['notification_type'] === 'request_response' ? 'my-requests' : 'my-posts');
 
         case 'notifications_read_all':
@@ -433,6 +624,9 @@ try {
             redirect_member('Choose a valid member action.', 'error', 'overview');
     }
 } catch (PDOException $e) {
+    if (isset($pdo) && $pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
     error_log($e->getMessage());
     redirect_member('We could not save that change. Please try again.', 'error', 'overview');
 }

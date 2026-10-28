@@ -88,6 +88,9 @@ CREATE TABLE `community_posts` (
   `post_type` enum('community','donation','event','success_story') NOT NULL DEFAULT 'community',
   `content` varchar(1000) NOT NULL,
   `event_date` date DEFAULT NULL,
+  `donation_blood_type` enum('A+','A-','B+','B-','AB+','AB-','O+','O-') DEFAULT NULL,
+  `donation_location` varchar(120) DEFAULT NULL,
+  `donation_available_date` date DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
   KEY `community_posts_created_at` (`created_at`),
@@ -114,6 +117,7 @@ CREATE TABLE `blood_requests` (
   `hospital` varchar(160) NOT NULL,
   `location` varchar(160) NOT NULL,
   `needed_by` date NOT NULL,
+  `urgency` enum('routine','urgent','emergency') NOT NULL DEFAULT 'routine',
   `details` varchar(1000) NOT NULL DEFAULT '',
   `status` enum('open','fulfilled','cancelled') NOT NULL DEFAULT 'open',
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
@@ -136,6 +140,19 @@ CREATE TABLE `request_responses` (
   CONSTRAINT `request_responses_user_fk` FOREIGN KEY (`user_id`) REFERENCES `uinfo` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+CREATE TABLE `request_response_messages` (
+  `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `response_id` int(10) UNSIGNED NOT NULL,
+  `sender_id` int(10) UNSIGNED NOT NULL,
+  `message` varchar(1000) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `request_response_messages_thread` (`response_id`,`created_at`),
+  KEY `request_response_messages_sender` (`sender_id`),
+  CONSTRAINT `request_response_messages_response_fk` FOREIGN KEY (`response_id`) REFERENCES `request_responses` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `request_response_messages_sender_fk` FOREIGN KEY (`sender_id`) REFERENCES `uinfo` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 CREATE TABLE `post_comments` (
   `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT,
   `post_id` int(10) UNSIGNED NOT NULL,
@@ -153,7 +170,7 @@ CREATE TABLE `member_notifications` (
   `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT,
   `user_id` int(10) UNSIGNED NOT NULL,
   `actor_id` int(10) UNSIGNED DEFAULT NULL,
-  `notification_type` enum('request_response','post_comment') NOT NULL,
+  `notification_type` enum('request_response','request_message','post_like','post_comment','post_share','post_save') NOT NULL,
   `target_id` int(10) UNSIGNED NOT NULL,
   `message` varchar(255) NOT NULL,
   `is_read` tinyint(1) NOT NULL DEFAULT 0,

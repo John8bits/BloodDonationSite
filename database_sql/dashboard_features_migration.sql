@@ -24,7 +24,7 @@ CREATE TABLE `member_notifications` (
   `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT,
   `user_id` int(10) UNSIGNED NOT NULL,
   `actor_id` int(10) UNSIGNED DEFAULT NULL,
-  `notification_type` enum('request_response','post_comment') NOT NULL,
+  `notification_type` enum('request_response','request_message','post_like','post_comment','post_share','post_save') NOT NULL,
   `target_id` int(10) UNSIGNED NOT NULL,
   `message` varchar(255) NOT NULL,
   `is_read` tinyint(1) NOT NULL DEFAULT 0,
