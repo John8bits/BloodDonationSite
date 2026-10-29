@@ -43,6 +43,19 @@ function post_label(string $type): string
     return $labels[$type] ?? 'Community update';
 }
 
+function render_notification_items(array $notifications, string $csrfToken): void
+{
+    foreach ($notifications as $notification):
+        $targetPage = in_array($notification['notification_type'], ['request_response', 'request_message'], true) ? 'my-requests' : 'my-posts';
+        ?>
+        <form class="notification-item <?= !$notification['is_read'] ? 'unread' : '' ?>" method="post" action="action.php">
+            <input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>"><input type="hidden" name="action" value="notification_open"><input type="hidden" name="notification_id" value="<?= (int) $notification['id'] ?>"><input type="hidden" name="target_page" value="<?= h($targetPage) ?>">
+            <button type="submit"><span class="avatar avatar-small"><?= h(member_initials($notification['actor_name'] ?: 'BloodLife member')) ?></span><span><strong><?= h($notification['actor_name'] ?: 'A BloodLife member') ?> <?= h($notification['message']) ?></strong><small><?= h(date('M j, Y g:i a', strtotime($notification['created_at']))) ?></small></span><span class="notification-open">View</span></button>
+        </form>
+        <?php
+    endforeach;
+}
+
 $bloodTypes = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 $pages = [
     'home', 'find-blood', 'blood-requests', 'donation-offers', 'events', 'activity',
@@ -384,7 +397,7 @@ try {
             $searchPosts = $posts;
         }
 
-        if ($posts) {
+        if ($posts && $activePage !== 'donation-offers') {
             $postIds = array_map(static function ($post) {
                 return (int) $post['id'];
             }, $posts);
@@ -404,16 +417,14 @@ try {
             $searchRequests = $openRequests;
         }
 
-        if ($activePage === 'notifications') {
-            $notificationStmt = $pdo->prepare(
-                'SELECT n.id, n.notification_type, n.target_id, n.message, n.is_read, n.created_at,
-                        u.fname AS actor_name
-                 FROM member_notifications n LEFT JOIN uinfo u ON u.id = n.actor_id
-                 WHERE n.user_id = :user_id ORDER BY n.created_at DESC LIMIT 100'
-            );
-            $notificationStmt->execute([':user_id' => $userId]);
-            $notificationRows = $notificationStmt->fetchAll();
-        }
+        $notificationStmt = $pdo->prepare(
+            'SELECT n.id, n.notification_type, n.target_id, n.message, n.is_read, n.created_at,
+                    u.fname AS actor_name
+             FROM member_notifications n LEFT JOIN uinfo u ON u.id = n.actor_id
+             WHERE n.user_id = :user_id ORDER BY n.created_at DESC LIMIT 100'
+        );
+        $notificationStmt->execute([':user_id' => $userId]);
+        $notificationRows = $notificationStmt->fetchAll();
     }
 } catch (PDOException $e) {
     error_log($e->getMessage());
@@ -429,7 +440,6 @@ $initials = member_initials($displayName);
 $navGroups = [
     'Main Menu' => [
         'home' => ['🏠︎', 'Home'],
-        'find-blood' => ['⌕', 'Find Blood'],
         'blood-requests' => ['+', 'Blood Requests'],
         'donation-offers' => ['♥', 'Donation Offers'],
         'events' => ['◷', 'Donation Events']
@@ -442,7 +452,6 @@ $navGroups = [
         'saved' => ['☆', 'Saved Posts']
     ],
     'Account' => [
-        'notifications' => ['🕭', 'Notifications'],
         'profile' => ['👤', 'My Profile'],
         'settings' => ['⚙', 'Settings & Privacy'],
         'help' => ['?', 'Help & Support']
@@ -559,10 +568,30 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
             <button type="submit" aria-label="Search">Search</button>
         </form>
         <div class="topbar-actions">
-            <a class="notification-link" href="dashboard.php?page=notifications" aria-label="Notifications<?= $unreadNotifications ? ', ' . $unreadNotifications . ' unread' : '' ?>">
-                <span aria-hidden="true">🕭</span>
-                <?php if ($unreadNotifications > 0): ?><span class="notification-count"><?= $unreadNotifications > 99 ? '99+' : (int) $unreadNotifications ?></span><?php endif; ?>
-            </a>
+            <details class="notification-menu">
+                <summary class="notification-link" aria-label="Notifications<?= $unreadNotifications ? ', ' . $unreadNotifications . ' unread' : '' ?>" aria-controls="notificationDropdown">
+                    <span aria-hidden="true">🕭</span>
+                    <?php if ($unreadNotifications > 0): ?><span class="notification-count"><?= $unreadNotifications > 99 ? '99+' : (int) $unreadNotifications ?></span><?php endif; ?>
+                </summary>
+                <div class="notification-dropdown" id="notificationDropdown">
+                    <div class="notification-dropdown-heading">
+                        <strong>Notifications</strong>
+                        <a href="dashboard.php?page=notifications">View all</a>
+                    </div>
+                    <?php if ($unreadNotifications > 0): ?>
+                        <form class="notification-mark-all" method="post" action="action.php">
+                            <input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>">
+                            <input type="hidden" name="action" value="notifications_read_all">
+                            <button class="text-button" type="submit">Mark all as read</button>
+                        </form>
+                    <?php endif; ?>
+                    <?php if (!$notificationRows): ?>
+                        <div class="empty-state notification-empty"><strong>You're all caught up.</strong><span>Replies to your requests and comments on your posts will appear here.</span></div>
+                    <?php else: ?>
+                        <div class="notification-list"><?php render_notification_items(array_slice($notificationRows, 0, 5), $csrfToken); ?></div>
+                    <?php endif; ?>
+                </div>
+            </details>
             <details class="profile-menu">
                 <summary aria-label="Open profile menu">
                     <span class="avatar"><?= h($initials) ?></span>
@@ -591,9 +620,8 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                                aria-label="<?= h($item[1]) ?>"
                                title="<?= h($item[1]) ?>"
                                <?= $activePage === $page ? 'aria-current="page"' : '' ?>>
-                                <span class="nav-icon" aria-hidden="true"><?= h($item[0]) ?></span>
-                                <span class="nav-label"><?= h($item[1]) ?></span>
-                                <?php if ($page === 'notifications' && $unreadNotifications > 0): ?><span class="sidebar-count"><?= $unreadNotifications > 99 ? '99+' : (int) $unreadNotifications ?></span><?php endif; ?>
+                               <span class="nav-icon" aria-hidden="true"><?= h($item[0]) ?></span>
+                               <span class="nav-label"><?= h($item[1]) ?></span>
                             </a>
                         <?php endforeach; ?>
                     </div>
@@ -627,7 +655,7 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                             <!-- <p class="eyebrow">BLOODLIFE MEMBER SPACE</p> -->
                         <?php endif; ?>
                         <h1><?= h($pageTitles[$activePage]) ?></h1>
-                        <?php if ($activePage === 'home'): ?><p>Connect with people. Help save lives.</p><?php endif; ?>
+
                     </div>
                     <?php if ($activePage === 'home'): ?>
                         <a class="button button-secondary" href="dashboard.php?page=donation-offers">♥ Donation Offers</a>
@@ -730,12 +758,12 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                         </form>
                     <?php endif; ?>
                     <section class="feed-column donation-offer-list">
-                        <div class="section-heading"><div><p class="eyebrow">COMMUNITY DONATION OFFERS</p><h2>Potential donors</h2></div></div>
+                        <div class="section-heading"><div><p class="eyebrow" style="font-size: 1.5rem; ">COMMUNITY DONATION OFFERS</p><h2>Donation offers</h2></div></div>
                         <?php if (!$posts): ?>
                             <div class="empty-state panel"><strong>No donation offers have been published yet.</strong><span>You can still request blood or publish the first offer when the database update is applied.</span></div>
                         <?php else: ?>
                             <?php foreach ($posts as $post): ?>
-                                <?php render_post_card($post, $commentsByPost[$post['id']] ?? [], $csrfToken, $userId); ?>
+                                <?php render_post_card($post, $commentsByPost[$post['id']] ?? [], $csrfToken, $userId, true); ?>
                             <?php endforeach; ?>
                         <?php endif; ?>
                     </section>
@@ -851,12 +879,7 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                             <?php if ($unreadNotifications): ?><form method="post" action="action.php"><input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>"><input type="hidden" name="action" value="notifications_read_all"><button class="text-button" type="submit">Mark all as read</button></form><?php endif; ?>
                         </div>
                         <?php if (!$notificationRows): ?><div class="empty-state"><strong>You're all caught up.</strong><span>Replies to your requests and comments on your posts will appear here.</span></div><?php else: ?>
-                            <div class="notification-list"><?php foreach ($notificationRows as $notification): $targetPage = in_array($notification['notification_type'], ['request_response', 'request_message'], true) ? 'my-requests' : 'my-posts'; ?>
-                                <form class="notification-item <?= !$notification['is_read'] ? 'unread' : '' ?>" method="post" action="action.php">
-                                    <input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>"><input type="hidden" name="action" value="notification_open"><input type="hidden" name="notification_id" value="<?= (int) $notification['id'] ?>"><input type="hidden" name="target_page" value="<?= h($targetPage) ?>">
-                                    <button type="submit"><span class="avatar avatar-small"><?= h(member_initials($notification['actor_name'] ?: 'BloodLife member')) ?></span><span><strong><?= h($notification['actor_name'] ?: 'A BloodLife member') ?> <?= h($notification['message']) ?></strong><small><?= h(date('M j, Y g:i a', strtotime($notification['created_at']))) ?></small></span><span class="notification-open">View</span></button>
-                                </form>
-                            <?php endforeach; ?></div>
+                            <div class="notification-list"><?php render_notification_items($notificationRows, $csrfToken); ?></div>
                         <?php endif; ?>
                     </section>
                 <?php elseif ($activePage === 'profile'): ?>
@@ -996,17 +1019,21 @@ function render_request_conversation(int $responseId, array $messages, string $c
     <?php
 }
 
-function render_post_card(array $post, array $comments, string $csrfToken, int $userId): void
+function render_post_card(array $post, array $comments, string $csrfToken, int $userId, bool $donationOfferView = false): void
 {
     $authorName = trim(($post['author_name'] ?? '') . ' ' . ($post['author_last_name'] ?? ''));
     if ($authorName === '') {
         $authorName = 'BloodLife member';
     }
+    $isOwnPost = (int) $post['user_id'] === $userId;
     ?>
     <article class="post-card panel" id="post-<?= (int) $post['id'] ?>">
         <div class="post-meta">
             <span class="avatar"><?= h(member_initials($authorName)) ?></span>
-            <div class="post-author"><strong><?= h($authorName) ?></strong><span><?= h(post_label($post['post_type'])) ?><?php if (!empty($post['author_city'])): ?> · <?= h($post['author_city']) ?><?php endif; ?></span></div>
+            <div class="post-author">
+                <div class="post-author-heading"><strong><?= h($authorName) ?></strong><?php if ($isOwnPost): ?><span class="post-author-you">You</span><?php endif; ?></div>
+                <span><?= h(post_label($post['post_type'])) ?><?php if (!empty($post['author_city'])): ?> · <?= h($post['author_city']) ?><?php endif; ?></span>
+            </div>
             <time datetime="<?= h($post['created_at']) ?>"><?= h(date('M j, Y', strtotime($post['created_at']))) ?></time>
         </div>
         <?php if ($post['post_type'] === 'event' && !empty($post['event_title'])): ?><h3 class="event-card-title"><?= h($post['event_title']) ?></h3><?php endif; ?>
@@ -1023,21 +1050,25 @@ function render_post_card(array $post, array $comments, string $csrfToken, int $
         <?php endif; ?>
         <p class="post-content"><?= nl2br(h($post['content'])) ?></p>
         <?php if ($post['post_type'] === 'donation'): ?><p class="form-help offer-safety-note">Potential contact only, not confirmed availability or medical eligibility. Coordinate screening and donation with an authorized facility. Do not share private contact details in public comments.</p><?php endif; ?>
-        <div class="post-counts"><span><?= (int) $post['like_count'] ?> likes</span><a href="#comments-<?= (int) $post['id'] ?>"><?= (int) $post['comment_count'] ?> comments</a></div>
-        <div class="post-actions">
-            <form method="post" action="action.php">
-                <input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>"><input type="hidden" name="action" value="post_interaction"><input type="hidden" name="post_id" value="<?= (int) $post['id'] ?>"><input type="hidden" name="interaction" value="like"><input type="hidden" name="return_page" value="<?= $post['post_type'] === 'donation' ? 'donation-offers' : 'home' ?>">
-                <button type="submit" class="<?= $post['liked_by_me'] ? 'selected' : '' ?>"><?= $post['liked_by_me'] ? '♥ Liked' : '♡ Like' ?></button>
-            </form>
-            <a href="#comments-<?= (int) $post['id'] ?>">▤ Comment</a>
-            <button type="button" class="share-post-button" data-share-form="sharePost<?= (int) $post['id'] ?>" data-share-url="<?= h('dashboard.php?page=home&post=' . (int) $post['id']) ?>" data-share-title="<?= h($authorName . ' on BloodLife') ?>">↗ Share</button>
-            <form class="visually-hidden share-record-form" id="sharePost<?= (int) $post['id'] ?>" method="post" action="action.php">
-                <input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>"><input type="hidden" name="action" value="post_share"><input type="hidden" name="async" value="1"><input type="hidden" name="post_id" value="<?= (int) $post['id'] ?>"><input type="hidden" name="return_page" value="<?= $post['post_type'] === 'donation' ? 'donation-offers' : 'home' ?>">
-            </form>
-            <form method="post" action="action.php">
-                <input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>"><input type="hidden" name="action" value="post_interaction"><input type="hidden" name="post_id" value="<?= (int) $post['id'] ?>"><input type="hidden" name="interaction" value="save"><input type="hidden" name="return_page" value="<?= $post['post_type'] === 'donation' ? 'donation-offers' : 'home' ?>">
-                <button type="submit" class="<?= $post['saved_by_me'] ? 'selected' : '' ?>"><?= $post['saved_by_me'] ? '★ Saved' : '☆ Save' ?></button>
-            </form>
+        <?php if (!$donationOfferView): ?>
+            <div class="post-counts"><span><?= (int) $post['like_count'] ?> likes</span><a href="#comments-<?= (int) $post['id'] ?>"><?= (int) $post['comment_count'] ?> comments</a></div>
+        <?php endif; ?>
+        <div class="post-actions<?= $donationOfferView ? ' donation-offer-actions' : '' ?>">
+            <?php if (!$donationOfferView): ?>
+                <form method="post" action="action.php">
+                    <input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>"><input type="hidden" name="action" value="post_interaction"><input type="hidden" name="post_id" value="<?= (int) $post['id'] ?>"><input type="hidden" name="interaction" value="like"><input type="hidden" name="return_page" value="<?= $post['post_type'] === 'donation' ? 'donation-offers' : 'home' ?>">
+                    <button type="submit" class="<?= $post['liked_by_me'] ? 'selected' : '' ?>"><?= $post['liked_by_me'] ? '♥ Liked' : '♡ Like' ?></button>
+                </form>
+                <a href="#comments-<?= (int) $post['id'] ?>">▤ Comment</a>
+                <button type="button" class="share-post-button" data-share-form="sharePost<?= (int) $post['id'] ?>" data-share-url="<?= h('dashboard.php?page=home&post=' . (int) $post['id']) ?>" data-share-title="<?= h($authorName . ' on BloodLife') ?>">↗ Share</button>
+                <form class="visually-hidden share-record-form" id="sharePost<?= (int) $post['id'] ?>" method="post" action="action.php">
+                    <input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>"><input type="hidden" name="action" value="post_share"><input type="hidden" name="async" value="1"><input type="hidden" name="post_id" value="<?= (int) $post['id'] ?>"><input type="hidden" name="return_page" value="<?= $post['post_type'] === 'donation' ? 'donation-offers' : 'home' ?>">
+                </form>
+                <form method="post" action="action.php">
+                    <input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>"><input type="hidden" name="action" value="post_interaction"><input type="hidden" name="post_id" value="<?= (int) $post['id'] ?>"><input type="hidden" name="interaction" value="save"><input type="hidden" name="return_page" value="<?= $post['post_type'] === 'donation' ? 'donation-offers' : 'home' ?>">
+                    <button type="submit" class="<?= $post['saved_by_me'] ? 'selected' : '' ?>"><?= $post['saved_by_me'] ? '★ Saved' : '☆ Save' ?></button>
+                </form>
+            <?php endif; ?>
             <?php if ((int) $post['user_id'] !== $userId && !$post['reported_by_me']): ?>
                 <form class="confirm-report-form" method="post" action="action.php">
                     <input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>"><input type="hidden" name="action" value="post_interaction"><input type="hidden" name="post_id" value="<?= (int) $post['id'] ?>"><input type="hidden" name="interaction" value="report">
@@ -1054,18 +1085,20 @@ function render_post_card(array $post, array $comments, string $csrfToken, int $
                 </form>
             <?php endif; ?>
         </div>
-        <div class="post-comments" id="comments-<?= (int) $post['id'] ?>">
-            <?php foreach ($comments as $comment): ?>
-                <?php $commentAuthor = trim(($comment['author_name'] ?? '') . ' ' . ($comment['author_last_name'] ?? '')); ?>
-                <div class="comment"><span class="avatar avatar-small"><?= h(member_initials($commentAuthor)) ?></span><div><strong><?= h($commentAuthor ?: 'BloodLife member') ?></strong><p><?= nl2br(h($comment['comment'])) ?></p></div></div>
-            <?php endforeach; ?>
-            <form class="comment-form" method="post" action="action.php">
-                <input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>"><input type="hidden" name="action" value="comment"><input type="hidden" name="post_id" value="<?= (int) $post['id'] ?>">
-                <input type="hidden" name="return_page" value="<?= $post['post_type'] === 'donation' ? 'donation-offers' : 'home' ?>">
-                <label class="visually-hidden" for="comment-<?= (int) $post['id'] ?>">Add a comment</label>
-                <input id="comment-<?= (int) $post['id'] ?>" type="text" name="comment" maxlength="500" required placeholder="Write a comment..."><button class="button button-small button-secondary" type="submit">Comment</button>
-            </form>
-        </div>
+        <?php if (!$donationOfferView): ?>
+            <div class="post-comments" id="comments-<?= (int) $post['id'] ?>">
+                <?php foreach ($comments as $comment): ?>
+                    <?php $commentAuthor = trim(($comment['author_name'] ?? '') . ' ' . ($comment['author_last_name'] ?? '')); ?>
+                    <div class="comment"><span class="avatar avatar-small"><?= h(member_initials($commentAuthor)) ?></span><div><strong><?= h($commentAuthor ?: 'BloodLife member') ?></strong><p><?= nl2br(h($comment['comment'])) ?></p></div></div>
+                <?php endforeach; ?>
+                <form class="comment-form" method="post" action="action.php">
+                    <input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>"><input type="hidden" name="action" value="comment"><input type="hidden" name="post_id" value="<?= (int) $post['id'] ?>">
+                    <input type="hidden" name="return_page" value="<?= $post['post_type'] === 'donation' ? 'donation-offers' : 'home' ?>">
+                    <label class="visually-hidden" for="comment-<?= (int) $post['id'] ?>">Add a comment</label>
+                    <input id="comment-<?= (int) $post['id'] ?>" type="text" name="comment" maxlength="500" required placeholder="Write a comment..."><button class="button button-small button-secondary" type="submit">Comment</button>
+                </form>
+            </div>
+        <?php endif; ?>
     </article>
     <?php
 }

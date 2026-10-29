@@ -3,6 +3,13 @@ document.addEventListener("DOMContentLoaded", function () {
     const sidebarToggle = document.getElementById("sidebarToggle");
     const scrim = document.getElementById("mobileScrim");
     const sidebarLinks = document.querySelectorAll(".sidebar-link");
+    const notificationMenu = document.querySelector(".notification-menu");
+
+    document.addEventListener("click", function (event) {
+        if (notificationMenu && !notificationMenu.contains(event.target)) {
+            notificationMenu.removeAttribute("open");
+        }
+    });
 
     document.querySelectorAll("[data-modal-open]").forEach(function (button) {
         button.addEventListener("click", function () {
@@ -89,6 +96,9 @@ document.addEventListener("DOMContentLoaded", function () {
         document.addEventListener("keydown", function (event) {
             if (event.key === "Escape") {
                 closeSidebar();
+                if (notificationMenu) {
+                    notificationMenu.removeAttribute("open");
+                }
                 const profileMenu = document.querySelector(".profile-menu");
                 if (profileMenu) {
                     profileMenu.removeAttribute("open");
