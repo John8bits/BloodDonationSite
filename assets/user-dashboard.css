@@ -1508,6 +1508,102 @@ input:disabled {
     margin: 14px 0 0;
 }
 
+.donation-offer-conversation {
+    display: grid;
+    gap: 10px;
+    margin-top: 15px;
+    padding: 13px;
+    background: #f8fafc;
+    border-radius: 10px;
+}
+
+.donation-offer-conversation > h3,
+.offer-message-thread > h4 {
+    margin: 0;
+    color: var(--ink);
+    font-size: 13px;
+}
+
+.offer-conversation-help,
+.offer-conversation-empty {
+    margin: -5px 0 0;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.offer-message-thread {
+    display: grid;
+    gap: 8px;
+    padding-top: 10px;
+    border-top: 1px solid var(--line);
+}
+
+.offer-message-list {
+    display: grid;
+    gap: 7px;
+    max-height: 300px;
+    overflow-y: auto;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.offer-message-list li {
+    width: fit-content;
+    max-width: 90%;
+    justify-self: start;
+    padding: 8px 10px;
+    background: white;
+    border: 1px solid var(--line);
+    border-radius: 9px;
+}
+
+.offer-message-list li.sent {
+    justify-self: end;
+    background: #fff5f5;
+}
+
+.offer-message-meta {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.offer-message-meta strong,
+.offer-message-meta time {
+    color: var(--muted);
+    font-size: 10px;
+}
+
+.offer-message-list li p {
+    margin: 4px 0 0;
+    color: var(--ink);
+    font-size: 12px;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+
+.offer-message-form {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    gap: 8px;
+}
+
+.offer-message-form textarea {
+    min-height: 42px;
+    max-height: 120px;
+    padding: 9px 10px;
+    font-size: 12px;
+}
+
+.offer-message-form button {
+    min-height: 38px;
+}
+
 .donation-offer-card .donation-offer-actions {
     flex-wrap: wrap;
     justify-content: flex-end;
@@ -1559,6 +1655,14 @@ input:disabled {
 @media (max-width: 520px) {
     .donation-offer-card {
         padding: 16px 14px 12px;
+    }
+
+    .offer-message-form {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .offer-message-form button {
+        justify-self: end;
     }
 
     .offer-report[open] {

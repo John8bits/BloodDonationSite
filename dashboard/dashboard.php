@@ -46,7 +46,9 @@ function post_label(string $type): string
 function render_notification_items(array $notifications, string $csrfToken): void
 {
     foreach ($notifications as $notification):
-        $targetPage = in_array($notification['notification_type'], ['request_response', 'request_message'], true) ? 'my-requests' : 'my-posts';
+        $targetPage = in_array($notification['notification_type'], ['request_response', 'request_message'], true)
+            ? 'my-requests'
+            : ($notification['notification_type'] === 'donation_offer_message' ? 'donation-offers' : 'my-posts');
         ?>
         <form class="notification-item <?= !$notification['is_read'] ? 'unread' : '' ?>" method="post" action="action.php">
             <input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>"><input type="hidden" name="action" value="notification_open"><input type="hidden" name="notification_id" value="<?= (int) $notification['id'] ?>"><input type="hidden" name="target_page" value="<?= h($targetPage) ?>">
@@ -93,22 +95,26 @@ $profile = [
     'notify_post_comments' => 1
 ];
 $posts = $openRequests = $myRequests = $respondedRequests = $donors = $commentsByPost = [];
-$notificationRows = $searchPosts = $searchRequests = [];
+$notificationRows = $searchPosts = $searchRequests = $offerMessagesByPost = [];
 $unreadNotifications = 0;
 $statistics = ['posts' => 0, 'requests' => 0, 'responses' => 0, 'saved' => 0];
 $schemaReady = false;
 $schemaError = '';
 $donationFieldsAvailable = false;
+$offerMessagesAvailable = false;
 
 try {
     $pdo = (new Database())->getConnection();
     $requiredTables = ['community_posts', 'blood_requests', 'request_responses', 'request_response_messages', 'post_comments', 'post_interactions', 'member_notifications'];
+    $optionalTables = ['donation_offer_messages'];
+    $tablesToCheck = array_merge($requiredTables, $optionalTables);
     $tableQuery = $pdo->prepare(
         'SELECT TABLE_NAME FROM information_schema.TABLES
-         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN (' . implode(',', array_fill(0, count($requiredTables), '?')) . ')'
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN (' . implode(',', array_fill(0, count($tablesToCheck), '?')) . ')'
     );
-    $tableQuery->execute($requiredTables);
+    $tableQuery->execute($tablesToCheck);
     $availableTables = $tableQuery->fetchAll(PDO::FETCH_COLUMN);
+    $offerMessagesAvailable = in_array('donation_offer_messages', $availableTables, true);
     $requiredColumns = [
         'uinfo' => ['fname', 'lname', 'email', 'btype', 'phone', 'city', 'donor_available', 'notify_request_responses', 'notify_post_comments'],
         'community_posts' => ['id', 'user_id', 'post_type', 'content', 'event_date', 'created_at'],
@@ -151,6 +157,16 @@ try {
     }
     if ($postTypeColumn !== null && strpos($postTypeColumn, 'success_story') === false) {
         $missingColumns[] = 'community_posts.post_type (success_story category)';
+    }
+    if ($offerMessagesAvailable) {
+        $columnQuery->execute(['donation_offer_messages']);
+        $offerMessageColumns = $columnQuery->fetchAll(PDO::FETCH_KEY_PAIR);
+        $offerMessageRequiredColumns = ['id', 'post_id', 'seeker_id', 'sender_id', 'message', 'created_at'];
+        $offerMessagesAvailable = !array_diff($offerMessageRequiredColumns, array_keys($offerMessageColumns));
+        $columnQuery->execute(['member_notifications']);
+        $notificationColumns = $columnQuery->fetchAll(PDO::FETCH_KEY_PAIR);
+        $offerMessagesAvailable = $offerMessagesAvailable
+            && strpos($notificationColumns['notification_type'] ?? '', 'donation_offer_message') !== false;
     }
 
     if ($missingTables || $missingColumns) {
@@ -395,6 +411,38 @@ try {
         $posts = $postStmt->fetchAll();
         if ($activePage === 'search') {
             $searchPosts = $posts;
+        }
+
+        if ($activePage === 'donation-offers' && $offerMessagesAvailable && $posts) {
+            $postIds = array_map(static function ($post) {
+                return (int) $post['id'];
+            }, $posts);
+            $placeholders = implode(',', array_fill(0, count($postIds), '?'));
+            $offerMessageStmt = $pdo->prepare(
+                "SELECT m.post_id, m.seeker_id, m.sender_id, m.message, m.created_at,
+                        sender.fname AS sender_first_name, sender.lname AS sender_last_name,
+                        seeker.fname AS seeker_first_name, seeker.lname AS seeker_last_name
+                 FROM donation_offer_messages m
+                 JOIN community_posts cp ON cp.id = m.post_id
+                 JOIN uinfo sender ON sender.id = m.sender_id
+                 JOIN uinfo seeker ON seeker.id = m.seeker_id
+                 WHERE m.post_id IN ({$placeholders})
+                   AND (m.seeker_id = ? OR cp.user_id = ?)
+                 ORDER BY m.post_id, m.seeker_id, m.created_at, m.id"
+            );
+            $offerMessageStmt->execute(array_merge($postIds, [$userId, $userId]));
+            foreach ($offerMessageStmt->fetchAll() as $offerMessage) {
+                $postId = (int) $offerMessage['post_id'];
+                $seekerId = (int) $offerMessage['seeker_id'];
+                if (!isset($offerMessagesByPost[$postId][$seekerId])) {
+                    $offerMessagesByPost[$postId][$seekerId] = [
+                        'seeker_name' => trim((string) $offerMessage['seeker_first_name'] . ' ' . (string) $offerMessage['seeker_last_name']),
+                        'messages' => []
+                    ];
+                }
+                $offerMessage['sender_name'] = trim((string) $offerMessage['sender_first_name'] . ' ' . (string) $offerMessage['sender_last_name']);
+                $offerMessagesByPost[$postId][$seekerId]['messages'][] = $offerMessage;
+            }
         }
 
         if ($posts && $activePage !== 'donation-offers') {
@@ -759,11 +807,14 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                     <?php endif; ?>
                     <section class="feed-column donation-offer-list">
                         <!-- <div class="section-heading"><div><p class="eyebrow">DONATION OFFERS</p><h2>Community offers</h2></div></div> -->
+                        <?php if (!$offerMessagesAvailable): ?>
+                            <div class="notice notice-info" role="status">Private donor conversations are not enabled yet. Run <code>database_sql/donation_offer_messages_migration.sql</code> to let members contact and reply to donors.</div>
+                        <?php endif; ?>
                         <?php if (!$posts): ?>
                             <div class="empty-state panel"><strong>No donation offers have been published yet.</strong><span>You can still request blood or publish the first offer when the database update is applied.</span></div>
                         <?php else: ?>
                             <?php foreach ($posts as $post): ?>
-                                <?php render_post_card($post, $commentsByPost[$post['id']] ?? [], $csrfToken, $userId, true); ?>
+                                <?php render_post_card($post, $commentsByPost[$post['id']] ?? [], $csrfToken, $userId, true, $offerMessagesByPost[$post['id']] ?? [], $offerMessagesAvailable); ?>
                             <?php endforeach; ?>
                         <?php endif; ?>
                     </section>
@@ -901,7 +952,7 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                         <form class="stacked-form profile-form" method="post" action="action.php">
                             <input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>"><input type="hidden" name="action" value="settings">
                             <label class="checkbox-label"><input type="checkbox" name="notify_request_responses" value="1" <?= $profile['notify_request_responses'] ? 'checked' : '' ?>><span>Notify me when another member responds to or messages me about a blood request.</span></label>
-                            <label class="checkbox-label"><input type="checkbox" name="notify_post_comments" value="1" <?= $profile['notify_post_comments'] ? 'checked' : '' ?>><span>Notify me when another member likes, comments on, shares, or saves my posts.</span></label>
+                            <label class="checkbox-label"><input type="checkbox" name="notify_post_comments" value="1" <?= $profile['notify_post_comments'] ? 'checked' : '' ?>><span>Notify me about activity on my posts and private messages about my donation offers.</span></label>
                             <button class="button button-primary" type="submit">Save Preferences</button>
                         </form>
                         <div class="privacy-callout"><strong>Your privacy matters</strong><p>Donor search only shows your first name, blood type, and city after you opt in. Phone, email, precise addresses, and medical records are not displayed to other members.</p></div>
@@ -1019,7 +1070,73 @@ function render_request_conversation(int $responseId, array $messages, string $c
     <?php
 }
 
-function render_post_card(array $post, array $comments, string $csrfToken, int $userId, bool $donationOfferView = false): void
+function render_offer_message_form(int $postId, int $seekerId, string $csrfToken, bool $isReply): void
+{
+    $formId = 'offer-message-' . $postId . '-' . $seekerId;
+    ?>
+    <form class="offer-message-form" method="post" action="action.php">
+        <input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>">
+        <input type="hidden" name="action" value="donation_offer_message">
+        <input type="hidden" name="post_id" value="<?= $postId ?>">
+        <input type="hidden" name="seeker_id" value="<?= $seekerId ?>">
+        <label class="visually-hidden" for="<?= h($formId) ?>"><?= $isReply ? 'Reply to this private conversation' : 'Message the donor privately' ?></label>
+        <textarea id="<?= h($formId) ?>" name="message" maxlength="1000" rows="2" required placeholder="<?= $isReply ? 'Write a private reply...' : 'Ask the donor about this offer...' ?>"></textarea>
+        <button class="button button-primary button-small" type="submit"><?= $isReply ? 'Send reply' : 'Message donor' ?></button>
+    </form>
+    <?php
+}
+
+function render_offer_message_thread(array $thread, int $postId, int $seekerId, string $csrfToken, int $userId, bool $isOfferOwner): void
+{
+    ?>
+    <div class="offer-message-thread">
+        <h4><?= $isOfferOwner ? h($thread['seeker_name'] ?: 'Interested member') : 'Your conversation with the donor' ?></h4>
+        <ol class="offer-message-list">
+            <?php foreach ($thread['messages'] as $message): ?>
+                <?php $isOwnMessage = (int) $message['sender_id'] === $userId; ?>
+                <li class="<?= $isOwnMessage ? 'sent' : 'received' ?>">
+                    <div class="offer-message-meta">
+                        <strong><?= $isOwnMessage ? 'You' : h($message['sender_name'] ?: 'BloodLife member') ?></strong>
+                        <time datetime="<?= h($message['created_at']) ?>"><?= h(date('M j, Y g:i a', strtotime($message['created_at']))) ?></time>
+                    </div>
+                    <p><?= nl2br(h($message['message'])) ?></p>
+                </li>
+            <?php endforeach; ?>
+        </ol>
+        <?php render_offer_message_form($postId, $seekerId, $csrfToken, true); ?>
+    </div>
+    <?php
+}
+
+function render_donation_offer_conversation(array $post, array $threads, string $csrfToken, int $userId): void
+{
+    $postId = (int) $post['id'];
+    $isOfferOwner = (int) $post['user_id'] === $userId;
+    ?>
+    <section class="donation-offer-conversation" aria-label="Private messages about this donation offer">
+        <?php if ($isOfferOwner): ?>
+            <h3>Private messages</h3>
+            <?php if (!$threads): ?>
+                <p class="offer-conversation-empty">No one has contacted you about this offer yet.</p>
+            <?php else: ?>
+                <?php foreach ($threads as $seekerId => $thread): ?>
+                    <?php render_offer_message_thread($thread, $postId, (int) $seekerId, $csrfToken, $userId, true); ?>
+                <?php endforeach; ?>
+            <?php endif; ?>
+        <?php else: ?>
+            <h3>Contact the donor privately</h3>
+            <p class="offer-conversation-help">Your messages are visible only to you and the donor. Do not share sensitive medical information.</p>
+            <?php if (isset($threads[$userId])): ?>
+                <?php render_offer_message_thread($threads[$userId], $postId, $userId, $csrfToken, $userId, false); ?>
+            <?php else: ?>
+                <?php render_offer_message_form($postId, $userId, $csrfToken, false); ?>
+            <?php endif; ?>
+        <?php endif; ?>
+    </section>
+    <?php
+}
+
+function render_post_card(array $post, array $comments, string $csrfToken, int $userId, bool $donationOfferView = false, array $offerThreads = [], bool $offerMessagesAvailable = false): void
 {
     $authorName = trim(($post['author_name'] ?? '') . ' ' . ($post['author_last_name'] ?? ''));
     if ($authorName === '') {
@@ -1048,6 +1165,9 @@ function render_post_card(array $post, array $comments, string $csrfToken, int $
         <?php endif; ?>
         <p class="post-content<?= $donationOfferView ? ' donation-offer-description' : '' ?>"><?= nl2br(h($post['content'])) ?></p>
         <!-- <?php if ($post['post_type'] === 'donation'): ?><p class="form-help offer-safety-note">Availability is not guaranteed. Avoid sharing private contact details; confirm screening and donation with an authorized facility.</p><?php endif; ?> -->
+        <?php if ($donationOfferView && $offerMessagesAvailable): ?>
+            <?php render_donation_offer_conversation($post, $offerThreads, $csrfToken, $userId); ?>
+        <?php endif; ?> -->
         <?php if (!$donationOfferView): ?>
             <div class="post-counts"><span><?= (int) $post['like_count'] ?> likes</span><a href="#comments-<?= (int) $post['id'] ?>"><?= (int) $post['comment_count'] ?> comments</a></div>
         <?php endif; ?>
