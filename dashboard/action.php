@@ -574,6 +574,68 @@ try {
             $pdo->commit();
             redirect_member('Your private reply has been sent.', 'success', (int) $thread['requester_id'] === $userId ? 'my-requests' : 'responded');
 
+        case 'donation_offer_message':
+            $postId = filter_var($_POST['post_id'] ?? null, FILTER_VALIDATE_INT);
+            $seekerId = filter_var($_POST['seeker_id'] ?? null, FILTER_VALIDATE_INT);
+            $message = trim($_POST['message'] ?? '');
+            if (!$postId || !$seekerId || $message === '' || strlen($message) > 1000) {
+                redirect_member('Enter a private offer message of 1 to 1,000 characters.', 'error', 'donation-offers');
+            }
+
+            $offerStmt = $pdo->prepare(
+                "SELECT id, user_id FROM community_posts
+                 WHERE id = :id AND post_type = 'donation'
+                   AND (donation_available_date IS NULL OR donation_available_date >= CURDATE())
+                 LIMIT 1"
+            );
+            $offerStmt->execute([':id' => $postId]);
+            $offer = $offerStmt->fetch();
+            if (!$offer) {
+                redirect_member('That donation offer is no longer available.', 'error', 'donation-offers');
+            }
+
+            $offerOwnerId = (int) $offer['user_id'];
+            if ($offerOwnerId === $seekerId || ($userId !== $offerOwnerId && $userId !== $seekerId)) {
+                redirect_member('This private conversation is not available to your account.', 'error', 'donation-offers');
+            }
+            if ($userId === $offerOwnerId) {
+                $threadStmt = $pdo->prepare(
+                    'SELECT 1 FROM donation_offer_messages
+                     WHERE post_id = :post_id AND seeker_id = :seeker_id LIMIT 1'
+                );
+                $threadStmt->execute([':post_id' => $postId, ':seeker_id' => $seekerId]);
+                if (!$threadStmt->fetchColumn()) {
+                    redirect_member('You can reply only to a member who has contacted you about this offer.', 'error', 'donation-offers');
+                }
+            }
+
+            $recipientId = $userId === $offerOwnerId ? $seekerId : $offerOwnerId;
+            $pdo->beginTransaction();
+            $messageStmt = $pdo->prepare(
+                'INSERT INTO donation_offer_messages (post_id, seeker_id, sender_id, message)
+                 VALUES (:post_id, :seeker_id, :sender_id, :message)'
+            );
+            $messageStmt->execute([
+                ':post_id' => $postId,
+                ':seeker_id' => $seekerId,
+                ':sender_id' => $userId,
+                ':message' => $message
+            ]);
+            $notifyStmt = $pdo->prepare(
+                'INSERT INTO member_notifications (user_id, actor_id, notification_type, target_id, message)
+                 SELECT id, :actor_id, \'donation_offer_message\', :target_id, :message
+                 FROM uinfo
+                 WHERE id = :recipient_id AND notify_post_comments = 1'
+            );
+            $notifyStmt->execute([
+                ':actor_id' => $userId,
+                ':target_id' => $postId,
+                ':message' => 'sent you a private message about a donation offer.',
+                ':recipient_id' => $recipientId
+            ]);
+            $pdo->commit();
+            redirect_member('Your private message has been sent.', 'success', 'donation-offers', $postId);
+
         case 'notification_open':
             $notificationId = filter_var($_POST['notification_id'] ?? null, FILTER_VALIDATE_INT);
             if (!$notificationId) {
@@ -609,6 +671,27 @@ try {
                     redirect_member('That conversation is no longer available.', 'error', 'notifications');
                 }
                 redirect_member('Conversation opened.', 'success', (int) $thread['requester_id'] === $userId ? 'my-requests' : 'responded');
+            }
+            if ($notification['notification_type'] === 'donation_offer_message') {
+                $offerThreadStmt = $pdo->prepare(
+                    "SELECT cp.id
+                     FROM community_posts cp
+                     WHERE cp.id = :post_id AND cp.post_type = 'donation'
+                       AND (cp.user_id = :owner_id OR EXISTS (
+                           SELECT 1 FROM donation_offer_messages m
+                           WHERE m.post_id = cp.id AND m.seeker_id = :seeker_id
+                       ))
+                     LIMIT 1"
+                );
+                $offerThreadStmt->execute([
+                    ':post_id' => (int) $notification['target_id'],
+                    ':owner_id' => $userId,
+                    ':seeker_id' => $userId
+                ]);
+                if (!$offerThreadStmt->fetchColumn()) {
+                    redirect_member('That donation conversation is no longer available.', 'error', 'notifications');
+                }
+                redirect_member('Donation offer conversation opened.', 'success', 'donation-offers', (int) $notification['target_id']);
             }
             if (in_array($notification['notification_type'], ['post_like', 'post_comment', 'post_share', 'post_save'], true)) {
                 redirect_member('Post activity opened.', 'success', 'my-posts', (int) $notification['target_id']);
