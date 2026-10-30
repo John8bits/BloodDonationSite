@@ -557,7 +557,7 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
             <span aria-hidden="true">☰</span>
         </button>
         <a class="brand" href="dashboard.php?page=home" aria-label="BloodLife home">
-            <img src="../images/Blife_logo.png" alt="">
+            <img src="../images/BlifePH_no_bg.png" alt="">
             <span>BLife PH</span>
         </a>
         <form class="global-search" method="get" action="dashboard.php" role="search">
@@ -758,7 +758,7 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                         </form>
                     <?php endif; ?>
                     <section class="feed-column donation-offer-list">
-                        <div class="section-heading"><div><p class="eyebrow" style="font-size: 1.5rem; ">COMMUNITY DONATION OFFERS</p><h2>Donation offers</h2></div></div>
+                        <!-- <div class="section-heading"><div><p class="eyebrow">DONATION OFFERS</p><h2>Community offers</h2></div></div> -->
                         <?php if (!$posts): ?>
                             <div class="empty-state panel"><strong>No donation offers have been published yet.</strong><span>You can still request blood or publish the first offer when the database update is applied.</span></div>
                         <?php else: ?>
@@ -1027,12 +1027,12 @@ function render_post_card(array $post, array $comments, string $csrfToken, int $
     }
     $isOwnPost = (int) $post['user_id'] === $userId;
     ?>
-    <article class="post-card panel" id="post-<?= (int) $post['id'] ?>">
+    <article class="post-card panel<?= $donationOfferView ? ' donation-offer-card' : '' ?>" id="post-<?= (int) $post['id'] ?>">
         <div class="post-meta">
             <span class="avatar"><?= h(member_initials($authorName)) ?></span>
             <div class="post-author">
                 <div class="post-author-heading"><strong><?= h($authorName) ?></strong><?php if ($isOwnPost): ?><span class="post-author-you">You</span><?php endif; ?></div>
-                <span><?= h(post_label($post['post_type'])) ?><?php if (!empty($post['author_city'])): ?> · <?= h($post['author_city']) ?><?php endif; ?></span>
+                <span><?= h(post_label($post['post_type'])) ?><?php if (!$donationOfferView && !empty($post['author_city'])): ?> · <?= h($post['author_city']) ?><?php endif; ?></span>
             </div>
             <time datetime="<?= h($post['created_at']) ?>"><?= h(date('M j, Y', strtotime($post['created_at']))) ?></time>
         </div>
@@ -1041,15 +1041,13 @@ function render_post_card(array $post, array $comments, string $csrfToken, int $
         <?php if ($post['post_type'] === 'event' && (!empty($post['venue']) || !empty($post['event_city']))): ?><p class="event-date-label"><?= h(trim(($post['venue'] ?? '') . ' ' . ($post['event_city'] ?? ''))) ?></p><?php endif; ?>
         <?php if ($post['post_type'] === 'donation' && !empty($post['donation_blood_type'])): ?>
             <div class="donation-offer-details">
-                <span class="blood-mark"><?= h($post['donation_blood_type']) ?></span>
-                <div>
-                    <strong>Potential donation offer</strong>
-                    <p><?= h($post['donation_location'] ?: 'Location not provided') ?><?php if (!empty($post['donation_available_date'])): ?> · Available on <?= h(date('M j, Y', strtotime($post['donation_available_date']))) ?><?php endif; ?></p>
-                </div>
+                <p><strong>Blood Type:</strong> <?= h($post['donation_blood_type']) ?></p>
+                <p><strong>Area:</strong> <?= h($post['donation_location'] ?: 'Not specified') ?></p>
+                <p><strong>Availability:</strong> <?= !empty($post['donation_available_date']) ? h(date('M j, Y', strtotime($post['donation_available_date']))) : 'Not specified' ?></p>
             </div>
         <?php endif; ?>
-        <p class="post-content"><?= nl2br(h($post['content'])) ?></p>
-        <?php if ($post['post_type'] === 'donation'): ?><p class="form-help offer-safety-note">Potential contact only, not confirmed availability or medical eligibility. Coordinate screening and donation with an authorized facility. Do not share private contact details in public comments.</p><?php endif; ?>
+        <p class="post-content<?= $donationOfferView ? ' donation-offer-description' : '' ?>"><?= nl2br(h($post['content'])) ?></p>
+        <!-- <?php if ($post['post_type'] === 'donation'): ?><p class="form-help offer-safety-note">Availability is not guaranteed. Avoid sharing private contact details; confirm screening and donation with an authorized facility.</p><?php endif; ?> -->
         <?php if (!$donationOfferView): ?>
             <div class="post-counts"><span><?= (int) $post['like_count'] ?> likes</span><a href="#comments-<?= (int) $post['id'] ?>"><?= (int) $post['comment_count'] ?> comments</a></div>
         <?php endif; ?>
@@ -1069,7 +1067,7 @@ function render_post_card(array $post, array $comments, string $csrfToken, int $
                     <button type="submit" class="<?= $post['saved_by_me'] ? 'selected' : '' ?>"><?= $post['saved_by_me'] ? '★ Saved' : '☆ Save' ?></button>
                 </form>
             <?php endif; ?>
-            <?php if ((int) $post['user_id'] !== $userId && !$post['reported_by_me']): ?>
+            <?php if (!$donationOfferView && (int) $post['user_id'] !== $userId && !$post['reported_by_me']): ?>
                 <form class="confirm-report-form" method="post" action="action.php">
                     <input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>"><input type="hidden" name="action" value="post_interaction"><input type="hidden" name="post_id" value="<?= (int) $post['id'] ?>"><input type="hidden" name="interaction" value="report">
                     <input type="hidden" name="return_page" value="<?= $post['post_type'] === 'donation' ? 'donation-offers' : 'home' ?>">
@@ -1077,8 +1075,19 @@ function render_post_card(array $post, array $comments, string $csrfToken, int $
                     <input id="report-reason-<?= (int) $post['id'] ?>" name="report_reason" maxlength="255" required placeholder="Reason for report">
                     <button type="submit">⚑ Report</button>
                 </form>
-            <?php elseif ($post['reported_by_me']): ?><span class="reported-label">Reported</span><?php endif; ?>
-            <?php if ((int) $post['user_id'] === $userId): ?>
+            <?php elseif (!$donationOfferView && $post['reported_by_me']): ?><span class="reported-label">Reported</span><?php endif; ?>
+            <?php if ($donationOfferView && !$isOwnPost && !$post['reported_by_me']): ?>
+                <details class="offer-report">
+                    <summary>Report offer</summary>
+                    <form class="confirm-report-form" method="post" action="action.php">
+                        <input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>"><input type="hidden" name="action" value="post_interaction"><input type="hidden" name="post_id" value="<?= (int) $post['id'] ?>"><input type="hidden" name="interaction" value="report"><input type="hidden" name="return_page" value="donation-offers">
+                        <label class="visually-hidden" for="report-reason-<?= (int) $post['id'] ?>">Reason for reporting this offer</label>
+                        <input id="report-reason-<?= (int) $post['id'] ?>" name="report_reason" maxlength="255" required placeholder="Reason for report">
+                        <button type="submit">Submit report</button>
+                    </form>
+                </details>
+            <?php elseif ($donationOfferView && $post['reported_by_me']): ?><span class="reported-label">Reported</span><?php endif; ?>
+            <?php if ($isOwnPost): ?>
                 <form class="confirm-delete-form" method="post" action="action.php">
                     <input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>"><input type="hidden" name="action" value="delete_post"><input type="hidden" name="post_id" value="<?= (int) $post['id'] ?>">
                     <button class="delete-post-button" type="submit">Delete</button>
