@@ -578,6 +578,7 @@ try {
             $postId = filter_var($_POST['post_id'] ?? null, FILTER_VALIDATE_INT);
             $seekerId = filter_var($_POST['seeker_id'] ?? null, FILTER_VALIDATE_INT);
             $message = trim($_POST['message'] ?? '');
+            $urgency = $_POST['urgency'] ?? '';
             if (!$postId || !$seekerId || $message === '' || strlen($message) > 1000) {
                 redirect_member('Enter a private offer message of 1 to 1,000 characters.', 'error', 'donation-offers');
             }
@@ -598,28 +599,31 @@ try {
             if ($offerOwnerId === $seekerId || ($userId !== $offerOwnerId && $userId !== $seekerId)) {
                 redirect_member('This private conversation is not available to your account.', 'error', 'donation-offers');
             }
-            if ($userId === $offerOwnerId) {
-                $threadStmt = $pdo->prepare(
-                    'SELECT 1 FROM donation_offer_messages
-                     WHERE post_id = :post_id AND seeker_id = :seeker_id LIMIT 1'
-                );
-                $threadStmt->execute([':post_id' => $postId, ':seeker_id' => $seekerId]);
-                if (!$threadStmt->fetchColumn()) {
-                    redirect_member('You can reply only to a member who has contacted you about this offer.', 'error', 'donation-offers');
-                }
+            $threadStmt = $pdo->prepare(
+                'SELECT 1 FROM donation_offer_messages
+                 WHERE post_id = :post_id AND seeker_id = :seeker_id LIMIT 1'
+            );
+            $threadStmt->execute([':post_id' => $postId, ':seeker_id' => $seekerId]);
+            $threadExists = (bool) $threadStmt->fetchColumn();
+            if ($userId === $offerOwnerId && !$threadExists) {
+                redirect_member('You can reply only to a member who has contacted you about this offer.', 'error', 'donation-offers');
+            }
+            if ($userId === $seekerId && !$threadExists && !in_array($urgency, ['routine', 'urgent', 'emergency'], true)) {
+                redirect_member('Select an urgency level before contacting the donor.', 'error', 'donation-offers', $postId);
             }
 
             $recipientId = $userId === $offerOwnerId ? $seekerId : $offerOwnerId;
             $pdo->beginTransaction();
             $messageStmt = $pdo->prepare(
-                'INSERT INTO donation_offer_messages (post_id, seeker_id, sender_id, message)
-                 VALUES (:post_id, :seeker_id, :sender_id, :message)'
+                'INSERT INTO donation_offer_messages (post_id, seeker_id, sender_id, message, urgency)
+                 VALUES (:post_id, :seeker_id, :sender_id, :message, :urgency)'
             );
             $messageStmt->execute([
                 ':post_id' => $postId,
                 ':seeker_id' => $seekerId,
                 ':sender_id' => $userId,
-                ':message' => $message
+                ':message' => $message,
+                ':urgency' => $userId === $seekerId && !$threadExists ? $urgency : null
             ]);
             $notifyStmt = $pdo->prepare(
                 'INSERT INTO member_notifications (user_id, actor_id, notification_type, target_id, message)

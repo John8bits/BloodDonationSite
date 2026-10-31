@@ -52,7 +52,7 @@ function render_notification_items(array $notifications, string $csrfToken): voi
         ?>
         <form class="notification-item <?= !$notification['is_read'] ? 'unread' : '' ?>" method="post" action="action.php">
             <input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>"><input type="hidden" name="action" value="notification_open"><input type="hidden" name="notification_id" value="<?= (int) $notification['id'] ?>"><input type="hidden" name="target_page" value="<?= h($targetPage) ?>">
-            <button type="submit"><span class="avatar avatar-small"><?= h(member_initials($notification['actor_name'] ?: 'BloodLife member')) ?></span><span><strong><?= h($notification['actor_name'] ?: 'A BloodLife member') ?> <?= h($notification['message']) ?></strong><small><?= h(date('M j, Y g:i a', strtotime($notification['created_at']))) ?></small></span><span class="notification-open">View</span></button>
+            <button type="submit"><span class="avatar avatar-small"><?= h(member_initials($notification['actor_name'] ?: 'BLife PH member')) ?></span><span><strong><?= h($notification['actor_name'] ?: 'A BLife PH member') ?> <?= h($notification['message']) ?></strong><small><?= h(date('M j, Y g:i a', strtotime($notification['created_at']))) ?></small></span><span class="notification-open">View</span></button>
         </form>
         <?php
     endforeach;
@@ -161,7 +161,7 @@ try {
     if ($offerMessagesAvailable) {
         $columnQuery->execute(['donation_offer_messages']);
         $offerMessageColumns = $columnQuery->fetchAll(PDO::FETCH_KEY_PAIR);
-        $offerMessageRequiredColumns = ['id', 'post_id', 'seeker_id', 'sender_id', 'message', 'created_at'];
+        $offerMessageRequiredColumns = ['id', 'post_id', 'seeker_id', 'sender_id', 'message', 'urgency', 'created_at'];
         $offerMessagesAvailable = !array_diff($offerMessageRequiredColumns, array_keys($offerMessageColumns));
         $columnQuery->execute(['member_notifications']);
         $notificationColumns = $columnQuery->fetchAll(PDO::FETCH_KEY_PAIR);
@@ -419,7 +419,7 @@ try {
             }, $posts);
             $placeholders = implode(',', array_fill(0, count($postIds), '?'));
             $offerMessageStmt = $pdo->prepare(
-                "SELECT m.post_id, m.seeker_id, m.sender_id, m.message, m.created_at,
+                "SELECT m.post_id, m.seeker_id, m.sender_id, m.message, m.urgency, m.created_at,
                         sender.fname AS sender_first_name, sender.lname AS sender_last_name,
                         seeker.fname AS seeker_first_name, seeker.lname AS seeker_last_name
                  FROM donation_offer_messages m
@@ -437,12 +437,30 @@ try {
                 if (!isset($offerMessagesByPost[$postId][$seekerId])) {
                     $offerMessagesByPost[$postId][$seekerId] = [
                         'seeker_name' => trim((string) $offerMessage['seeker_first_name'] . ' ' . (string) $offerMessage['seeker_last_name']),
+                        'urgency' => 'routine',
+                        'latest_message' => '',
+                        'latest_at' => '',
                         'messages' => []
                     ];
                 }
                 $offerMessage['sender_name'] = trim((string) $offerMessage['sender_first_name'] . ' ' . (string) $offerMessage['sender_last_name']);
-                $offerMessagesByPost[$postId][$seekerId]['messages'][] = $offerMessage;
+                $thread = &$offerMessagesByPost[$postId][$seekerId];
+                if ($offerMessage['urgency'] !== null && $offerMessage['urgency'] !== '') {
+                    $thread['urgency'] = $offerMessage['urgency'];
+                }
+                $thread['latest_message'] = $offerMessage['message'];
+                $thread['latest_at'] = $offerMessage['created_at'];
+                $thread['messages'][] = $offerMessage;
+                unset($thread);
             }
+            foreach ($offerMessagesByPost as &$postThreads) {
+                uasort($postThreads, static function (array $first, array $second): int {
+                    $priority = ['emergency' => 3, 'urgent' => 2, 'routine' => 1];
+                    $urgencyOrder = ($priority[$second['urgency']] ?? 0) <=> ($priority[$first['urgency']] ?? 0);
+                    return $urgencyOrder !== 0 ? $urgencyOrder : strcmp($second['latest_at'], $first['latest_at']);
+                });
+            }
+            unset($postThreads);
         }
 
         if ($posts && $activePage !== 'donation-offers') {
@@ -592,8 +610,8 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Connect with the BloodLife community, find potential donors, and manage blood requests.">
-    <title><?= h($pageTitles[$activePage]) ?> | BloodLife</title>
+    <meta name="description" content="Connect with the BLife PH community, find potential donors, and manage blood requests.">
+    <title><?= h($pageTitles[$activePage]) ?> | BLife PH</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -604,7 +622,7 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
         <button class="icon-button sidebar-toggle" id="sidebarToggle" type="button" aria-label="Toggle navigation" aria-expanded="false" aria-controls="memberSidebar">
             <span aria-hidden="true">☰</span>
         </button>
-        <a class="brand" href="dashboard.php?page=home" aria-label="BloodLife home">
+        <a class="brand" href="dashboard.php?page=home" aria-label="BLife PH home">
             <img src="../images/BlifePH_no_bg.png" alt="">
             <span>BLife PH</span>
         </a>
@@ -808,7 +826,7 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                     <section class="feed-column donation-offer-list">
                         <!-- <div class="section-heading"><div><p class="eyebrow">DONATION OFFERS</p><h2>Community offers</h2></div></div> -->
                         <?php if (!$offerMessagesAvailable): ?>
-                            <div class="notice notice-info" role="status">Private donor conversations are not enabled yet. Run <code>database_sql/donation_offer_messages_migration.sql</code> to let members contact and reply to donors.</div>
+                            <div class="notice notice-info" role="status">Private donor conversations need a database update. Run <code>database_sql/donation_offer_messages_migration.sql</code> for a new installation, or <code>database_sql/donation_offer_urgency_migration.sql</code> if conversations are already enabled.</div>
                         <?php endif; ?>
                         <?php if (!$posts): ?>
                             <div class="empty-state panel"><strong>No donation offers have been published yet.</strong><span>You can still request blood or publish the first offer when the database update is applied.</span></div>
@@ -833,7 +851,7 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                             <div class="empty-state"><strong>No opted-in members found.</strong><span>Try a different filter. Hospital and blood-bank directories are not connected yet.</span></div>
                         <?php else: ?>
                             <div class="donor-grid">
-                                <?php foreach ($donors as $donor): $donorName = trim($donor['fname'] ?: 'BloodLife member'); ?>
+                                <?php foreach ($donors as $donor): $donorName = trim($donor['fname'] ?: 'BLife PH member'); ?>
                                     <article class="donor-card"><span class="avatar"><?= h(member_initials($donorName)) ?></span><span class="blood-mark"><?= h($donor['btype']) ?></span><div><h3><?= h($donorName) ?></h3><p><?= h($donor['city'] ?: 'Location not provided') ?></p><small>Willing to be contacted about donating</small></div></article>
                                 <?php endforeach; ?>
                             </div>
@@ -885,7 +903,7 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                     </dialog>
                 <?php elseif ($activePage === 'events'): ?>
                     <section class="panel">
-                        <p class="form-help">Event details and dates are shared by members and are not independently verified by BloodLife. Contact the organizer or facility before attending.</p>
+                        <p class="form-help">Event details and dates are shared by members and are not independently verified by BLife PH. Contact the organizer or facility before attending.</p>
                         <?php if (!$posts): ?><div class="empty-state"><strong>No upcoming donation event announcements.</strong><span>Members can share an event from Home / Feed.</span><a class="button button-primary" href="dashboard.php?page=home">Go to community feed</a></div><?php else: ?>
                             <?php foreach ($posts as $post): ?><?php render_post_card($post, $commentsByPost[$post['id']] ?? [], $csrfToken, $userId); ?><?php endforeach; ?>
                         <?php endif; ?>
@@ -915,7 +933,7 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                                 <?php if ($activePage === 'my-requests'): ?><?php render_request_card($request, $csrfToken, true); ?>
                                 <?php else: ?>
                                     <article class="request-card panel">
-                                        <div class="request-heading"><span class="blood-mark"><?= h($request['blood_type']) ?></span><div><h3><?= (int) $request['units'] ?> unit<?= (int) $request['units'] === 1 ? '' : 's' ?> requested</h3><p>Requested by <?= h($request['requester_name'] ?: 'BloodLife member') ?></p></div><span class="status-badge status-<?= h($request['effective_status'] ?? $request['status']) ?>"><?= h(ucfirst($request['effective_status'] ?? $request['status'])) ?></span></div>
+                                        <div class="request-heading"><span class="blood-mark"><?= h($request['blood_type']) ?></span><div><h3><?= (int) $request['units'] ?> unit<?= (int) $request['units'] === 1 ? '' : 's' ?> requested</h3><p>Requested by <?= h($request['requester_name'] ?: 'BLife PH member') ?></p></div><span class="status-badge status-<?= h($request['effective_status'] ?? $request['status']) ?>"><?= h(ucfirst($request['effective_status'] ?? $request['status'])) ?></span></div>
                                         <p><strong><?= h($request['hospital']) ?></strong> · <?= h($request['location']) ?> · needed <?= h(date('M j, Y', strtotime($request['needed_by']))) ?></p>
                                         <div class="private-response"><strong>Your offer to help</strong><p><?= $request['response_message'] !== '' ? nl2br(h($request['response_message'])) : 'You offered to help without a message.' ?></p></div>
                                         <?php render_request_conversation((int) $request['response_id'], $request['thread_messages'] ?? [], $csrfToken, $userId, $request['status'] === 'open' && $request['needed_by'] >= date('Y-m-d')); ?>
@@ -959,7 +977,7 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                     </section>
                 <?php elseif ($activePage === 'help'): ?>
                     <section class="help-grid">
-                        <article class="panel"><h2>Using BloodLife safely</h2><p>BloodLife helps members find one another. It does not confirm medical eligibility, blood inventory, or a donor's ability to donate.</p><p>Screening, storage, transportation, and transfusion must be performed by an authorized hospital or blood bank.</p></article>
+                        <article class="panel"><h2>Using BLife PH safely</h2><p>BLife PH helps members find one another. It does not confirm medical eligibility, blood inventory, or a donor's ability to donate.</p><p>Screening, storage, transportation, and transfusion must be performed by an authorized hospital or blood bank.</p></article>
                         <article class="panel"><h2>Protect your information</h2><p>Do not post patient records, test results, private phone numbers, or home addresses. Contact facilities directly to confirm requirements and availability.</p><a href="dashboard.php?page=settings">Review privacy settings</a></article>
                         <article class="panel"><h2>Report a post</h2><p>Use the Report action on a community post to flag content for administrator review. Reports do not mean that a medical claim has been verified.</p><a href="dashboard.php?page=home">Return to the community feed</a></article>
                     </section>
@@ -990,7 +1008,7 @@ function render_request_card(array $request, string $csrfToken, bool $isOwn): vo
     <article class="request-card panel">
         <div class="request-heading">
             <span class="blood-mark"><?= h($request['blood_type']) ?></span>
-            <div><h3><?= (int) $request['units'] ?> unit<?= (int) $request['units'] === 1 ? '' : 's' ?> needed</h3><p><?= $isOwn ? 'Your request' : 'Posted by ' . h($request['requester_name'] ?: 'BloodLife member') ?></p></div>
+            <div><h3><?= (int) $request['units'] ?> unit<?= (int) $request['units'] === 1 ? '' : 's' ?> needed</h3><p><?= $isOwn ? 'Your request' : 'Posted by ' . h($request['requester_name'] ?: 'BLife PH member') ?></p></div>
             <?php if ($isOwn): ?><span class="status-badge status-<?= h($request['effective_status'] ?? $request['status']) ?>"><?= h(ucfirst($request['effective_status'] ?? $request['status'])) ?></span><?php endif; ?>
         </div>
         <p class="facility-line"><strong><?= h($request['hospital']) ?></strong> · <?= h($request['location']) ?></p>
@@ -1070,15 +1088,25 @@ function render_request_conversation(int $responseId, array $messages, string $c
     <?php
 }
 
-function render_offer_message_form(int $postId, int $seekerId, string $csrfToken, bool $isReply): void
+function render_offer_message_form(int $postId, int $seekerId, string $csrfToken, bool $isReply, bool $isFirstMessage = false): void
 {
     $formId = 'offer-message-' . $postId . '-' . $seekerId;
     ?>
-    <form class="offer-message-form" method="post" action="action.php">
+    <form class="offer-message-form<?= $isFirstMessage ? ' offer-first-message-form' : '' ?>" method="post" action="action.php">
         <input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>">
         <input type="hidden" name="action" value="donation_offer_message">
         <input type="hidden" name="post_id" value="<?= $postId ?>">
         <input type="hidden" name="seeker_id" value="<?= $seekerId ?>">
+        <?php if ($isFirstMessage): ?>
+            <label class="offer-urgency-label" for="<?= h($formId) ?>-urgency">How urgent is the need?
+                <select id="<?= h($formId) ?>-urgency" name="urgency" required style="width: 100px;">
+                    <option value="routine">Routine</option>
+                    <option value="urgent">Urgent</option>
+                    <option value="emergency">Emergency</option>
+                </select>
+            </label>
+            <p class="offer-conversation-help">Urgency is self-reported and helps donors prioritize messages. For emergencies, contact a hospital or emergency service immediately.</p>
+        <?php endif; ?>
         <label class="visually-hidden" for="<?= h($formId) ?>"><?= $isReply ? 'Reply to this private conversation' : 'Message the donor privately' ?></label>
         <textarea id="<?= h($formId) ?>" name="message" maxlength="1000" rows="2" required placeholder="<?= $isReply ? 'Write a private reply...' : 'Ask the donor about this offer...' ?>"></textarea>
         <button class="button button-primary button-small" type="submit"><?= $isReply ? 'Send reply' : 'Message donor' ?></button>
@@ -1089,8 +1117,20 @@ function render_offer_message_form(int $postId, int $seekerId, string $csrfToken
 function render_offer_message_thread(array $thread, int $postId, int $seekerId, string $csrfToken, int $userId, bool $isOfferOwner): void
 {
     ?>
-    <div class="offer-message-thread">
-        <h4><?= $isOfferOwner ? h($thread['seeker_name'] ?: 'Interested member') : 'Your conversation with the donor' ?></h4>
+    <details class="offer-message-thread" <?= $isOfferOwner ? '' : 'open' ?>>
+        <?php if ($isOfferOwner): ?>
+            <summary class="offer-thread-summary">
+                <span class="offer-thread-title">
+                    <strong><?= h($thread['seeker_name'] ?: 'Interested member') ?></strong>
+                    <span class="urgency-badge urgency-<?= h($thread['urgency']) ?>"><?= h(ucfirst($thread['urgency'])) ?></span>
+                    <span class="offer-thread-count"><?= count($thread['messages']) ?> message<?= count($thread['messages']) === 1 ? '' : 's' ?></span>
+                </span>
+                <span class="offer-thread-preview"><?= h($thread['latest_message']) ?></span>
+                <time datetime="<?= h($thread['latest_at']) ?>"><?= h(date('M j, Y g:i a', strtotime($thread['latest_at']))) ?></time>
+            </summary>
+        <?php else: ?>
+            <h4>Your conversation with the donor</h4>
+        <?php endif; ?>
         <ol class="offer-message-list">
             <?php foreach ($thread['messages'] as $message): ?>
                 <?php $isOwnMessage = (int) $message['sender_id'] === $userId; ?>
@@ -1104,7 +1144,7 @@ function render_offer_message_thread(array $thread, int $postId, int $seekerId, 
             <?php endforeach; ?>
         </ol>
         <?php render_offer_message_form($postId, $seekerId, $csrfToken, true); ?>
-    </div>
+    </details>
     <?php
 }
 
@@ -1115,7 +1155,8 @@ function render_donation_offer_conversation(array $post, array $threads, string 
     ?>
     <section class="donation-offer-conversation" aria-label="Private messages about this donation offer">
         <?php if ($isOfferOwner): ?>
-            <h3>Private messages</h3>
+            <!-- <h3>Interested members</h3>
+            <p class="offer-conversation-help">Conversations are ordered by the urgency selected by each member. Urgency is self-reported; review each request and reply individually.</p> -->
             <?php if (!$threads): ?>
                 <p class="offer-conversation-empty">No one has contacted you about this offer yet.</p>
             <?php else: ?>
@@ -1129,7 +1170,7 @@ function render_donation_offer_conversation(array $post, array $threads, string 
             <?php if (isset($threads[$userId])): ?>
                 <?php render_offer_message_thread($threads[$userId], $postId, $userId, $csrfToken, $userId, false); ?>
             <?php else: ?>
-                <?php render_offer_message_form($postId, $userId, $csrfToken, false); ?>
+                <?php render_offer_message_form($postId, $userId, $csrfToken, false, true); ?>
             <?php endif; ?>
         <?php endif; ?>
     </section>
@@ -1167,7 +1208,7 @@ function render_post_card(array $post, array $comments, string $csrfToken, int $
         <!-- <?php if ($post['post_type'] === 'donation'): ?><p class="form-help offer-safety-note">Availability is not guaranteed. Avoid sharing private contact details; confirm screening and donation with an authorized facility.</p><?php endif; ?> -->
         <?php if ($donationOfferView && $offerMessagesAvailable): ?>
             <?php render_donation_offer_conversation($post, $offerThreads, $csrfToken, $userId); ?>
-        <?php endif; ?> -->
+        <?php endif; ?>
         <?php if (!$donationOfferView): ?>
             <div class="post-counts"><span><?= (int) $post['like_count'] ?> likes</span><a href="#comments-<?= (int) $post['id'] ?>"><?= (int) $post['comment_count'] ?> comments</a></div>
         <?php endif; ?>
@@ -1178,7 +1219,7 @@ function render_post_card(array $post, array $comments, string $csrfToken, int $
                     <button type="submit" class="<?= $post['liked_by_me'] ? 'selected' : '' ?>"><?= $post['liked_by_me'] ? '♥ Liked' : '♡ Like' ?></button>
                 </form>
                 <a href="#comments-<?= (int) $post['id'] ?>">▤ Comment</a>
-                <button type="button" class="share-post-button" data-share-form="sharePost<?= (int) $post['id'] ?>" data-share-url="<?= h('dashboard.php?page=home&post=' . (int) $post['id']) ?>" data-share-title="<?= h($authorName . ' on BloodLife') ?>">↗ Share</button>
+                <button type="button" class="share-post-button" data-share-form="sharePost<?= (int) $post['id'] ?>" data-share-url="<?= h('dashboard.php?page=home&post=' . (int) $post['id']) ?>" data-share-title="<?= h($authorName . ' on BLifePH') ?>">↗ Share</button>
                 <form class="visually-hidden share-record-form" id="sharePost<?= (int) $post['id'] ?>" method="post" action="action.php">
                     <input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>"><input type="hidden" name="action" value="post_share"><input type="hidden" name="async" value="1"><input type="hidden" name="post_id" value="<?= (int) $post['id'] ?>"><input type="hidden" name="return_page" value="<?= $post['post_type'] === 'donation' ? 'donation-offers' : 'home' ?>">
                 </form>
@@ -1218,7 +1259,7 @@ function render_post_card(array $post, array $comments, string $csrfToken, int $
             <div class="post-comments" id="comments-<?= (int) $post['id'] ?>">
                 <?php foreach ($comments as $comment): ?>
                     <?php $commentAuthor = trim(($comment['author_name'] ?? '') . ' ' . ($comment['author_last_name'] ?? '')); ?>
-                    <div class="comment"><span class="avatar avatar-small"><?= h(member_initials($commentAuthor)) ?></span><div><strong><?= h($commentAuthor ?: 'BloodLife member') ?></strong><p><?= nl2br(h($comment['comment'])) ?></p></div></div>
+                    <div class="comment"><span class="avatar avatar-small"><?= h(member_initials($commentAuthor)) ?></span><div><strong><?= h($commentAuthor ?: 'BLife PH member') ?></strong><p><?= nl2br(h($comment['comment'])) ?></p></div></div>
                 <?php endforeach; ?>
                 <form class="comment-form" method="post" action="action.php">
                     <input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>"><input type="hidden" name="action" value="comment"><input type="hidden" name="post_id" value="<?= (int) $post['id'] ?>">

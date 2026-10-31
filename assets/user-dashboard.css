@@ -1539,6 +1539,78 @@ input:disabled {
     border-top: 1px solid var(--line);
 }
 
+
+
+.offer-message-thread > summary {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 5px 12px;
+    cursor: pointer;
+    list-style: none;
+}
+
+.offer-message-thread > summary::-webkit-details-marker {
+    display: none;
+}
+
+.offer-thread-title {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 7px;
+    color: var(--ink);
+    font-size: 12px;
+}
+
+.offer-thread-count,
+.offer-thread-summary time {
+    color: var(--muted);
+    font-size: 10px;
+}
+
+.offer-thread-preview {
+    grid-column: 1 / -1;
+    overflow: hidden;
+    color: var(--muted);
+    font-size: 11px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.offer-urgency-label {
+    grid-column: 1 / -1;
+    display: grid;
+    gap: 5px;
+    color: var(--ink);
+    font-size: 12px;
+    font-weight: 700;
+    
+}
+
+.offer-urgency-label select {
+    width: 100%;
+    min-height: 38px;
+    padding: 8px 10px;
+    color: var(--ink);
+    background: white;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    font: inherit;
+}
+
+.offer-first-message-form {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.offer-first-message-form > .offer-conversation-help {
+    margin: 0;
+}
+
+.offer-first-message-form > button {
+    justify-self: end;
+}
+
 .offer-message-list {
     display: grid;
     gap: 7px;
@@ -1982,6 +2054,11 @@ input:disabled {
 .urgency-badge.urgency-emergency {
     color: #fff;
     background: #991b1b;
+}
+
+.urgency-badge.urgency-urgent {
+    color: #9f1239;
+    background: #ffe4e6;
 }
 
 .request-responses {

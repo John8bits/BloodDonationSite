@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS `donation_offer_messages` (
   `seeker_id` int(10) UNSIGNED NOT NULL,
   `sender_id` int(10) UNSIGNED NOT NULL,
   `message` varchar(1000) NOT NULL,
+  `urgency` enum('routine','urgent','emergency') DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
   KEY `donation_offer_messages_thread` (`post_id`,`seeker_id`,`created_at`),
