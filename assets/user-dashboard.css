@@ -1402,10 +1402,19 @@ input:disabled {
     gap: 12px;
 }
 
+#postComposer .composer-top {
+    align-items: flex-end;
+}
+
 .post-composer .composer-top textarea {
+    flex: 1;
     min-height: 62px;
     background: #f8fafc;
     border-color: #e8edf3;
+}
+
+#postComposer .composer-top > .button {
+    flex: 0 0 auto;
 }
 
 .composer-bottom {

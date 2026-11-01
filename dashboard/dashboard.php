@@ -546,7 +546,10 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
         <div class="composer-top">
             <span class="avatar"><?= h($initials) ?></span>
             <label class="visually-hidden" for="<?= h($formId) ?>Content"><?= $donationOnly ? 'Describe your donation offer' : 'Write a community post' ?></label>
-            <textarea id="<?= h($formId) ?>Content" name="content" maxlength="1000" rows="2" required placeholder="<?= $donationOnly ? 'Share when and where you may be available to donate...' : 'Share an update about blood donation or the BLife PH community...' ?>"></textarea>
+            <textarea id="<?= h($formId) ?>Content" name="content" maxlength="1000" rows="2" required placeholder="<?= $donationOnly ? 'Share when and where you may be available to donate...' : 'Share an update about the BLife PH community' ?>"></textarea>
+            <?php if (!$donationOnly): ?>
+                <button class="button button-primary" type="submit">Post</button>
+            <?php endif; ?>
         </div>
         <div class="composer-bottom">
             <?php if ($donationOnly): ?>
@@ -555,7 +558,9 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
             <?php else: ?>
                 <input type="hidden" name="post_type" value="community">
             <?php endif; ?>
-            <button class="button button-primary" type="submit"><?= $donationOnly ? 'Publish Donation Offer' : 'Post' ?></button>
+            <?php if ($donationOnly): ?>
+                <button class="button button-primary" type="submit">Publish Donation Offer</button>
+            <?php endif; ?>
         </div>
         <?php if ($donationOnly): ?>
         <div class="donation-offer-fields" data-donation-fields>
