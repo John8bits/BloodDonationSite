@@ -2189,6 +2189,40 @@ input:disabled {
     white-space: normal;
 }
 
+.request-offer {
+    margin-top: 12px;
+}
+
+.request-offer > summary {
+    width: fit-content;
+    list-style: none;
+    cursor: pointer;
+}
+
+.request-offer > summary::-webkit-details-marker {
+    display: none;
+}
+
+.request-offer .response-form {
+    margin-top: 12px;
+}
+
+.accept-offer-form {
+    margin-top: 10px;
+}
+
+.offer-pending-label,
+.offer-accepted-label {
+    margin: 8px 0 0;
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.offer-accepted-label {
+    color: #166534;
+    font-weight: 700;
+}
+
 .dashboard-modal {
     width: min(620px, calc(100% - 32px));
     max-height: min(90vh, 820px);

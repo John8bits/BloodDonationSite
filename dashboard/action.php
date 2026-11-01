@@ -474,8 +474,8 @@ try {
                 redirect_member('You have already responded to that request.', 'error', 'requests');
             }
             $stmt = $pdo->prepare(
-                'INSERT INTO request_responses (request_id, user_id, message)
-                 VALUES (:request_id, :user_id, :message)'
+                "INSERT INTO request_responses (request_id, user_id, message, status)
+                 VALUES (:request_id, :user_id, :message, 'pending')"
             );
             $stmt->execute([
                 ':request_id' => $requestId,
@@ -492,10 +492,65 @@ try {
             $notifyStmt->execute([
                 ':actor_id' => $userId,
                 ':target_id' => $requestId,
-                ':message' => 'responded to your blood request.',
+                ':message' => 'offered to help with your blood request.',
                 ':request_id' => $requestId
             ]);
-            redirect_member('Your response has been sent to the requester.', 'success', 'requests');
+            redirect_member('Your offer has been sent to the requester for review.', 'success', 'requests');
+
+        case 'accept_request_response':
+            $responseId = filter_var($_POST['response_id'] ?? null, FILTER_VALIDATE_INT);
+            if (!$responseId) {
+                redirect_member('Choose a valid offer to accept.', 'error', 'my-requests');
+            }
+
+            $pdo->beginTransaction();
+            $offerStmt = $pdo->prepare(
+                'SELECT rr.id, rr.status AS approval_status, rr.user_id AS responder_id,
+                        br.id AS request_id, br.status AS request_status, br.needed_by
+                 FROM request_responses rr
+                 JOIN blood_requests br ON br.id = rr.request_id
+                 WHERE rr.id = :response_id AND br.requester_id = :requester_id
+                 FOR UPDATE'
+            );
+            $offerStmt->execute([':response_id' => $responseId, ':requester_id' => $userId]);
+            $offer = $offerStmt->fetch();
+            if (!$offer) {
+                $pdo->rollBack();
+                redirect_member('That offer is not attached to one of your blood requests.', 'error', 'my-requests');
+            }
+            if ($offer['approval_status'] !== 'pending') {
+                $pdo->rollBack();
+                redirect_member('That offer has already been reviewed.', 'info', 'my-requests');
+            }
+            if ($offer['request_status'] !== 'open' || $offer['needed_by'] < date('Y-m-d')) {
+                $pdo->rollBack();
+                redirect_member('Offers can only be accepted for an open, current request.', 'error', 'my-requests');
+            }
+
+            $acceptStmt = $pdo->prepare(
+                "UPDATE request_responses SET status = 'accepted'
+                 WHERE id = :response_id AND status = 'pending'"
+            );
+            $acceptStmt->execute([':response_id' => $responseId]);
+            if ($acceptStmt->rowCount() !== 1) {
+                $pdo->rollBack();
+                redirect_member('That offer has already been reviewed.', 'info', 'my-requests');
+            }
+
+            $notifyStmt = $pdo->prepare(
+                'INSERT INTO member_notifications (user_id, actor_id, notification_type, target_id, message)
+                 SELECT id, :actor_id, \'request_response\', :target_id, :message
+                 FROM uinfo
+                 WHERE id = :recipient_id AND notify_request_responses = 1'
+            );
+            $notifyStmt->execute([
+                ':actor_id' => $userId,
+                ':target_id' => (int) $offer['request_id'],
+                ':message' => 'accepted your offer to help with a blood request. You can now message privately.',
+                ':recipient_id' => (int) $offer['responder_id']
+            ]);
+            $pdo->commit();
+            redirect_member('Offer accepted. Private messaging is now available.', 'success', 'my-requests');
 
         case 'request_status':
             $requestId = filter_var($_POST['request_id'] ?? null, FILTER_VALIDATE_INT);
@@ -525,7 +580,7 @@ try {
             }
 
             $threadStmt = $pdo->prepare(
-                'SELECT rr.id, rr.user_id AS responder_id, br.id AS request_id,
+                'SELECT rr.id, rr.status AS approval_status, rr.user_id AS responder_id, br.id AS request_id,
                         br.requester_id, br.status, br.needed_by
                  FROM request_responses rr
                  JOIN blood_requests br ON br.id = rr.request_id
@@ -541,6 +596,9 @@ try {
             $thread = $threadStmt->fetch();
             if (!$thread) {
                 redirect_member('That conversation is not available to your account.', 'error', 'my-requests');
+            }
+            if ($thread['approval_status'] !== 'accepted') {
+                redirect_member('The requester must accept your offer before private messaging is available.', 'error', (int) $thread['requester_id'] === $userId ? 'my-requests' : 'responded');
             }
             if ($thread['status'] !== 'open' || $thread['needed_by'] < date('Y-m-d')) {
                 redirect_member('This blood request is closed, so its conversation can no longer receive replies.', 'error', $thread['requester_id'] == $userId ? 'my-requests' : 'responded');
@@ -675,6 +733,31 @@ try {
                     redirect_member('That conversation is no longer available.', 'error', 'notifications');
                 }
                 redirect_member('Conversation opened.', 'success', (int) $thread['requester_id'] === $userId ? 'my-requests' : 'responded');
+            }
+            if ($notification['notification_type'] === 'request_response') {
+                $requestStmt = $pdo->prepare(
+                    'SELECT br.requester_id,
+                            EXISTS (
+                                SELECT 1 FROM request_responses rr
+                                WHERE rr.request_id = br.id AND rr.user_id = :responder_id
+                            ) AS is_responder
+                     FROM blood_requests br
+                     WHERE br.id = :request_id
+                     LIMIT 1'
+                );
+                $requestStmt->execute([
+                    ':responder_id' => $userId,
+                    ':request_id' => (int) $notification['target_id']
+                ]);
+                $request = $requestStmt->fetch();
+                if (!$request || ((int) $request['requester_id'] !== $userId && !$request['is_responder'])) {
+                    redirect_member('That blood-request update is no longer available.', 'error', 'notifications');
+                }
+                redirect_member(
+                    'Blood-request update opened.',
+                    'success',
+                    (int) $request['requester_id'] === $userId ? 'my-requests' : 'responded'
+                );
             }
             if ($notification['notification_type'] === 'donation_offer_message') {
                 $offerThreadStmt = $pdo->prepare(

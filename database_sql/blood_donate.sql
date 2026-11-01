@@ -132,6 +132,7 @@ CREATE TABLE `request_responses` (
   `request_id` int(10) UNSIGNED NOT NULL,
   `user_id` int(10) UNSIGNED NOT NULL,
   `message` varchar(500) NOT NULL DEFAULT '',
+  `status` enum('pending','accepted') NOT NULL DEFAULT 'accepted',
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
   UNIQUE KEY `request_responses_request_user` (`request_id`, `user_id`),

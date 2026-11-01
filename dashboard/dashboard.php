@@ -115,7 +115,7 @@ try {
         'uinfo' => ['fname', 'lname', 'email', 'btype', 'phone', 'city', 'donor_available', 'notify_request_responses', 'notify_post_comments'],
         'community_posts' => ['id', 'user_id', 'post_type', 'content', 'event_date', 'created_at'],
         'blood_requests' => ['id', 'requester_id', 'blood_type', 'units', 'hospital', 'location', 'needed_by', 'urgency', 'details', 'status', 'created_at'],
-        'request_responses' => ['id', 'request_id', 'user_id', 'message', 'created_at'],
+        'request_responses' => ['id', 'request_id', 'user_id', 'message', 'status', 'created_at'],
         'request_response_messages' => ['id', 'response_id', 'sender_id', 'message', 'created_at'],
         'post_comments' => ['id', 'post_id', 'user_id', 'comment', 'created_at'],
         'post_interactions' => ['post_id', 'user_id', 'interaction', 'created_at'],
@@ -244,7 +244,7 @@ try {
 
         $requestResponsesByRequest = [];
         $myRequestResponsesStmt = $pdo->prepare(
-            'SELECT rr.id AS response_id, rr.request_id, rr.user_id AS responder_id, rr.message, rr.created_at, responder.fname, responder.lname
+            'SELECT rr.id AS response_id, rr.request_id, rr.user_id AS responder_id, rr.message, rr.status AS approval_status, rr.created_at, responder.fname, responder.lname
              FROM request_responses rr
              JOIN blood_requests br ON br.id = rr.request_id
              JOIN uinfo responder ON responder.id = rr.user_id
@@ -257,7 +257,7 @@ try {
         }
 
         $respondedStmt = $pdo->prepare(
-            'SELECT br.*, rr.id AS response_id, rr.message AS response_message, rr.created_at AS responded_at, u.fname AS requester_name
+            'SELECT br.*, rr.id AS response_id, rr.message AS response_message, rr.status AS approval_status, rr.created_at AS responded_at, u.fname AS requester_name
              FROM request_responses rr
              JOIN blood_requests br ON br.id = rr.request_id
              JOIN uinfo u ON u.id = br.requester_id
@@ -275,7 +275,8 @@ try {
              JOIN request_responses rr ON rr.id = rrm.response_id
              JOIN blood_requests br ON br.id = rr.request_id
              JOIN uinfo sender ON sender.id = rrm.sender_id
-             WHERE br.requester_id = :requester_id OR rr.user_id = :responder_id
+             WHERE rr.status = \'accepted\'
+               AND (br.requester_id = :requester_id OR rr.user_id = :responder_id)
              ORDER BY rrm.created_at ASC'
         );
         $requestMessagesStmt->execute([':requester_id' => $userId, ':responder_id' => $userId]);
@@ -310,12 +311,16 @@ try {
             "SELECT br.*, CASE WHEN br.status = 'open' AND br.needed_by < CURDATE() THEN 'expired' ELSE br.status END AS effective_status,
                 u.fname AS requester_name, u.lname AS requester_last_name,
                 EXISTS (SELECT 1 FROM request_responses rr WHERE rr.request_id = br.id AND rr.user_id = :responder_id) AS already_responded,
+                (SELECT rr.status FROM request_responses rr WHERE rr.request_id = br.id AND rr.user_id = :response_status_viewer_id) AS viewer_response_status,
                 (SELECT COUNT(*) FROM request_responses rr WHERE rr.request_id = br.id) AS response_count
              FROM blood_requests br JOIN uinfo u ON u.id = br.requester_id
              WHERE " . implode(' AND ', $requestConditions) . '
              ORDER BY FIELD(br.urgency, \'emergency\', \'urgent\', \'routine\'), br.needed_by ASC, br.created_at DESC'
         );
-        $communityRequestStmt->execute(array_merge([':responder_id' => $userId], $requestParams));
+        $communityRequestStmt->execute(array_merge([
+            ':responder_id' => $userId,
+            ':response_status_viewer_id' => $userId
+        ], $requestParams));
         $openRequests = $communityRequestStmt->fetchAll();
         foreach ($openRequests as &$request) {
             if ((int) $request['requester_id'] === $userId) {
@@ -564,7 +569,7 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
         </div>
         <?php if ($donationOnly): ?>
         <div class="donation-offer-fields" data-donation-fields>
-            <p class="form-help">Let members know what type and area you may be able to help with. Your private phone number is not shown.</p>
+            <!-- <p class="form-help">Let members know what type and area you may be able to help with. Your private phone number is not shown.</p> -->
             <div class="form-row">
                 <label>Blood type
                     <select name="donation_blood_type" <?= $donationOnly ? 'required' : '' ?>>
@@ -700,7 +705,7 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                 <div class="notice notice-error schema-notice" role="alert">
                     <strong>Dashboard database update required.</strong>
                     <span><?= h($schemaError) ?></span>
-                    <p>Run the migrations in <code>database_sql</code>, including <code>request_response_messages_migration.sql</code>, against the configured database. Existing data is retained.</p>
+                    <p>Run the migrations in <code>database_sql</code>, including <code>request_response_messages_migration.sql</code> and <code>request_response_acceptance_migration.sql</code>, against the configured database. Existing data is retained.</p>
                 </div>
             <?php else: ?>
                 <div class="page-heading">
@@ -897,7 +902,11 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                                         <div class="request-heading"><span class="blood-mark"><?= h($request['blood_type']) ?></span><div><h3><?= (int) $request['units'] ?> unit<?= (int) $request['units'] === 1 ? '' : 's' ?> requested</h3><p>Requested by <?= h($request['requester_name'] ?: 'BLife PH member') ?></p></div><span class="status-badge status-<?= h($request['effective_status'] ?? $request['status']) ?>"><?= h(ucfirst($request['effective_status'] ?? $request['status'])) ?></span></div>
                                         <p><strong><?= h($request['hospital']) ?></strong> · <?= h($request['location']) ?> · needed <?= h(date('M j, Y', strtotime($request['needed_by']))) ?></p>
                                         <div class="private-response"><strong>Your offer to help</strong><p><?= $request['response_message'] !== '' ? nl2br(h($request['response_message'])) : 'You offered to help without a message.' ?></p></div>
-                                        <?php render_request_conversation((int) $request['response_id'], $request['thread_messages'] ?? [], $csrfToken, $userId, $request['status'] === 'open' && $request['needed_by'] >= date('Y-m-d')); ?>
+                                        <?php if ($request['approval_status'] === 'accepted'): ?>
+                                            <?php render_request_conversation((int) $request['response_id'], $request['thread_messages'] ?? [], $csrfToken, $userId, $request['status'] === 'open' && $request['needed_by'] >= date('Y-m-d')); ?>
+                                        <?php else: ?>
+                                            <p class="offer-pending-label">Your offer is waiting for the requester to accept it. Private messaging will open after acceptance.</p>
+                                        <?php endif; ?>
                                     </article>
                                 <?php endif; ?>
                             <?php endforeach; ?>
@@ -999,8 +1008,8 @@ function render_request_card(array $request, string $csrfToken, bool $isOwn): vo
         <?php if ($isOwn): ?>
             <p class="request-date"><?= (int) $request['response_count'] ?> response<?= (int) $request['response_count'] === 1 ? '' : 's' ?> received</p>
             <?php if (!empty($request['responses'])): ?>
-                <section class="request-responses" aria-label="Messages from people responding to your request">
-                    <h4>Messages from potential donors</h4>
+                <section class="request-responses" aria-label="Offers from people responding to your request">
+                    <h4>Offers from potential donors</h4>
                     <?php foreach ($request['responses'] as $response): ?>
                         <?php $responderName = trim(($response['fname'] ?? '') . ' ' . ($response['lname'] ?? '')); ?>
                         <article class="request-response">
@@ -1009,7 +1018,19 @@ function render_request_card(array $request, string $csrfToken, bool $isOwn): vo
                                 <time datetime="<?= h($response['created_at']) ?>"><?= h(date('M j, Y g:i a', strtotime($response['created_at']))) ?></time>
                             </div>
                             <p><?= $response['message'] !== '' ? nl2br(h($response['message'])) : 'This member offered to help without a message.' ?></p>
-                            <?php render_request_conversation((int) $response['response_id'], $response['thread_messages'] ?? [], $csrfToken, (int) current_user_id(), ($request['effective_status'] ?? $request['status']) === 'open' && $request['needed_by'] >= date('Y-m-d')); ?>
+                            <?php if ($response['approval_status'] === 'pending' && ($request['effective_status'] ?? $request['status']) === 'open' && $request['needed_by'] >= date('Y-m-d')): ?>
+                                <form class="accept-offer-form" method="post" action="action.php">
+                                    <input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>">
+                                    <input type="hidden" name="action" value="accept_request_response">
+                                    <input type="hidden" name="response_id" value="<?= (int) $response['response_id'] ?>">
+                                    <button class="button button-primary button-small" type="submit">Accept offer</button>
+                                </form>
+                            <?php elseif ($response['approval_status'] === 'accepted'): ?>
+                                <!-- <p class="offer-accepted-label">Offer accepted — private messaging is open.</p> -->
+                                <?php render_request_conversation((int) $response['response_id'], $response['thread_messages'] ?? [], $csrfToken, (int) current_user_id(), ($request['effective_status'] ?? $request['status']) === 'open' && $request['needed_by'] >= date('Y-m-d')); ?>
+                            <?php else: ?>
+                                <p class="offer-pending-label">Waiting for your decision.</p>
+                            <?php endif; ?>
                         </article>
                     <?php endforeach; ?>
                 </section>
@@ -1022,13 +1043,16 @@ function render_request_card(array $request, string $csrfToken, bool $isOwn): vo
                 </form>
             <?php endif; ?>
         <?php elseif ($request['already_responded']): ?>
-            <p class="responded-note">You have responded to this request. <a href="dashboard.php?page=responded">View your response</a></p>
+            <p class="responded-note"><?= ($request['viewer_response_status'] ?? '') === 'accepted' ? 'Your offer was accepted.' : 'Your offer is waiting for the requester to review it.' ?> <a href="dashboard.php?page=responded">View your response</a></p>
         <?php else: ?>
-            <form class="response-form" method="post" action="action.php">
-                <input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>"><input type="hidden" name="action" value="respond"><input type="hidden" name="request_id" value="<?= (int) $request['id'] ?>">
-                <label>Offer to help with a private message <span class="optional">(optional)</span><textarea name="message" maxlength="500" rows="2" placeholder="Let the requester know how you may be able to help."></textarea></label>
-                <button class="button button-primary" type="submit">Send response</button>
-            </form>
+            <details class="request-offer">
+                <summary class="button button-primary">Offer to help</summary>
+                <form class="response-form" method="post" action="action.php">
+                    <input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>"><input type="hidden" name="action" value="respond"><input type="hidden" name="request_id" value="<?= (int) $request['id'] ?>">
+                    <label>Message to the requester <span class="optional">(optional)</span><textarea name="message" maxlength="500" rows="2">Hello! I'm interested in helping with your blood request. Please let me know how I can assist.</textarea></label>
+                    <button class="button button-secondary" type="submit">Send offer</button>
+                </form>
+            </details>
         <?php endif; ?>
         <!-- <p class="form-help">A response is an offer to connect, not confirmed blood availability. Coordinate with the listed facility.</p> -->
     </article>
