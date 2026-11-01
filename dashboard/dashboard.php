@@ -308,7 +308,7 @@ try {
         }
         $communityRequestStmt = $pdo->prepare(
             "SELECT br.*, CASE WHEN br.status = 'open' AND br.needed_by < CURDATE() THEN 'expired' ELSE br.status END AS effective_status,
-                u.fname AS requester_name,
+                u.fname AS requester_name, u.lname AS requester_last_name,
                 EXISTS (SELECT 1 FROM request_responses rr WHERE rr.request_id = br.id AND rr.user_id = :responder_id) AS already_responded,
                 (SELECT COUNT(*) FROM request_responses rr WHERE rr.request_id = br.id) AS response_count
              FROM blood_requests br JOIN uinfo u ON u.id = br.requester_id
@@ -820,25 +820,26 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                 <?php elseif ($activePage === 'blood-requests'): ?>
                     <div class="dashboard-columns">
                         <section class="feed-column">
-                            <div class="section-heading"><div><p class="eyebrow"></p><h2>Open community requests</h2></div></div>
+                            <div class="section-heading"><div><p class="eyebrow"></p><h2>Need Blood? Post a blood request</h2></div></div>
                             <p class="form-help"> <a href="dashboard.php?page=donation-offers"> Browse or publish donation offers</a>.</p>
                             <?php if (!$openRequests): ?><div class="empty-state panel"><strong>No open requests right now.</strong></div><?php else: ?>
                                 <?php foreach ($openRequests as $request): ?><?php render_request_card($request, $csrfToken, (int) $request['requester_id'] === $userId); ?><?php endforeach; ?>
                             <?php endif; ?>
                         </section>
-                        <aside class="right-rail">
+                        <!-- <aside class="right-rail">
                             <section class="panel safety-panel">
                                 <p class="eyebrow">NEED BLOOD?</p>
                                 <h2>Post a blood request now</h2>
-                                <!-- <button class="button button-primary" type="button" data-modal-open="requestModal">＋ Request Blood</button> -->
+                                <button class="button button-primary" type="button" data-modal-open="requestModal">＋ Request Blood</button>
                             </section>
-                        </aside>
+                        </aside> -->
                     </div>
                     <dialog class="dashboard-modal" id="requestModal" aria-labelledby="requestModalTitle">
                         <div class="modal-heading">
                             <div><p class="eyebrow">NEED BLOOD?</p><h2 id="requestModalTitle">Post a blood request</h2></div>
                             <button class="modal-close" type="button" data-modal-close aria-label="Close request form">×</button>
                         </div>
+
                         <form class="stacked-form modal-form" id="requestComposer" method="post" action="action.php">
                                 <input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>"><input type="hidden" name="action" value="request">
                                 <p class="form-help">Requests are for coordination only. Care and transfusions remain with authorized facilities.</p>
@@ -859,6 +860,7 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                                 <label>Additional details <span class="optional">(optional)</span><textarea name="details" maxlength="1000" rows="3" placeholder="Avoid sharing sensitive medical information."></textarea></label>
                                 <button class="button button-primary" type="submit">Publish request</button>
                         </form>
+
                     </dialog>
                 <?php elseif ($activePage === 'events'): ?>
                     <section class="panel">
@@ -963,17 +965,31 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
 
 function render_request_card(array $request, string $csrfToken, bool $isOwn): void
 {
+    $requesterName = trim(($request['requester_name'] ?? '') . ' ' . ($request['requester_last_name'] ?? ''));
+    if ($requesterName === '' && $isOwn) {
+        $requesterName = trim(($_SESSION['first_name'] ?? '') . ' ' . ($_SESSION['last_name'] ?? ''));
+    }
+    if ($requesterName === '') {
+        $requesterName = 'BLife PH member';
+    }
     ?>
     <article class="request-card panel donation-offer-card">
         <div class="request-heading">
             <span class="blood-mark"><?= h($request['blood_type']) ?></span>
-            <div><h3><?= $isOwn ? 'Your request' : 'Blood request' ?></h3><p><?= !$isOwn ? 'Posted by ' . h($request['requester_name'] ?: 'BLife PH member') : h($request['blood_type']) ?></p></div>
+            <div class="post-author">
+                <div class="post-author-heading">
+                    <strong><?= h($requesterName) ?></strong>
+                    <?php if ($isOwn): ?><span class="post-author-you">You</span><?php endif; ?>
+                </div>
+                <span>Blood Request</span>
+            </div>
             <div class="request-heading-badges">
                 <span class="urgency-badge urgency-<?= h($request['urgency'] ?? 'routine') ?>"><?= h(ucfirst($request['urgency'] ?? 'routine')) ?></span>
                 <?php if ($isOwn): ?><span class="status-badge status-<?= h($request['effective_status'] ?? $request['status']) ?>"><?= h(ucfirst($request['effective_status'] ?? $request['status'])) ?></span><?php endif; ?>
             </div>
         </div>
         <div class="donation-offer-details request-offer-details">
+            <p><strong>Blood Type:</strong> <?= h($request['blood_type']) ?></p>
             <p><strong>Unit:</strong> <?= (int) $request['units'] ?></p>
             <p><strong>Location:</strong> <?= h($request['location']) ?></p>
             <p><strong>Hospital:</strong> <?= h($request['hospital']) ?></p>
@@ -1147,7 +1163,7 @@ function render_post_card(array $post, array $comments, string $csrfToken, int $
 {
     $authorName = trim(($post['author_name'] ?? '') . ' ' . ($post['author_last_name'] ?? ''));
     if ($authorName === '') {
-        $authorName = 'BloodLife member';
+        $authorName = 'BLife PH member';
     }
     $isOwnPost = (int) $post['user_id'] === $userId;
     ?>
@@ -1156,7 +1172,7 @@ function render_post_card(array $post, array $comments, string $csrfToken, int $
             <span class="avatar"><?= h(member_initials($authorName)) ?></span>
             <div class="post-author">
                 <div class="post-author-heading"><strong><?= h($authorName) ?></strong><?php if ($isOwnPost): ?><span class="post-author-you">You</span><?php endif; ?></div>
-                <span><?= h(post_label($post['post_type'])) ?><?php if (!$donationOfferView && !empty($post['author_city'])): ?> · <?= h($post['author_city']) ?><?php endif; ?></span>
+                <span style="font-size: 15px;"><?= h(post_label($post['post_type'])) ?><?php if (!$donationOfferView && !empty($post['author_city'])): ?> · <?= h($post['author_city']) ?><?php endif; ?></span>
             </div>
             <time datetime="<?= h($post['created_at']) ?>"><?= h(date('M j, Y', strtotime($post['created_at']))) ?></time>
         </div>

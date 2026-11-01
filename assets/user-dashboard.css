@@ -127,7 +127,9 @@ a {
     font-size: 11px;
     font-weight: 800;
     letter-spacing: 1.2px;
+
 }
+
 
 .welcome-panel .eyebrow {
     color: #ffe3e4;
@@ -1353,6 +1355,7 @@ input:disabled {
     gap: 22px;
 }
 
+
 .feed-column,
 .right-rail {
     display: grid;
@@ -1494,12 +1497,13 @@ input:disabled {
     /* background: #fffafa; 
     border: 1px solid #f3e5e5; */
     border-radius: 12px;
+  
 }
 
 .donation-offer-details p {
     margin: 0;
     color: var(--ink);
-    font-size: 13px;
+    font-size: 19px;
     overflow-wrap: anywhere;
 }
 
@@ -1791,7 +1795,7 @@ input:disabled {
 .post-author strong {
     overflow: hidden;
     color: var(--ink);
-    font-size: 13px;
+    font-size: 17px;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
