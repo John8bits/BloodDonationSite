@@ -68,10 +68,6 @@ $requestedPage = isset($_GET['page']) && is_string($_GET['page']) ? $_GET['page'
 $aliases = ['overview' => 'home', 'donors' => 'find-blood', 'requests' => 'blood-requests', 'community' => 'home', 'donations' => 'donation-offers'];
 $requestedPage = $aliases[$requestedPage] ?? $requestedPage;
 $activePage = in_array($requestedPage, $pages, true) ? $requestedPage : 'home';
-$feedCategory = isset($_GET['category']) && is_string($_GET['category']) ? $_GET['category'] : 'all';
-if (!in_array($feedCategory, ['all', 'requests', 'donation', 'events', 'success'], true)) {
-    $feedCategory = 'all';
-}
 $searchQuery = isset($_GET['q']) && is_string($_GET['q']) ? trim($_GET['q']) : '';
 $donorBloodType = isset($_GET['btype']) && is_string($_GET['btype']) ? trim($_GET['btype']) : '';
 $donorCity = isset($_GET['city']) && is_string($_GET['city']) ? trim($_GET['city']) : '';
@@ -359,18 +355,8 @@ try {
             if ($donationFieldsAvailable) {
                 $postConditions[] = '(cp.donation_available_date IS NULL OR cp.donation_available_date >= CURDATE())';
             }
-        } elseif ($activePage === 'home' && $feedCategory === 'events') {
-            $postConditions[] = "cp.post_type = 'event'";
-            $postConditions[] = '(cp.event_date IS NULL OR cp.event_date >= CURDATE())';
-        } elseif ($activePage === 'home' && $feedCategory === 'donation') {
-            $postConditions[] = "cp.post_type = 'donation'";
-            if ($donationFieldsAvailable) {
-                $postConditions[] = '(cp.donation_available_date IS NULL OR cp.donation_available_date >= CURDATE())';
-            }
-        } elseif ($activePage === 'home' && $feedCategory === 'success') {
-            $postConditions[] = "cp.post_type = 'success_story'";
-        } elseif ($activePage === 'home' && $feedCategory === 'requests') {
-            $postConditions[] = '1 = 0';
+        } elseif ($activePage === 'home') {
+            $postConditions[] = "cp.post_type = 'community'";
         } elseif ($activePage === 'search' && $searchQuery !== '') {
             $postConditions[] = '(cp.content LIKE :post_content_search OR u.fname LIKE :post_name_search OR u.city LIKE :post_city_search)';
             $postParams[':post_content_search'] = '%' . $searchQuery . '%';
@@ -378,7 +364,7 @@ try {
             $postParams[':post_city_search'] = '%' . $searchQuery . '%';
         }
         $postWhere = $postConditions ? ('WHERE ' . implode(' AND ', $postConditions)) : '';
-        $eventSort = $activePage === 'events' || ($activePage === 'home' && $feedCategory === 'events');
+        $eventSort = $activePage === 'events';
         $postOrder = $eventSort
             ? 'COALESCE(cp.event_date, DATE(cp.created_at)) ASC, cp.created_at DESC'
             : 'cp.created_at DESC';
@@ -541,7 +527,7 @@ $pageTitles = [
     'search' => 'Search Results'
 ];
 
-function render_post_composer(string $csrfToken, string $initials, bool $donationOnly = false, bool $donationFieldsAvailable = true, bool $asModal = false): void
+function render_post_composer(string $csrfToken, string $initials, bool $donationOnly = false, bool $asModal = false): void
 {
     $formId = $donationOnly ? 'donationPostComposer' : 'postComposer';
     $modalId = $donationOnly ? 'donationOfferModal' : 'createPostModal';
@@ -560,28 +546,19 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
         <div class="composer-top">
             <span class="avatar"><?= h($initials) ?></span>
             <label class="visually-hidden" for="<?= h($formId) ?>Content"><?= $donationOnly ? 'Describe your donation offer' : 'Write a community post' ?></label>
-            <textarea id="<?= h($formId) ?>Content" name="content" maxlength="1000" rows="2" required placeholder="<?= $donationOnly ? 'Share when and where you may be available to donate...' : 'Share an update with your community...' ?>"></textarea>
+            <textarea id="<?= h($formId) ?>Content" name="content" maxlength="1000" rows="2" required placeholder="<?= $donationOnly ? 'Share when and where you may be available to donate...' : 'Share an update about blood donation or the BLife PH community...' ?>"></textarea>
         </div>
         <div class="composer-bottom">
             <?php if ($donationOnly): ?>
                 <input type="hidden" name="post_type" value="donation">
                 <span class="composer-category">Publishing as <strong>Donation offer</strong></span>
             <?php else: ?>
-                <label class="composer-category">Post as
-                    <select name="post_type" id="postType">
-                        <option value="community">Community update</option>
-                        <option value="donation" <?= $donationFieldsAvailable ? '' : 'disabled' ?>>Donation offer</option>
-                        <option value="event">Donation event</option>
-                        <option value="success_story">Success story</option>
-                    </select>
-                </label>
+                <input type="hidden" name="post_type" value="community">
             <?php endif; ?>
-            <label class="event-date-field" data-event-date-field hidden>Event date
-                <input type="date" name="event_date" min="<?= h(date('Y-m-d')) ?>">
-            </label>
             <button class="button button-primary" type="submit"><?= $donationOnly ? 'Publish Donation Offer' : 'Post' ?></button>
         </div>
-        <div class="donation-offer-fields" data-donation-fields <?= $donationOnly ? '' : 'hidden' ?>>
+        <?php if ($donationOnly): ?>
+        <div class="donation-offer-fields" data-donation-fields>
             <p class="form-help">Let members know what type and area you may be able to help with. Your private phone number is not shown.</p>
             <div class="form-row">
                 <label>Blood type
@@ -600,6 +577,9 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                 <input type="date" name="donation_available_date" min="<?= h(date('Y-m-d')) ?>">
             </label>
         </div>
+        <?php else: ?>
+            <p class="form-help">Share questions, experiences, or updates related to blood donation and the BLife PH community. Keep posts respectful and protect private medical information.</p>
+        <?php endif; ?>
         <!-- <p class="form-help">An offer is not confirmed blood availability or medical eligibility. Coordinate screening and donation through an authorized hospital or blood bank.</p> -->
     </form>
     <?php if ($donationOnly || $asModal): ?></dialog><?php endif; ?>
@@ -743,37 +723,14 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                 <?php endif; ?>
 
                 <?php if ($activePage === 'home'): ?>
-                    <?php render_post_composer($csrfToken, $initials, false, $donationFieldsAvailable, true); ?>
+                    <?php render_post_composer($csrfToken, $initials, false, true); ?>
                     <div class="dashboard-columns">
                         <section class="feed-column">
-                            <div class="feed-filters" aria-label="Feed categories">
-                                <?php
-                                $categories = ['all' => 'All Posts', 'requests' => 'Blood Requests', 'donation' => 'Donation Offers', 'events' => 'Donation Events', 'success' => 'Success Stories'];
-                                foreach ($categories as $category => $label):
-                                ?>
-                                    <a class="<?= $feedCategory === $category ? 'active' : '' ?>" href="dashboard.php?page=home&amp;category=<?= h($category) ?>" <?= $feedCategory === $category ? 'aria-current="page"' : '' ?>><?= h($label) ?></a>
-                                <?php endforeach; ?>
-                            </div>
-
-                            <?php if ($feedCategory !== 'requests'): ?>
-                                <?php if (!$donationFieldsAvailable): ?>
-                                    <div class="notice notice-info">Structured donation offers require the database update in <code>database_sql/donation_offers_migration.sql</code>.</div>
-                                <?php endif; ?>
-                            <?php endif; ?>
-
-                            <?php if ($feedCategory === 'requests'): ?>
-                                <?php if (!$openRequests): ?>
-                                    <div class="empty-state panel"><strong>No open blood requests right now.</strong><span>Check back later or create a post to connect with the community.</span></div>
-                                <?php else: ?>
-                                    <?php foreach ($openRequests as $request): ?>
-                                        <?php render_request_card($request, $csrfToken, (int) $request['requester_id'] === $userId); ?>
-                                    <?php endforeach; ?>
-                                <?php endif; ?>
-                            <?php elseif (!$posts): ?>
+                            <?php if (!$posts): ?>
                                 <div class="empty-state panel">
                                     <span class="empty-icon" aria-hidden="true">♥</span>
-                                    <strong><?= $feedCategory === 'success' ? 'No success stories yet.' : ($feedCategory === 'events' ? 'No upcoming donation events yet.' : 'Your community feed is ready.') ?></strong>
-                                    <span>There are no matching community posts yet. Be the first to share an update.</span>
+                                    <strong>Your community feed is ready.</strong>
+                                    <span>There are no community posts yet. Be the first to share an update about blood donation or BLife PH.</span>
                                 </div>
                             <?php else: ?>
                                 <?php foreach ($posts as $post): ?>
@@ -781,14 +738,6 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                                 <?php endforeach; ?>
                             <?php endif; ?>
 
-                            <?php if ($feedCategory === 'all' && $openRequests): ?>
-                                <section class="feed-section">
-                                    <div class="section-heading"><div><p class="eyebrow">COMMUNITY NEEDS</p><h2>Open blood requests</h2></div><a href="dashboard.php?page=blood-requests">View all</a></div>
-                                    <?php foreach (array_slice($openRequests, 0, 3) as $request): ?>
-                                        <?php render_request_card($request, $csrfToken, (int) $request['requester_id'] === $userId); ?>
-                                    <?php endforeach; ?>
-                                </section>
-                            <?php endif; ?>
                         </section>
 
                         <!-- <aside class="right-rail">
