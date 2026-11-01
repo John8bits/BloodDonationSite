@@ -2120,6 +2120,23 @@ input:disabled {
     background: #ffe4e6;
 }
 
+.request-heading-badges {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 6px;
+    margin-left: auto;
+}
+
+.request-heading-badges .status-badge {
+    margin-left: 0;
+}
+
+.request-offer-details {
+    margin-bottom: 0;
+}
+
 .request-responses {
     display: grid;
     gap: 10px;
@@ -2715,7 +2732,7 @@ input:disabled {
         flex-wrap: wrap;
     }
 
-    .request-heading .status-badge {
+    .request-heading-badges {
         margin-left: 58px;
     }
 

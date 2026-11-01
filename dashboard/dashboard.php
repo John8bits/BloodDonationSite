@@ -964,14 +964,21 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
 function render_request_card(array $request, string $csrfToken, bool $isOwn): void
 {
     ?>
-    <article class="request-card panel">
+    <article class="request-card panel donation-offer-card">
         <div class="request-heading">
             <span class="blood-mark"><?= h($request['blood_type']) ?></span>
-            <div><h3><?= (int) $request['units'] ?> unit<?= (int) $request['units'] === 1 ? '' : 's' ?> needed</h3><p><?= $isOwn ? 'Your request' : 'Posted by ' . h($request['requester_name'] ?: 'BLife PH member') ?></p></div>
-            <?php if ($isOwn): ?><span class="status-badge status-<?= h($request['effective_status'] ?? $request['status']) ?>"><?= h(ucfirst($request['effective_status'] ?? $request['status'])) ?></span><?php endif; ?>
+            <div><h3><?= $isOwn ? 'Your request' : 'Blood request' ?></h3><p><?= !$isOwn ? 'Posted by ' . h($request['requester_name'] ?: 'BLife PH member') : h($request['blood_type']) ?></p></div>
+            <div class="request-heading-badges">
+                <span class="urgency-badge urgency-<?= h($request['urgency'] ?? 'routine') ?>"><?= h(ucfirst($request['urgency'] ?? 'routine')) ?></span>
+                <?php if ($isOwn): ?><span class="status-badge status-<?= h($request['effective_status'] ?? $request['status']) ?>"><?= h(ucfirst($request['effective_status'] ?? $request['status'])) ?></span><?php endif; ?>
+            </div>
         </div>
-        <p class="facility-line"><strong><?= h($request['hospital']) ?></strong> · <?= h($request['location']) ?></p>
-        <p class="request-date">Needed by <?= h(date('M j, Y', strtotime($request['needed_by']))) ?> <span class="urgency-badge urgency-<?= h($request['urgency'] ?? 'routine') ?>"><?= h(ucfirst($request['urgency'] ?? 'routine')) ?></span></p>
+        <div class="donation-offer-details request-offer-details">
+            <p><strong>Unit:</strong> <?= (int) $request['units'] ?></p>
+            <p><strong>Location:</strong> <?= h($request['location']) ?></p>
+            <p><strong>Hospital:</strong> <?= h($request['hospital']) ?></p>
+            <p><strong>Needed by:</strong> <?= h(date('M j, Y', strtotime($request['needed_by']))) ?></p>
+        </div>
         <?php if ($request['details'] !== ''): ?><p class="request-details"><?= nl2br(h($request['details'])) ?></p><?php endif; ?>
         <?php if ($isOwn): ?>
             <p class="request-date"><?= (int) $request['response_count'] ?> response<?= (int) $request['response_count'] === 1 ? '' : 's' ?> received</p>
@@ -1007,7 +1014,7 @@ function render_request_card(array $request, string $csrfToken, bool $isOwn): vo
                 <button class="button button-primary" type="submit">Send response</button>
             </form>
         <?php endif; ?>
-        <p class="form-help">A response is an offer to connect, not confirmed blood availability. Coordinate with the listed facility.</p>
+        <!-- <p class="form-help">A response is an offer to connect, not confirmed blood availability. Coordinate with the listed facility.</p> -->
     </article>
     <?php
 }
