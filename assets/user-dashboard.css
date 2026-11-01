@@ -1257,6 +1257,15 @@ input:disabled {
     transition: color 0.16s ease, background 0.16s ease;
 }
 
+.sidebar-action {
+    width: 100%;
+    border: 0;
+    background: transparent;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
 .sidebar-link:hover {
     color: var(--primary-dark);
     background: #fff5f5;
@@ -1823,9 +1832,18 @@ input:disabled {
     font-size: 11px;
 }
 
-.post-counts a {
+.post-counts button {
+    padding: 0;
     color: inherit;
+    background: transparent;
+    border: 0;
+    font: inherit;
     text-decoration: none;
+    cursor: pointer;
+}
+
+.post-counts button:hover {
+    color: var(--primary-dark);
 }
 
 .post-actions {
@@ -1889,6 +1907,38 @@ input:disabled {
     padding-top: 10px;
     border-top: 1px solid #edf0f4;
     scroll-margin-top: 100px;
+}
+
+.post-comments[hidden],
+.post-report-disclosure[hidden] {
+    display: none;
+}
+
+.post-report-disclosure {
+    padding: 8px 0;
+}
+
+.post-report-form {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.post-report-form input {
+    min-width: 0;
+    flex: 1;
+}
+
+.post-report-form button {
+    padding: 8px 10px;
+    color: var(--primary-dark);
+    background: var(--soft-red);
+    border: 0;
+    border-radius: 6px;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
 }
 
 .dashboard-main .comment {

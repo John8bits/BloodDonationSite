@@ -34,6 +34,29 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     });
 
+    document.querySelectorAll("[data-disclosure-toggle]").forEach(function (button) {
+        button.addEventListener("click", function () {
+            const target = document.getElementById(button.dataset.disclosureToggle);
+            if (!target) {
+                return;
+            }
+
+            target.hidden = !target.hidden;
+            document.querySelectorAll("[data-disclosure-toggle]").forEach(function (toggle) {
+                if (toggle.dataset.disclosureToggle === target.id) {
+                    toggle.setAttribute("aria-expanded", String(!target.hidden));
+                }
+            });
+        });
+    });
+
+    if (window.location.hash === "#postComposer") {
+        const postModal = document.getElementById("createPostModal");
+        if (postModal instanceof HTMLDialogElement) {
+            postModal.showModal();
+        }
+    }
+
     function isMobile() {
         return window.matchMedia("(max-width: 760px)").matches;
     }

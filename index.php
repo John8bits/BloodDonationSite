@@ -126,14 +126,14 @@ $firstName = $_SESSION['first_name'] ?? '';
                             href="login.php"
                             class="btn btn-outline"
                         >
-                            Login
+                            Sign In
                         </a>
 
                         <a
                             href="register.php"
                             class="btn btn-primary"
                         >
-                            Become a Donor
+                           Register
                         </a>
 
                     <?php endif; ?>

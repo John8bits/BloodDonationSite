@@ -541,15 +541,17 @@ $pageTitles = [
     'search' => 'Search Results'
 ];
 
-function render_post_composer(string $csrfToken, string $initials, bool $donationOnly = false, bool $donationFieldsAvailable = true): void
+function render_post_composer(string $csrfToken, string $initials, bool $donationOnly = false, bool $donationFieldsAvailable = true, bool $asModal = false): void
 {
     $formId = $donationOnly ? 'donationPostComposer' : 'postComposer';
+    $modalId = $donationOnly ? 'donationOfferModal' : 'createPostModal';
+    $modalTitleId = $donationOnly ? 'donationOfferModalTitle' : 'createPostModalTitle';
     ?>
-    <?php if ($donationOnly): ?>
-        <dialog class="dashboard-modal" id="donationOfferModal" aria-labelledby="donationOfferModalTitle">
+    <?php if ($donationOnly || $asModal): ?>
+        <dialog class="dashboard-modal" id="<?= h($modalId) ?>" aria-labelledby="<?= h($modalTitleId) ?>">
             <div class="modal-heading">
-                <div><p class="eyebrow">POTENTIAL DONOR</p><h2 id="donationOfferModalTitle">Offer to donate blood</h2></div>
-                <button class="modal-close" type="button" data-modal-close aria-label="Close donation offer form">×</button>
+                <div><p class="eyebrow"><?= $donationOnly ? 'POTENTIAL DONOR' : 'COMMUNITY' ?></p><h2 id="<?= h($modalTitleId) ?>"><?= $donationOnly ? 'Offer to donate blood' : 'Create a post' ?></h2></div>
+                <button class="modal-close" type="button" data-modal-close aria-label="<?= $donationOnly ? 'Close donation offer form' : 'Close post form' ?>">×</button>
             </div>
     <?php endif; ?>
     <form class="post-composer panel" id="<?= h($formId) ?>" method="post" action="action.php" data-post-composer>
@@ -598,9 +600,9 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                 <input type="date" name="donation_available_date" min="<?= h(date('Y-m-d')) ?>">
             </label>
         </div>
-        <p class="form-help">An offer is not confirmed blood availability or medical eligibility. Coordinate screening and donation through an authorized hospital or blood bank.</p>
+        <!-- <p class="form-help">An offer is not confirmed blood availability or medical eligibility. Coordinate screening and donation through an authorized hospital or blood bank.</p> -->
     </form>
-    <?php if ($donationOnly): ?></dialog><?php endif; ?>
+    <?php if ($donationOnly || $asModal): ?></dialog><?php endif; ?>
     <?php
 }
 
@@ -695,6 +697,9 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
             </nav>
             <div class="sidebar-bottom">
                 <!-- <p>One community. Many ways to help.</p> -->
+                <?php if ($activePage === 'home'): ?>
+                    <button class="sidebar-link sidebar-action" type="button" data-modal-open="createPostModal"><span class="nav-icon" aria-hidden="true">＋</span><span class="nav-label">Create Post</span></button>
+                <?php endif; ?>
                 <a class="sidebar-link logout-sidebar" href="../logout.php"><span class="nav-icon" aria-hidden="true">↪</span><span class="nav-label">Log Out</span></a>
             </div>
         </aside>
@@ -724,8 +729,8 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
 
                     </div>
                     <?php if ($activePage === 'home'): ?>
-                        <a class="button button-secondary" href="dashboard.php?page=donation-offers">♥ Donation Offers</a>
-                        <a class="button button-primary" href="dashboard.php?page=home#postComposer">＋ Create Post</a>
+                        <!-- <a class="button button-secondary" href="dashboard.php?page=donation-offers">♥ Donation Offers</a> -->
+                        <button class="button button-primary" type="button" data-modal-open="createPostModal">＋ Create Post</button>
                     <?php elseif ($activePage === 'blood-requests'): ?>
                     <button class="button button-primary" type="button" data-modal-open="requestModal">＋ Post a Blood Request</button>
                     <?php elseif ($activePage === 'donation-offers'): ?>
@@ -738,6 +743,7 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                 <?php endif; ?>
 
                 <?php if ($activePage === 'home'): ?>
+                    <?php render_post_composer($csrfToken, $initials, false, $donationFieldsAvailable, true); ?>
                     <div class="dashboard-columns">
                         <section class="feed-column">
                             <div class="feed-filters" aria-label="Feed categories">
@@ -750,7 +756,6 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                             </div>
 
                             <?php if ($feedCategory !== 'requests'): ?>
-                                <?php render_post_composer($csrfToken, $initials, false, $donationFieldsAvailable); ?>
                                 <?php if (!$donationFieldsAvailable): ?>
                                     <div class="notice notice-info">Structured donation offers require the database update in <code>database_sql/donation_offers_migration.sql</code>.</div>
                                 <?php endif; ?>
@@ -1210,7 +1215,7 @@ function render_post_card(array $post, array $comments, string $csrfToken, int $
             <?php render_donation_offer_conversation($post, $offerThreads, $csrfToken, $userId); ?>
         <?php endif; ?>
         <?php if (!$donationOfferView): ?>
-            <div class="post-counts"><span><?= (int) $post['like_count'] ?> likes</span><a href="#comments-<?= (int) $post['id'] ?>"><?= (int) $post['comment_count'] ?> comments</a></div>
+            <div class="post-counts"><span><?= (int) $post['like_count'] ?> likes</span><button type="button" data-disclosure-toggle="comments-<?= (int) $post['id'] ?>" aria-controls="comments-<?= (int) $post['id'] ?>" aria-expanded="false"><?= (int) $post['comment_count'] ?> comments</button></div>
         <?php endif; ?>
         <div class="post-actions<?= $donationOfferView ? ' donation-offer-actions' : '' ?>">
             <?php if (!$donationOfferView): ?>
@@ -1218,7 +1223,7 @@ function render_post_card(array $post, array $comments, string $csrfToken, int $
                     <input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>"><input type="hidden" name="action" value="post_interaction"><input type="hidden" name="post_id" value="<?= (int) $post['id'] ?>"><input type="hidden" name="interaction" value="like"><input type="hidden" name="return_page" value="<?= $post['post_type'] === 'donation' ? 'donation-offers' : 'home' ?>">
                     <button type="submit" class="<?= $post['liked_by_me'] ? 'selected' : '' ?>"><?= $post['liked_by_me'] ? '♥ Liked' : '♡ Like' ?></button>
                 </form>
-                <a href="#comments-<?= (int) $post['id'] ?>">▤ Comment</a>
+                <button type="button" data-disclosure-toggle="comments-<?= (int) $post['id'] ?>" aria-controls="comments-<?= (int) $post['id'] ?>" aria-expanded="false">▤ Comment</button>
                 <button type="button" class="share-post-button" data-share-form="sharePost<?= (int) $post['id'] ?>" data-share-url="<?= h('dashboard.php?page=home&post=' . (int) $post['id']) ?>" data-share-title="<?= h($authorName . ' on BLifePH') ?>">↗ Share</button>
                 <form class="visually-hidden share-record-form" id="sharePost<?= (int) $post['id'] ?>" method="post" action="action.php">
                     <input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>"><input type="hidden" name="action" value="post_share"><input type="hidden" name="async" value="1"><input type="hidden" name="post_id" value="<?= (int) $post['id'] ?>"><input type="hidden" name="return_page" value="<?= $post['post_type'] === 'donation' ? 'donation-offers' : 'home' ?>">
@@ -1229,13 +1234,7 @@ function render_post_card(array $post, array $comments, string $csrfToken, int $
                 </form>
             <?php endif; ?>
             <?php if (!$donationOfferView && (int) $post['user_id'] !== $userId && !$post['reported_by_me']): ?>
-                <form class="confirm-report-form" method="post" action="action.php">
-                    <input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>"><input type="hidden" name="action" value="post_interaction"><input type="hidden" name="post_id" value="<?= (int) $post['id'] ?>"><input type="hidden" name="interaction" value="report">
-                    <input type="hidden" name="return_page" value="<?= $post['post_type'] === 'donation' ? 'donation-offers' : 'home' ?>">
-                    <label class="visually-hidden" for="report-reason-<?= (int) $post['id'] ?>">Reason for reporting this post</label>
-                    <input id="report-reason-<?= (int) $post['id'] ?>" name="report_reason" maxlength="255" required placeholder="Reason for report">
-                    <button type="submit">⚑ Report</button>
-                </form>
+                <button type="button" data-disclosure-toggle="report-form-<?= (int) $post['id'] ?>" aria-controls="report-form-<?= (int) $post['id'] ?>" aria-expanded="false">⚑ Report</button>
             <?php elseif (!$donationOfferView && $post['reported_by_me']): ?><span class="reported-label">Reported</span><?php endif; ?>
             <?php if ($donationOfferView && !$isOwnPost && !$post['reported_by_me']): ?>
                 <details class="offer-report">
@@ -1255,8 +1254,19 @@ function render_post_card(array $post, array $comments, string $csrfToken, int $
                 </form>
             <?php endif; ?>
         </div>
+        <?php if (!$donationOfferView && (int) $post['user_id'] !== $userId && !$post['reported_by_me']): ?>
+            <div class="post-report-disclosure" id="report-form-<?= (int) $post['id'] ?>" hidden>
+                <form class="post-report-form confirm-report-form" method="post" action="action.php">
+                    <input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>"><input type="hidden" name="action" value="post_interaction"><input type="hidden" name="post_id" value="<?= (int) $post['id'] ?>"><input type="hidden" name="interaction" value="report">
+                    <input type="hidden" name="return_page" value="<?= $post['post_type'] === 'donation' ? 'donation-offers' : 'home' ?>">
+                    <label class="visually-hidden" for="report-reason-<?= (int) $post['id'] ?>">Reason for reporting this post</label>
+                    <input id="report-reason-<?= (int) $post['id'] ?>" name="report_reason" maxlength="255" required placeholder="Reason for report">
+                    <button type="submit">Submit report</button>
+                </form>
+            </div>
+        <?php endif; ?>
         <?php if (!$donationOfferView): ?>
-            <div class="post-comments" id="comments-<?= (int) $post['id'] ?>">
+            <div class="post-comments" id="comments-<?= (int) $post['id'] ?>" hidden>
                 <?php foreach ($comments as $comment): ?>
                     <?php $commentAuthor = trim(($comment['author_name'] ?? '') . ' ' . ($comment['author_last_name'] ?? '')); ?>
                     <div class="comment"><span class="avatar avatar-small"><?= h(member_initials($commentAuthor)) ?></span><div><strong><?= h($commentAuthor ?: 'BLife PH member') ?></strong><p><?= nl2br(h($comment['comment'])) ?></p></div></div>
