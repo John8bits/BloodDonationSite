@@ -1402,6 +1402,11 @@ input:disabled {
     min-width: 0;
 }
 
+.my-post-section > :not(.section-heading) {
+    width: 100%;
+    max-width: 880px;
+}
+
 .my-post-section > .section-heading {
     margin: 0;
     padding-bottom: 10px;
