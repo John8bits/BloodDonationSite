@@ -92,6 +92,33 @@ try {
             $pdo->commit();
             admin_action_redirect('Member account updated.', 'success', 'members');
 
+        case 'member_verification':
+            $userId = filter_var($_POST['user_id'] ?? null, FILTER_VALIDATE_INT);
+            $verifiedValue = $_POST['verified'] ?? '';
+            if (!$userId || !in_array($verifiedValue, ['0', '1'], true)) {
+                throw new InvalidArgumentException('Choose a valid member and verification status.');
+            }
+            if (!admin_action_column_exists($pdo, 'uinfo', 'donor_verified')) {
+                throw new RuntimeException('Apply database_sql/messages_inbox_migration.sql before verifying members.');
+            }
+            $stmt = $pdo->prepare('SELECT role, donor_verified FROM uinfo WHERE id = :id FOR UPDATE');
+            $stmt->execute([':id' => $userId]);
+            $member = $stmt->fetch();
+            if (!$member || $member['role'] !== 'user') {
+                throw new InvalidArgumentException('Only regular member accounts can be verified as donors.');
+            }
+            $verified = (int) $verifiedValue;
+            $stmt = $pdo->prepare('UPDATE uinfo SET donor_verified = :verified WHERE id = :id');
+            $stmt->execute([':verified' => $verified, ':id' => $userId]);
+            $log(
+                $verified ? 'verify_donor' : 'remove_donor_verification',
+                'uinfo',
+                $userId,
+                $verified ? 'Donor verification granted by an administrator.' : 'Donor verification removed by an administrator.'
+            );
+            $pdo->commit();
+            admin_action_redirect($verified ? 'Donor verification has been granted.' : 'Donor verification has been removed.', 'success', 'members');
+
         case 'member_delete':
             $userId = filter_var($_POST['user_id'] ?? null, FILTER_VALIDATE_INT);
             if (!$userId || $userId === $adminId) {
@@ -108,6 +135,27 @@ try {
             $stmt->execute([':id' => $userId]);
             $pdo->commit();
             admin_action_redirect('Member account removed.', 'success', 'members');
+
+        case 'message_report_review':
+            $reportId = filter_var($_POST['report_id'] ?? null, FILTER_VALIDATE_INT);
+            if (!$reportId) {
+                throw new InvalidArgumentException('Choose a valid message report to review.');
+            }
+            if (!admin_action_column_exists($pdo, 'member_message_reports', 'status')) {
+                throw new RuntimeException('Apply database_sql/messages_inbox_migration.sql before reviewing message reports.');
+            }
+            $stmt = $pdo->prepare(
+                "UPDATE member_message_reports
+                 SET status = 'reviewed', reviewed_by = :admin_id, reviewed_at = NOW()
+                 WHERE id = :id AND status = 'pending'"
+            );
+            $stmt->execute([':admin_id' => $adminId, ':id' => $reportId]);
+            if ($stmt->rowCount() !== 1) {
+                throw new InvalidArgumentException('That message report is already reviewed or no longer available.');
+            }
+            $log('review_message_report', 'member_message_reports', $reportId, 'Private-message report marked reviewed.');
+            $pdo->commit();
+            admin_action_redirect('The private-message report has been marked reviewed.', 'success', 'reports');
 
         case 'request_status':
             $requestId = filter_var($_POST['request_id'] ?? null, FILTER_VALIDATE_INT);
@@ -283,7 +331,8 @@ try {
         $pdo->rollBack();
     }
     admin_action_redirect($e->getMessage(), 'error', [
-        'member_status' => 'members', 'member_delete' => 'members',
+        'member_status' => 'members', 'member_verification' => 'members', 'member_delete' => 'members',
+        'message_report_review' => 'reports',
         'request_status' => 'requests', 'request_remove' => 'requests',
         'post_remove' => 'posts', 'event_save' => 'events', 'event_status' => 'events',
         'save_settings' => 'settings'

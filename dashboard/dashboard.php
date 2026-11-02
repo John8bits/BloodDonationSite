@@ -46,9 +46,9 @@ function post_label(string $type): string
 function render_notification_items(array $notifications, string $csrfToken): void
 {
     foreach ($notifications as $notification):
-        $targetPage = in_array($notification['notification_type'], ['request_response', 'request_message'], true)
-            ? 'my-requests'
-            : ($notification['notification_type'] === 'donation_offer_message' ? 'donation-offers' : 'my-posts');
+        $targetPage = in_array($notification['notification_type'], ['request_message', 'donation_offer_message'], true)
+            ? 'messages'
+            : (in_array($notification['notification_type'], ['request_response'], true) ? 'my-requests' : 'my-posts');
         ?>
         <form class="notification-item <?= !$notification['is_read'] ? 'unread' : '' ?>" method="post" action="action.php">
             <input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>"><input type="hidden" name="action" value="notification_open"><input type="hidden" name="notification_id" value="<?= (int) $notification['id'] ?>"><input type="hidden" name="target_page" value="<?= h($targetPage) ?>">
@@ -61,7 +61,7 @@ function render_notification_items(array $notifications, string $csrfToken): voi
 $bloodTypes = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 $pages = [
     'home', 'find-blood', 'blood-requests', 'donation-offers', 'events', 'activity',
-    'my-posts', 'my-requests', 'responded', 'saved', 'notifications',
+    'my-posts', 'my-requests', 'responded', 'saved', 'messages', 'notifications',
     'profile', 'settings', 'help', 'search'
 ];
 $requestedPage = isset($_GET['page']) && is_string($_GET['page']) ? $_GET['page'] : 'home';
@@ -92,17 +92,24 @@ $profile = [
 ];
 $posts = $openRequests = $myRequests = $respondedRequests = $donors = $commentsByPost = [];
 $notificationRows = $searchPosts = $searchRequests = $offerMessagesByPost = [];
+$messageConversations = $selectedThreadMessages = [];
+$selectedConversation = null;
+$newMessageOffer = null;
+$selectedThread = '';
 $unreadNotifications = 0;
 $statistics = ['posts' => 0, 'requests' => 0, 'responses' => 0, 'saved' => 0];
 $schemaReady = false;
 $schemaError = '';
 $donationFieldsAvailable = false;
 $offerMessagesAvailable = false;
+$messageInboxAvailable = false;
+$donorVerificationAvailable = false;
+$donationTimeAvailable = false;
 
 try {
     $pdo = (new Database())->getConnection();
     $requiredTables = ['community_posts', 'blood_requests', 'request_responses', 'request_response_messages', 'post_comments', 'post_interactions', 'member_notifications'];
-    $optionalTables = ['donation_offer_messages'];
+    $optionalTables = ['donation_offer_messages', 'member_message_reports'];
     $tablesToCheck = array_merge($requiredTables, $optionalTables);
     $tableQuery = $pdo->prepare(
         'SELECT TABLE_NAME FROM information_schema.TABLES
@@ -111,6 +118,7 @@ try {
     $tableQuery->execute($tablesToCheck);
     $availableTables = $tableQuery->fetchAll(PDO::FETCH_COLUMN);
     $offerMessagesAvailable = in_array('donation_offer_messages', $availableTables, true);
+    $messageReportsAvailable = in_array('member_message_reports', $availableTables, true);
     $requiredColumns = [
         'uinfo' => ['fname', 'lname', 'email', 'btype', 'phone', 'city', 'donor_available', 'notify_request_responses', 'notify_post_comments'],
         'community_posts' => ['id', 'user_id', 'post_type', 'content', 'event_date', 'created_at'],
@@ -144,11 +152,15 @@ try {
         if ($table === 'community_posts') {
             $postTypeColumn = $columnInfo['post_type'] ?? '';
             $eventStatusColumnAvailable = array_key_exists('event_status', $columnInfo);
+            $donationTimeAvailable = array_key_exists('donation_available_time', $columnInfo);
             $donationFieldsAvailable = isset(
                 $columnInfo['donation_blood_type'],
                 $columnInfo['donation_location'],
                 $columnInfo['donation_available_date']
             );
+        }
+        if ($table === 'uinfo') {
+            $donorVerificationAvailable = array_key_exists('donor_verified', $columnInfo);
         }
     }
     if ($postTypeColumn !== null && strpos($postTypeColumn, 'success_story') === false) {
@@ -164,6 +176,19 @@ try {
         $offerMessagesAvailable = $offerMessagesAvailable
             && strpos($notificationColumns['notification_type'] ?? '', 'donation_offer_message') !== false;
     }
+    $requestMessageColumns = [];
+    if (in_array('request_response_messages', $availableTables, true)) {
+        $columnQuery->execute(['request_response_messages']);
+        $requestMessageColumns = $columnQuery->fetchAll(PDO::FETCH_KEY_PAIR);
+    }
+    $offerReadStateAvailable = true;
+    if (in_array('donation_offer_messages', $availableTables, true)) {
+        $columnQuery->execute(['donation_offer_messages']);
+        $offerReadStateAvailable = array_key_exists('read_at', $columnQuery->fetchAll(PDO::FETCH_KEY_PAIR));
+    }
+    $messageInboxAvailable = $messageReportsAvailable
+        && array_key_exists('read_at', $requestMessageColumns)
+        && $offerReadStateAvailable;
 
     if ($missingTables || $missingColumns) {
         $schemaError = 'Some dashboard features need a database update before they can be used.';
@@ -384,6 +409,12 @@ try {
             $extraPostColumns[] = 'cp.donation_blood_type';
             $extraPostColumns[] = 'cp.donation_location';
             $extraPostColumns[] = 'cp.donation_available_date';
+            if ($donationTimeAvailable) {
+                $extraPostColumns[] = 'cp.donation_available_time';
+            }
+        }
+        if ($donorVerificationAvailable) {
+            $extraPostColumns[] = 'u.donor_verified';
         }
         $extraPostSelect = $extraPostColumns ? ', ' . implode(', ', $extraPostColumns) : '';
         $postStmt = $pdo->prepare(
@@ -475,13 +506,267 @@ try {
         }
 
         $notificationStmt = $pdo->prepare(
-            'SELECT n.id, n.notification_type, n.target_id, n.message, n.is_read, n.created_at,
+            'SELECT n.id, n.notification_type, n.target_id, n.actor_id, n.message, n.is_read, n.created_at,
                     u.fname AS actor_name
              FROM member_notifications n LEFT JOIN uinfo u ON u.id = n.actor_id
              WHERE n.user_id = :user_id ORDER BY n.created_at DESC LIMIT 100'
         );
         $notificationStmt->execute([':user_id' => $userId]);
         $notificationRows = $notificationStmt->fetchAll();
+
+        if ($activePage === 'messages' && $messageInboxAvailable) {
+            if ($offerMessagesAvailable) {
+                $offerInboxStmt = $pdo->prepare(
+                    'SELECT threads.post_id, threads.seeker_id, cp.user_id AS donor_id, cp.content AS offer_content,
+                            cp.donation_blood_type, cp.donation_location, cp.donation_available_date,
+                            latest.message AS latest_message, latest.sender_id AS latest_sender_id, latest.created_at AS latest_at,
+                            (SELECT first_message.urgency FROM donation_offer_messages first_message
+                             WHERE first_message.post_id = threads.post_id AND first_message.seeker_id = threads.seeker_id
+                               AND first_message.urgency IS NOT NULL
+                             ORDER BY first_message.id LIMIT 1) AS urgency,
+                            donor.fname AS donor_first, donor.lname AS donor_last,
+                            seeker.fname AS seeker_first, seeker.lname AS seeker_last,
+                            (SELECT COUNT(*) FROM donation_offer_messages unread
+                             WHERE unread.post_id = threads.post_id AND unread.seeker_id = threads.seeker_id
+                               AND unread.sender_id <> :unread_user AND unread.read_at IS NULL) AS unread_count
+                     FROM (
+                         SELECT post_id, seeker_id, MAX(id) AS latest_id
+                         FROM donation_offer_messages GROUP BY post_id, seeker_id
+                     ) threads
+                     JOIN donation_offer_messages latest ON latest.id = threads.latest_id
+                     JOIN community_posts cp ON cp.id = threads.post_id
+                     JOIN uinfo donor ON donor.id = cp.user_id
+                     JOIN uinfo seeker ON seeker.id = threads.seeker_id
+                     WHERE cp.user_id = :offer_owner OR threads.seeker_id = :offer_seeker
+                     ORDER BY latest.created_at DESC'
+                );
+                $offerInboxStmt->execute([
+                    ':unread_user' => $userId,
+                    ':offer_owner' => $userId,
+                    ':offer_seeker' => $userId
+                ]);
+                foreach ($offerInboxStmt->fetchAll() as $conversation) {
+                    $isOfferOwner = (int) $conversation['donor_id'] === $userId;
+                    $peerName = $isOfferOwner
+                        ? trim($conversation['seeker_first'] . ' ' . $conversation['seeker_last'])
+                        : trim($conversation['donor_first'] . ' ' . $conversation['donor_last']);
+                    $conversation['kind'] = 'donation_offer';
+                    $conversation['thread_key'] = 'offer-' . (int) $conversation['post_id'] . '-' . (int) $conversation['seeker_id'];
+                    $conversation['peer_name'] = $peerName !== '' ? $peerName : 'BLife PH member';
+                    $conversation['peer_initials'] = member_initials($conversation['peer_name']);
+                    $conversation['context'] = 'Donation offer · ' . ($conversation['donation_blood_type'] ?: 'Blood type not specified');
+                    $conversation['unread_count'] = (int) $conversation['unread_count'];
+                    $messageConversations[] = $conversation;
+                }
+            }
+
+            $requestInboxStmt = $pdo->prepare(
+                'SELECT rr.id AS response_id, br.id AS request_id, br.requester_id, rr.user_id AS responder_id,
+                        br.blood_type, br.hospital, br.location, br.urgency AS request_urgency, br.status AS request_status, br.needed_by,
+                        latest.message AS latest_message, latest.sender_id AS latest_sender_id, latest.created_at AS latest_at,
+                        requester.fname AS requester_first, requester.lname AS requester_last,
+                        responder.fname AS responder_first, responder.lname AS responder_last,
+                        (SELECT COUNT(*) FROM request_response_messages unread
+                         WHERE unread.response_id = rr.id AND unread.sender_id <> :request_unread_user
+                           AND unread.read_at IS NULL) AS unread_count
+                 FROM request_responses rr
+                 JOIN blood_requests br ON br.id = rr.request_id
+                 JOIN request_response_messages latest ON latest.id = (
+                     SELECT MAX(last_message.id) FROM request_response_messages last_message
+                     WHERE last_message.response_id = rr.id
+                 )
+                 JOIN uinfo requester ON requester.id = br.requester_id
+                 JOIN uinfo responder ON responder.id = rr.user_id
+                 WHERE rr.status = \'accepted\'
+                   AND (br.requester_id = :request_owner OR rr.user_id = :request_responder)
+                 ORDER BY latest.created_at DESC'
+            );
+            $requestInboxStmt->execute([
+                ':request_unread_user' => $userId,
+                ':request_owner' => $userId,
+                ':request_responder' => $userId
+            ]);
+            foreach ($requestInboxStmt->fetchAll() as $conversation) {
+                $isRequester = (int) $conversation['requester_id'] === $userId;
+                $peerName = $isRequester
+                    ? trim($conversation['responder_first'] . ' ' . $conversation['responder_last'])
+                    : trim($conversation['requester_first'] . ' ' . $conversation['requester_last']);
+                $conversation['kind'] = 'request_response';
+                $conversation['thread_key'] = 'request-' . (int) $conversation['response_id'];
+                $conversation['peer_name'] = $peerName !== '' ? $peerName : 'BLife PH member';
+                $conversation['peer_initials'] = member_initials($conversation['peer_name']);
+                $conversation['context'] = 'Blood request · ' . $conversation['blood_type'] . ' · ' . $conversation['hospital'];
+                $conversation['unread_count'] = (int) $conversation['unread_count'];
+                $messageConversations[] = $conversation;
+            }
+
+            usort($messageConversations, static function (array $first, array $second): int {
+                return strcmp($second['latest_at'], $first['latest_at']);
+            });
+
+            $requestedThread = isset($_GET['thread']) && is_string($_GET['thread']) ? $_GET['thread'] : '';
+            foreach ($messageConversations as $conversation) {
+                if ($conversation['thread_key'] === $requestedThread) {
+                    $selectedConversation = $conversation;
+                    $selectedThread = $requestedThread;
+                    break;
+                }
+            }
+            if ($selectedConversation === null && $requestedThread === '' && !isset($_GET['offer']) && $messageConversations) {
+                $selectedConversation = $messageConversations[0];
+                $selectedThread = $selectedConversation['thread_key'];
+            }
+
+            $offerId = null;
+            if (isset($_GET['offer']) && is_string($_GET['offer']) && ctype_digit($_GET['offer'])) {
+                $offerId = (int) $_GET['offer'];
+            } elseif (
+                $selectedConversation === null
+                && preg_match('/^offer-(\d+)-(\d+)$/', $requestedThread, $threadParts)
+                && (int) $threadParts[2] === $userId
+            ) {
+                $offerId = (int) $threadParts[1];
+            }
+            if ($selectedConversation === null && $offerId !== null) {
+                $offerSelect = 'cp.id, cp.user_id, cp.content, cp.donation_blood_type, cp.donation_location, cp.donation_available_date';
+                if ($donationTimeAvailable) {
+                    $offerSelect .= ', cp.donation_available_time';
+                }
+                if ($donorVerificationAvailable) {
+                    $offerSelect .= ', donor.donor_verified';
+                }
+                $newOfferStmt = $pdo->prepare(
+                    "SELECT {$offerSelect}, donor.fname, donor.lname
+                     FROM community_posts cp JOIN uinfo donor ON donor.id = cp.user_id
+                     WHERE cp.id = :post_id AND cp.post_type = 'donation'
+                       AND cp.user_id <> :viewer_id
+                       AND (cp.donation_available_date IS NULL OR cp.donation_available_date >= CURDATE())
+                     LIMIT 1"
+                );
+                $newOfferStmt->execute([':post_id' => $offerId, ':viewer_id' => $userId]);
+                $newMessageOffer = $newOfferStmt->fetch() ?: null;
+                if ($newMessageOffer) {
+                    $newThreadKey = 'offer-' . $offerId . '-' . $userId;
+                    foreach ($messageConversations as $conversation) {
+                        if ($conversation['thread_key'] === $newThreadKey) {
+                            $selectedConversation = $conversation;
+                            $selectedThread = $newThreadKey;
+                            $newMessageOffer = null;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if ($selectedConversation !== null) {
+                if ($selectedConversation['kind'] === 'donation_offer') {
+                    $postId = (int) $selectedConversation['post_id'];
+                    $seekerId = (int) $selectedConversation['seeker_id'];
+                    $markReadStmt = $pdo->prepare(
+                        'UPDATE donation_offer_messages
+                         SET read_at = NOW()
+                         WHERE post_id = :post_id AND seeker_id = :seeker_id
+                           AND sender_id <> :viewer_id AND read_at IS NULL'
+                    );
+                    $markReadStmt->execute([':post_id' => $postId, ':seeker_id' => $seekerId, ':viewer_id' => $userId]);
+                    $peerId = (int) $selectedConversation['donor_id'] === $userId
+                        ? $seekerId
+                        : (int) $selectedConversation['donor_id'];
+                    $markNotificationStmt = $pdo->prepare(
+                        'UPDATE member_notifications SET is_read = 1
+                         WHERE user_id = :viewer_id AND actor_id = :peer_id
+                           AND notification_type = \'donation_offer_message\'
+                           AND target_id = :post_id AND is_read = 0'
+                    );
+                    $markNotificationStmt->execute([
+                        ':viewer_id' => $userId,
+                        ':peer_id' => $peerId,
+                        ':post_id' => $postId
+                    ]);
+                    $historyStmt = $pdo->prepare(
+                        'SELECT m.id, m.sender_id, m.message, m.created_at,
+                                sender.fname, sender.lname,
+                                EXISTS (SELECT 1 FROM member_message_reports mr
+                                        WHERE mr.reporter_id = :reporter_id
+                                          AND mr.message_type = \'donation_offer\' AND mr.message_id = m.id) AS reported_by_me
+                         FROM donation_offer_messages m JOIN uinfo sender ON sender.id = m.sender_id
+                         WHERE m.post_id = :history_post AND m.seeker_id = :history_seeker
+                         ORDER BY m.created_at, m.id'
+                    );
+                    $historyStmt->execute([
+                        ':reporter_id' => $userId,
+                        ':history_post' => $postId,
+                        ':history_seeker' => $seekerId
+                    ]);
+                    $selectedThreadMessages = $historyStmt->fetchAll();
+                } else {
+                    $responseId = (int) $selectedConversation['response_id'];
+                    $markReadStmt = $pdo->prepare(
+                        'UPDATE request_response_messages
+                         SET read_at = NOW()
+                         WHERE response_id = :response_id AND sender_id <> :viewer_id AND read_at IS NULL
+                           AND EXISTS (
+                               SELECT 1 FROM request_responses rr JOIN blood_requests br ON br.id = rr.request_id
+                               WHERE rr.id = :thread_response_id
+                                 AND (br.requester_id = :requester_id OR rr.user_id = :responder_id)
+                           )'
+                    );
+                    $markReadStmt->execute([
+                        ':response_id' => $responseId,
+                        ':viewer_id' => $userId,
+                        ':thread_response_id' => $responseId,
+                        ':requester_id' => $userId,
+                        ':responder_id' => $userId
+                    ]);
+                    $peerId = (int) $selectedConversation['requester_id'] === $userId
+                        ? (int) $selectedConversation['responder_id']
+                        : (int) $selectedConversation['requester_id'];
+                    $markNotificationStmt = $pdo->prepare(
+                        'UPDATE member_notifications SET is_read = 1
+                         WHERE user_id = :viewer_id AND actor_id = :peer_id
+                           AND notification_type = \'request_message\'
+                           AND target_id = :request_id AND is_read = 0'
+                    );
+                    $markNotificationStmt->execute([
+                        ':viewer_id' => $userId,
+                        ':peer_id' => $peerId,
+                        ':request_id' => (int) $selectedConversation['request_id']
+                    ]);
+                    $historyStmt = $pdo->prepare(
+                        'SELECT m.id, m.sender_id, m.message, m.created_at,
+                                sender.fname, sender.lname,
+                                EXISTS (SELECT 1 FROM member_message_reports mr
+                                        WHERE mr.reporter_id = :reporter_id
+                                          AND mr.message_type = \'request_response\' AND mr.message_id = m.id) AS reported_by_me
+                         FROM request_response_messages m JOIN uinfo sender ON sender.id = m.sender_id
+                         WHERE m.response_id = :response_id ORDER BY m.created_at, m.id'
+                    );
+                    $historyStmt->execute([':reporter_id' => $userId, ':response_id' => $responseId]);
+                    $selectedThreadMessages = $historyStmt->fetchAll();
+                }
+                $selectedConversation['unread_count'] = 0;
+                foreach ($messageConversations as &$inboxConversation) {
+                    if ($inboxConversation['thread_key'] === $selectedThread) {
+                        $inboxConversation['unread_count'] = 0;
+                        break;
+                    }
+                }
+                unset($inboxConversation);
+                foreach ($notificationRows as &$notification) {
+                    if (
+                        $notification['notification_type'] === ($selectedConversation['kind'] === 'donation_offer' ? 'donation_offer_message' : 'request_message')
+                        && (int) $notification['target_id'] === (int) ($selectedConversation['kind'] === 'donation_offer' ? $selectedConversation['post_id'] : $selectedConversation['request_id'])
+                        && (int) $notification['actor_id'] === $peerId
+                    ) {
+                        $notification['is_read'] = 1;
+                    }
+                }
+                unset($notification);
+                $unreadStmt = $pdo->prepare('SELECT COUNT(*) FROM member_notifications WHERE user_id = :user_id AND is_read = 0');
+                $unreadStmt->execute([':user_id' => $userId]);
+                $unreadNotifications = (int) $unreadStmt->fetchColumn();
+            }
+        }
     }
 } catch (PDOException $e) {
     error_log($e->getMessage());
@@ -508,6 +793,9 @@ $navGroups = [
         'responded' => ['↗', "Requests I've Responded To"],
         'saved' => ['☆', 'Saved Posts']
     ],
+    'Communication' => [
+        'messages' => ['✉', 'Messages']
+    ],
     'Account' => [
         'profile' => ['👤', 'My Profile'],
         'settings' => ['⚙', 'Settings & Privacy'],
@@ -525,6 +813,7 @@ $pageTitles = [
     'my-requests' => 'My Blood Requests',
     'responded' => "Requests I've Responded To",
     'saved' => 'Saved Posts',
+    'messages' => 'Messages',
     'notifications' => 'Notifications',
     'profile' => 'My Profile',
     'settings' => 'Settings & Privacy',
@@ -532,7 +821,7 @@ $pageTitles = [
     'search' => 'Search Results'
 ];
 
-function render_post_composer(string $csrfToken, string $initials, bool $donationOnly = false, bool $asModal = false): void
+function render_post_composer(string $csrfToken, string $initials, bool $donationOnly = false, bool $asModal = false, bool $donationTimeAvailable = false): void
 {
     $formId = $donationOnly ? 'donationPostComposer' : 'postComposer';
     $modalId = $donationOnly ? 'donationOfferModal' : 'createPostModal';
@@ -579,13 +868,20 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                         <?php endforeach; ?>
                     </select>
                 </label>
-                <label>City or province
-                    <input type="text" name="donation_location" maxlength="120" placeholder="Where you can donate" <?= $donationOnly ? 'required' : '' ?>>
+                    <label>Municipality / city, province
+                        <input type="text" name="donation_location" maxlength="120" placeholder="e.g., Quezon City, Metro Manila" <?= $donationOnly ? 'required' : '' ?>>
                 </label>
             </div>
-            <label>Available on <span class="optional">(optional)</span>
-                <input type="date" name="donation_available_date" min="<?= h(date('Y-m-d')) ?>">
-            </label>
+                <div class="form-row">
+                    <label>Available date <span class="optional">(optional)</span>
+                        <input type="date" name="donation_available_date" min="<?= h(date('Y-m-d')) ?>">
+                    </label>
+                    <?php if ($donationTimeAvailable): ?>
+                        <label>Available time <span class="optional">(optional)</span>
+                            <input type="time" name="donation_available_time">
+                        </label>
+                    <?php endif; ?>
+                </div>
         </div>
         <?php else: ?>
             <p class="form-help">Share questions, experiences, or updates related to blood donation and the BLife PH community. Keep posts respectful and protect private medical information.</p>
@@ -774,7 +1070,7 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                 <?php elseif ($activePage === 'donation-offers'): ?>
 
                     <?php if ($donationFieldsAvailable): ?>
-                        <?php render_post_composer($csrfToken, $initials, true); ?>
+                        <?php render_post_composer($csrfToken, $initials, true, false, $donationTimeAvailable); ?>
                     <?php else: ?>
                         <div class="notice notice-error" role="alert">Donation offers need the database update in <code>database_sql/donation_offers_migration.sql</code>. Existing member accounts and blood requests remain unchanged.</div>
                     <?php endif; ?>
@@ -782,7 +1078,7 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                         <form class="filter-form donation-offer-filter" method="get" action="dashboard.php">
                             <input type="hidden" name="page" value="donation-offers">
                             <label>Blood type<select name="offer_btype"><option value="">All blood types</option><?php foreach ($bloodTypes as $type): ?><option value="<?= h($type) ?>" <?= $offerBloodType === $type ? 'selected' : '' ?>><?= h($type) ?></option><?php endforeach; ?></select></label>
-                            <label>City or province<input type="search" name="offer_city" maxlength="120" value="<?= h($offerCity) ?>" placeholder="Search donation area"></label>
+                            <label>Municipality / city, province<input type="search" name="offer_city" maxlength="120" value="<?= h($offerCity) ?>" placeholder="Search donation area"></label>
                             <button class="button button-primary" type="submit">Search offers</button>
                             <?php if ($offerBloodType !== '' || $offerCity !== ''): ?><a class="clear-link" href="dashboard.php?page=donation-offers">Clear filters</a><?php endif; ?>
                         </form>
@@ -921,6 +1217,108 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                             <div class="notification-list"><?php render_notification_items($notificationRows, $csrfToken); ?></div>
                         <?php endif; ?>
                     </section>
+                <?php elseif ($activePage === 'messages'): ?>
+                    <?php if (!$messageInboxAvailable): ?>
+                        <div class="notice notice-info" role="status">The private-message inbox needs the database update in <code>database_sql/messages_inbox_migration.sql</code>. Existing request and donation-offer conversations remain available from their current pages.</div>
+                    <?php else: ?>
+                        <div class="messages-layout">
+                            <aside class="panel inbox-panel" aria-label="Conversations">
+                                <div class="inbox-heading"><h2>Inbox</h2><span><?= count($messageConversations) ?> conversation<?= count($messageConversations) === 1 ? '' : 's' ?></span></div>
+                                <?php if (!$messageConversations): ?>
+                                    <div class="empty-state inbox-empty"><strong>No conversations yet.</strong><span>Open a donation offer to message a donor, or continue an accepted blood-request conversation.</span><a class="button button-secondary button-small" href="dashboard.php?page=donation-offers">Browse donation offers</a></div>
+                                <?php else: ?>
+                                    <nav class="inbox-list" aria-label="Message threads">
+                                        <?php foreach ($messageConversations as $conversation): ?>
+                                            <a class="inbox-conversation <?= $selectedThread === $conversation['thread_key'] ? 'selected' : '' ?>" href="dashboard.php?page=messages&amp;thread=<?= h($conversation['thread_key']) ?>" <?= $selectedThread === $conversation['thread_key'] ? 'aria-current="page"' : '' ?>>
+                                                <span class="avatar"><?= h($conversation['peer_initials']) ?></span>
+                                                <span class="inbox-conversation-copy">
+                                                    <span class="inbox-conversation-top"><strong><?= h($conversation['peer_name']) ?></strong><time datetime="<?= h($conversation['latest_at']) ?>"><?= h(date('M j', strtotime($conversation['latest_at']))) ?></time></span>
+                                                    <small><?= h($conversation['context']) ?></small>
+                                                    <span class="inbox-preview"><?= h($conversation['latest_message']) ?></span>
+                                                </span>
+                                                <?php if ($conversation['unread_count'] > 0): ?><span class="unread-indicator" aria-label="<?= (int) $conversation['unread_count'] ?> unread messages"><?= (int) $conversation['unread_count'] > 99 ? '99+' : (int) $conversation['unread_count'] ?></span><?php endif; ?>
+                                            </a>
+                                        <?php endforeach; ?>
+                                    </nav>
+                                <?php endif; ?>
+                            </aside>
+                            <section class="panel message-thread-panel" aria-label="Private conversation">
+                                <?php if ($selectedConversation !== null): ?>
+                                    <header class="message-thread-heading">
+                                        <span class="avatar avatar-large"><?= h($selectedConversation['peer_initials']) ?></span>
+                                        <div><h2><?= h($selectedConversation['peer_name']) ?></h2><p><?= h($selectedConversation['context']) ?></p></div>
+                                    </header>
+                                    <?php if ($selectedConversation['kind'] === 'donation_offer'): ?>
+                                        <div class="message-context-note">
+                                            <strong>Donation offer urgency</strong>
+                                            <span class="urgency-badge urgency-<?= h($selectedConversation['urgency'] ?: 'routine') ?>"><?= h(ucfirst($selectedConversation['urgency'] ?: 'Routine')) ?></span>
+                                            <small>Self-reported by the member; not medically verified.</small>
+                                        </div>
+                                    <?php else: ?>
+                                        <div class="message-context-note"><strong>Request urgency</strong><span class="urgency-badge urgency-<?= h($selectedConversation['request_urgency'] ?: 'routine') ?>"><?= h(ucfirst($selectedConversation['request_urgency'] ?: 'Routine')) ?></span><small>Self-reported; contact an authorized facility for medical guidance.</small></div>
+                                    <?php endif; ?>
+                                    <ol class="message-history">
+                                        <?php foreach ($selectedThreadMessages as $message): $isOwnMessage = (int) $message['sender_id'] === $userId; ?>
+                                            <li class="message-bubble <?= $isOwnMessage ? 'sent' : 'received' ?>">
+                                                <div class="message-bubble-meta"><strong><?= $isOwnMessage ? 'You' : h(trim($message['fname'] . ' ' . $message['lname']) ?: $selectedConversation['peer_name']) ?></strong><time datetime="<?= h($message['created_at']) ?>"><?= h(date('M j, Y g:i a', strtotime($message['created_at']))) ?></time></div>
+                                                <p><?= nl2br(h($message['message'])) ?></p>
+                                                <?php if (!$isOwnMessage): ?>
+                                                    <?php if ($message['reported_by_me']): ?><span class="message-reported">Reported for review</span><?php else: ?>
+                                                        <details class="message-report"><summary>Report message</summary>
+                                                            <form method="post" action="action.php">
+                                                                <input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>">
+                                                                <input type="hidden" name="action" value="message_report">
+                                                                <input type="hidden" name="message_type" value="<?= h($selectedConversation['kind']) ?>">
+                                                                <input type="hidden" name="message_id" value="<?= (int) $message['id'] ?>">
+                                                                <input type="hidden" name="thread_key" value="<?= h($selectedThread) ?>">
+                                                                <label class="visually-hidden" for="message-report-<?= (int) $message['id'] ?>">Reason for reporting this message</label>
+                                                                <input id="message-report-<?= (int) $message['id'] ?>" type="text" name="reason" maxlength="255" required placeholder="Reason for report">
+                                                                <button class="text-button" type="submit">Submit report</button>
+                                                            </form>
+                                                        </details>
+                                                    <?php endif; ?>
+                                                <?php endif; ?>
+                                            </li>
+                                        <?php endforeach; ?>
+                                    </ol>
+                                    <?php if ($selectedConversation['kind'] === 'donation_offer'): ?>
+                                        <?php render_offer_message_form((int) $selectedConversation['post_id'], (int) $selectedConversation['seeker_id'], $csrfToken, true, false, 'messages'); ?>
+                                    <?php elseif ($selectedConversation['request_status'] === 'open' && $selectedConversation['needed_by'] >= date('Y-m-d')): ?>
+                                        <form class="conversation-reply-form inbox-reply-form" method="post" action="action.php">
+                                            <input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>"><input type="hidden" name="action" value="request_message"><input type="hidden" name="response_id" value="<?= (int) $selectedConversation['response_id'] ?>"><input type="hidden" name="return_page" value="messages">
+                                            <label>Reply privately<textarea name="message" maxlength="1000" rows="2" required placeholder="Write a message to continue this conversation..."></textarea></label>
+                                            <button class="button button-primary button-small" type="submit">Send message</button>
+                                        </form>
+                                    <?php else: ?>
+                                        <p class="conversation-closed">This blood request is closed. The conversation remains available as history.</p>
+                                    <?php endif; ?>
+                                    <p class="conversation-privacy-note">Keep personal and medical details private. Donations and transfusions must be coordinated through an authorized facility.</p>
+                                <?php elseif ($newMessageOffer): ?>
+                                    <?php $newOfferDonor = trim($newMessageOffer['fname'] . ' ' . $newMessageOffer['lname']) ?: 'BLife PH member'; ?>
+                                    <header class="message-thread-heading">
+                                        <span class="avatar avatar-large"><?= h(member_initials($newOfferDonor)) ?></span>
+                                        <div><h2><?= h($newOfferDonor) ?><?php if (!empty($newMessageOffer['donor_verified'])): ?> <span class="verified-donor">✓ Verified donor</span><?php endif; ?></h2><p>Donation offer · <?= h($newMessageOffer['donation_blood_type'] ?: 'Blood type not specified') ?> · <?= h($newMessageOffer['donation_location'] ?: 'Location not specified') ?></p></div>
+                                    </header>
+                                    <p class="message-start-copy"><?= nl2br(h($newMessageOffer['content'])) ?></p>
+                                    <p class="form-help">Availability: <?php
+                                        $newAvailability = [];
+                                        if (!empty($newMessageOffer['donation_available_date'])) {
+                                            $newAvailability[] = date('M j, Y', strtotime($newMessageOffer['donation_available_date']));
+                                        }
+                                        if (!empty($newMessageOffer['donation_available_time'])) {
+                                            $newAvailability[] = date('g:i a', strtotime($newMessageOffer['donation_available_time']));
+                                        }
+                                        echo $newAvailability ? h(implode(' · ', $newAvailability)) : 'Not specified';
+                                    ?></p>
+                                    <div class="message-context-note"><strong>Urgency is self-reported</strong><small>Choose the level that best reflects your need. For emergencies, contact a hospital or emergency service immediately.</small></div>
+                                    <?php render_offer_message_form((int) $newMessageOffer['id'], $userId, $csrfToken, false, true, 'messages'); ?>
+                                    <p class="conversation-privacy-note">Your message is private to you and the donor. Do not share sensitive medical information.</p>
+                                <?php else: ?>
+                                    <div class="empty-state message-empty"><strong>Select a conversation</strong><span>Choose a message from your inbox or browse donation offers to contact a donor.</span><a class="button button-primary button-small" href="dashboard.php?page=donation-offers">Browse donation offers</a></div>
+                                <?php endif; ?>
+                            </section>
+                        </div>
+                    <?php endif; ?>
                 <?php elseif ($activePage === 'profile'): ?>
                     <section class="panel profile-panel">
                         <p class="form-help">One member account can be used to request blood and offer to donate. Phone and email are never shown in the donor directory.</p>
@@ -1094,7 +1492,7 @@ function render_request_conversation(int $responseId, array $messages, string $c
     <?php
 }
 
-function render_offer_message_form(int $postId, int $seekerId, string $csrfToken, bool $isReply, bool $isFirstMessage = false): void
+function render_offer_message_form(int $postId, int $seekerId, string $csrfToken, bool $isReply, bool $isFirstMessage = false, string $returnPage = 'donation-offers'): void
 {
     $formId = 'offer-message-' . $postId . '-' . $seekerId;
     ?>
@@ -1103,15 +1501,16 @@ function render_offer_message_form(int $postId, int $seekerId, string $csrfToken
         <input type="hidden" name="action" value="donation_offer_message">
         <input type="hidden" name="post_id" value="<?= $postId ?>">
         <input type="hidden" name="seeker_id" value="<?= $seekerId ?>">
+        <input type="hidden" name="return_page" value="<?= h($returnPage) ?>">
         <?php if ($isFirstMessage): ?>
             <label class="offer-urgency-label" for="<?= h($formId) ?>-urgency">How urgent is the need?
-                <select id="<?= h($formId) ?>-urgency" name="urgency" required style="width: 100px;">
+                <select id="<?= h($formId) ?>-urgency" name="urgency" required>
                     <option value="routine">Routine</option>
                     <option value="urgent">Urgent</option>
                     <option value="emergency">Emergency</option>
                 </select>
             </label>
-            <p class="offer-conversation-help">Urgency is self-reported and helps donors prioritize messages. For emergencies, contact a hospital or emergency service immediately.</p>
+            <p class="offer-conversation-help">Urgency is self-reported, not medically verified. For emergencies, contact a hospital or emergency service immediately.</p>
         <?php endif; ?>
         <label class="visually-hidden" for="<?= h($formId) ?>"><?= $isReply ? 'Reply to this private conversation' : 'Message the donor privately' ?></label>
         <textarea id="<?= h($formId) ?>" name="message" maxlength="1000" rows="2" required placeholder="<?= $isReply ? 'Write a private reply...' : 'Ask the donor about this offer...' ?>"></textarea>
@@ -1129,6 +1528,7 @@ function render_offer_message_thread(array $thread, int $postId, int $seekerId, 
                 <span class="offer-thread-title">
                     <strong><?= h($thread['seeker_name'] ?: 'Interested member') ?></strong>
                     <span class="urgency-badge urgency-<?= h($thread['urgency']) ?>"><?= h(ucfirst($thread['urgency'])) ?></span>
+                    <span class="urgency-source">Self-reported</span>
                     <span class="offer-thread-count"><?= count($thread['messages']) ?> message<?= count($thread['messages']) === 1 ? '' : 's' ?></span>
                 </span>
                 <span class="offer-thread-preview"><?= h($thread['latest_message']) ?></span>
@@ -1195,7 +1595,7 @@ function render_post_card(array $post, array $comments, string $csrfToken, int $
         <div class="post-meta">
             <span class="avatar"><?= h(member_initials($authorName)) ?></span>
             <div class="post-author">
-                <div class="post-author-heading"><strong><?= h($authorName) ?></strong><?php if ($isOwnPost): ?><span class="post-author-you">You</span><?php endif; ?></div>
+                <div class="post-author-heading"><strong><?= h($authorName) ?></strong><?php if ($donationOfferView && !empty($post['donor_verified'])): ?><span class="verified-donor" title="Verified by a BLife PH administrator">✓ Verified donor</span><?php endif; ?><?php if ($isOwnPost): ?><span class="post-author-you">You</span><?php endif; ?></div>
                 <span style="font-size: 15px;"><?= h(post_label($post['post_type'])) ?><?php if (!$donationOfferView && !empty($post['author_city'])): ?> · <?= h($post['author_city']) ?><?php endif; ?></span>
             </div>
             <time datetime="<?= h($post['created_at']) ?>"><?= h(date('M j, Y', strtotime($post['created_at']))) ?></time>
@@ -1205,13 +1605,27 @@ function render_post_card(array $post, array $comments, string $csrfToken, int $
         <?php if ($post['post_type'] === 'event' && (!empty($post['venue']) || !empty($post['event_city']))): ?><p class="event-date-label"><?= h(trim(($post['venue'] ?? '') . ' ' . ($post['event_city'] ?? ''))) ?></p><?php endif; ?>
         <?php if ($post['post_type'] === 'donation' && !empty($post['donation_blood_type'])): ?>
             <div class="donation-offer-details">
-                <p><strong>Blood Type:</strong> <?= h($post['donation_blood_type']) ?></p>
-                <p><strong>Area:</strong> <?= h($post['donation_location'] ?: 'Not specified') ?></p>
-                <p><strong>Availability:</strong> <?= !empty($post['donation_available_date']) ? h(date('M j, Y', strtotime($post['donation_available_date']))) : 'Not specified' ?></p>
+                <p class="donation-blood-row"><strong>Blood type</strong><span class="blood-type-badge"><?= h($post['donation_blood_type']) ?></span></p>
+                <p><strong>Area</strong><span class="donation-location">⌖ <?= h($post['donation_location'] ?: 'Not specified') ?></span></p>
+                <p><strong>Availability</strong><span>
+                    <?php
+                    $availabilityParts = [];
+                    if (!empty($post['donation_available_date'])) {
+                        $availabilityParts[] = date('M j, Y', strtotime($post['donation_available_date']));
+                    }
+                    if (!empty($post['donation_available_time'])) {
+                        $availabilityParts[] = date('g:i a', strtotime($post['donation_available_time']));
+                    }
+                    echo $availabilityParts ? h(implode(' · ', $availabilityParts)) : 'Not specified';
+                    ?>
+                </span></p>
             </div>
         <?php endif; ?>
         <p class="post-content<?= $donationOfferView ? ' donation-offer-description' : '' ?>"><?= nl2br(h($post['content'])) ?></p>
         <!-- <?php if ($post['post_type'] === 'donation'): ?><p class="form-help offer-safety-note">Availability is not guaranteed. Avoid sharing private contact details; confirm screening and donation with an authorized facility.</p><?php endif; ?> -->
+        <?php if ($donationOfferView && !$isOwnPost && $offerMessagesAvailable): ?>
+            <a class="button button-primary message-donor-button" href="dashboard.php?page=messages&amp;offer=<?= (int) $post['id'] ?>">✉ Message donor</a>
+        <?php endif; ?>
         <?php if ($donationOfferView && $offerMessagesAvailable): ?>
             <?php render_donation_offer_conversation($post, $offerThreads, $csrfToken, $userId); ?>
         <?php endif; ?>

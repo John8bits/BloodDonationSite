@@ -11,7 +11,7 @@ if (is_admin()) {
     exit;
 }
 
-function redirect_member(string $message, string $type, string $section, ?int $postId = null): void
+function redirect_member(string $message, string $type, string $section, ?int $postId = null, ?string $thread = null): void
 {
     $aliases = ['overview' => 'home', 'community' => 'home', 'donors' => 'find-blood', 'requests' => 'blood-requests'];
     $section = $aliases[$section] ?? $section;
@@ -20,13 +20,16 @@ function redirect_member(string $message, string $type, string $section, ?int $p
     if ($postId !== null && $postId > 0) {
         $location .= '#post-' . $postId;
     }
+    if ($thread !== null && preg_match('/^(offer|request)-\d+(-\d+)?$/', $thread)) {
+        $location .= (strpos($location, '?') === false ? '?' : '&') . 'thread=' . rawurlencode($thread);
+    }
     header('Location: ' . $location);
     exit;
 }
 
 function member_return_page(): string
 {
-    $allowedPages = ['home', 'events', 'donation-offers', 'my-posts', 'saved', 'search'];
+    $allowedPages = ['home', 'events', 'donation-offers', 'my-posts', 'saved', 'search', 'messages'];
     $page = $_POST['return_page'] ?? 'home';
     return is_string($page) && in_array($page, $allowedPages, true) ? $page : 'home';
 }
@@ -164,6 +167,7 @@ try {
                 $donationBloodType = $_POST['donation_blood_type'] ?? '';
                 $donationLocation = trim($_POST['donation_location'] ?? '');
                 $availableDateValue = $_POST['donation_available_date'] ?? '';
+                $availableTimeValue = $_POST['donation_available_time'] ?? '';
                 if (!in_array($donationBloodType, $bloodTypes, true)) {
                     redirect_member('Select the blood type you are offering to donate.', 'error', 'donation-offers');
                 }
@@ -178,6 +182,13 @@ try {
                         redirect_member('Choose a valid availability date today or later.', 'error', 'donation-offers');
                     }
                 }
+                $availableTime = null;
+                if ($availableTimeValue !== '') {
+                    $availableTime = DateTime::createFromFormat('!H:i', $availableTimeValue);
+                    if (!$availableTime || $availableTime->format('H:i') !== $availableTimeValue) {
+                        redirect_member('Choose a valid availability time.', 'error', 'donation-offers');
+                    }
+                }
 
                 $donationColumns = $pdo->prepare(
                     "SELECT COUNT(*) FROM information_schema.COLUMNS
@@ -189,18 +200,41 @@ try {
                     redirect_member('Donation offers are not enabled yet. Apply database_sql/donation_offers_migration.sql, then try again.', 'error', 'donation-offers');
                 }
 
-                $stmt = $pdo->prepare(
-                    "INSERT INTO community_posts
-                        (user_id, post_type, content, event_date, donation_blood_type, donation_location, donation_available_date)
-                     VALUES (:user_id, 'donation', :content, NULL, :blood_type, :location, :available_date)"
+                $availabilityTimeColumn = $pdo->prepare(
+                    "SELECT COUNT(*) FROM information_schema.COLUMNS
+                     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'community_posts'
+                       AND COLUMN_NAME = 'donation_available_time'"
                 );
-                $stmt->execute([
-                    ':user_id' => $userId,
-                    ':content' => $content,
-                    ':blood_type' => $donationBloodType,
-                    ':location' => $donationLocation,
-                    ':available_date' => $availableDate ? $availableDate->format('Y-m-d') : null
-                ]);
+                $availabilityTimeColumn->execute();
+                if ((int) $availabilityTimeColumn->fetchColumn() > 0) {
+                    $stmt = $pdo->prepare(
+                        "INSERT INTO community_posts
+                            (user_id, post_type, content, event_date, donation_blood_type, donation_location, donation_available_date, donation_available_time)
+                         VALUES (:user_id, 'donation', :content, NULL, :blood_type, :location, :available_date, :available_time)"
+                    );
+                    $offerValues = [
+                        ':user_id' => $userId,
+                        ':content' => $content,
+                        ':blood_type' => $donationBloodType,
+                        ':location' => $donationLocation,
+                        ':available_date' => $availableDate ? $availableDate->format('Y-m-d') : null,
+                        ':available_time' => $availableTime ? $availableTime->format('H:i:s') : null
+                    ];
+                } else {
+                    $stmt = $pdo->prepare(
+                        "INSERT INTO community_posts
+                            (user_id, post_type, content, event_date, donation_blood_type, donation_location, donation_available_date)
+                         VALUES (:user_id, 'donation', :content, NULL, :blood_type, :location, :available_date)"
+                    );
+                    $offerValues = [
+                        ':user_id' => $userId,
+                        ':content' => $content,
+                        ':blood_type' => $donationBloodType,
+                        ':location' => $donationLocation,
+                        ':available_date' => $availableDate ? $availableDate->format('Y-m-d') : null
+                    ];
+                }
+                $stmt->execute($offerValues);
                 redirect_member('Your donation offer has been published to the community.', 'success', 'donation-offers');
             }
             $stmt = $pdo->prepare(
@@ -575,8 +609,9 @@ try {
         case 'request_message':
             $responseId = filter_var($_POST['response_id'] ?? null, FILTER_VALIDATE_INT);
             $message = trim($_POST['message'] ?? '');
+            $returnToMessages = ($_POST['return_page'] ?? '') === 'messages';
             if (!$responseId || $message === '' || strlen($message) > 1000) {
-                redirect_member('Enter a reply of 1 to 1,000 characters.', 'error', 'my-requests');
+                redirect_member('Enter a reply of 1 to 1,000 characters.', 'error', $returnToMessages ? 'messages' : 'my-requests', null, $returnToMessages && $responseId ? 'request-' . $responseId : null);
             }
 
             $threadStmt = $pdo->prepare(
@@ -595,7 +630,7 @@ try {
             ]);
             $thread = $threadStmt->fetch();
             if (!$thread) {
-                redirect_member('That conversation is not available to your account.', 'error', 'my-requests');
+                redirect_member('That conversation is not available to your account.', 'error', $returnToMessages ? 'messages' : 'my-requests', null, $returnToMessages ? 'request-' . $responseId : null);
             }
             if ($thread['approval_status'] !== 'accepted') {
                 redirect_member('The requester must accept your offer before private messaging is available.', 'error', (int) $thread['requester_id'] === $userId ? 'my-requests' : 'responded');
@@ -630,6 +665,9 @@ try {
                 ':recipient_id' => $recipientId
             ]);
             $pdo->commit();
+            if ($returnToMessages) {
+                redirect_member('Your private reply has been sent.', 'success', 'messages', null, 'request-' . $responseId);
+            }
             redirect_member('Your private reply has been sent.', 'success', (int) $thread['requester_id'] === $userId ? 'my-requests' : 'responded');
 
         case 'donation_offer_message':
@@ -637,8 +675,9 @@ try {
             $seekerId = filter_var($_POST['seeker_id'] ?? null, FILTER_VALIDATE_INT);
             $message = trim($_POST['message'] ?? '');
             $urgency = $_POST['urgency'] ?? '';
+            $returnToMessages = ($_POST['return_page'] ?? '') === 'messages';
             if (!$postId || !$seekerId || $message === '' || strlen($message) > 1000) {
-                redirect_member('Enter a private offer message of 1 to 1,000 characters.', 'error', 'donation-offers');
+                redirect_member('Enter a private offer message of 1 to 1,000 characters.', 'error', $returnToMessages ? 'messages' : 'donation-offers', null, $returnToMessages && $postId && $seekerId ? 'offer-' . $postId . '-' . $seekerId : null);
             }
 
             $offerStmt = $pdo->prepare(
@@ -650,12 +689,12 @@ try {
             $offerStmt->execute([':id' => $postId]);
             $offer = $offerStmt->fetch();
             if (!$offer) {
-                redirect_member('That donation offer is no longer available.', 'error', 'donation-offers');
+                redirect_member('That donation offer is no longer available.', 'error', $returnToMessages ? 'messages' : 'donation-offers', null, $returnToMessages ? 'offer-' . $postId . '-' . $seekerId : null);
             }
 
             $offerOwnerId = (int) $offer['user_id'];
             if ($offerOwnerId === $seekerId || ($userId !== $offerOwnerId && $userId !== $seekerId)) {
-                redirect_member('This private conversation is not available to your account.', 'error', 'donation-offers');
+                redirect_member('This private conversation is not available to your account.', 'error', $returnToMessages ? 'messages' : 'donation-offers');
             }
             $threadStmt = $pdo->prepare(
                 'SELECT 1 FROM donation_offer_messages
@@ -664,10 +703,10 @@ try {
             $threadStmt->execute([':post_id' => $postId, ':seeker_id' => $seekerId]);
             $threadExists = (bool) $threadStmt->fetchColumn();
             if ($userId === $offerOwnerId && !$threadExists) {
-                redirect_member('You can reply only to a member who has contacted you about this offer.', 'error', 'donation-offers');
+                redirect_member('You can reply only to a member who has contacted you about this offer.', 'error', $returnToMessages ? 'messages' : 'donation-offers');
             }
             if ($userId === $seekerId && !$threadExists && !in_array($urgency, ['routine', 'urgent', 'emergency'], true)) {
-                redirect_member('Select an urgency level before contacting the donor.', 'error', 'donation-offers', $postId);
+                redirect_member('Select an urgency level before contacting the donor.', 'error', $returnToMessages ? 'messages' : 'donation-offers', $returnToMessages ? null : $postId, $returnToMessages ? 'offer-' . $postId . '-' . $seekerId : null);
             }
 
             $recipientId = $userId === $offerOwnerId ? $seekerId : $offerOwnerId;
@@ -696,7 +735,84 @@ try {
                 ':recipient_id' => $recipientId
             ]);
             $pdo->commit();
+            if ($returnToMessages) {
+                redirect_member('Your private message has been sent.', 'success', 'messages', null, 'offer-' . $postId . '-' . $seekerId);
+            }
             redirect_member('Your private message has been sent.', 'success', 'donation-offers', $postId);
+
+        case 'message_report':
+            $messageType = $_POST['message_type'] ?? '';
+            $messageId = filter_var($_POST['message_id'] ?? null, FILTER_VALIDATE_INT);
+            $reason = trim($_POST['reason'] ?? '');
+            if (!$messageId || !in_array($messageType, ['donation_offer', 'request_response'], true) || $reason === '' || strlen($reason) > 255) {
+                redirect_member('Choose a message and provide a report reason of up to 255 characters.', 'error', 'messages');
+            }
+
+            if ($messageType === 'donation_offer') {
+                $messageStmt = $pdo->prepare(
+                    'SELECT m.id, m.sender_id, m.post_id, m.seeker_id, cp.user_id AS donor_id
+                     FROM donation_offer_messages m
+                     JOIN community_posts cp ON cp.id = m.post_id
+                     WHERE m.id = :message_id AND cp.post_type = \'donation\'
+                       AND (cp.user_id = :donor_viewer OR m.seeker_id = :seeker_viewer)
+                     LIMIT 1'
+                );
+                $messageStmt->execute([
+                    ':message_id' => $messageId,
+                    ':donor_viewer' => $userId,
+                    ':seeker_viewer' => $userId
+                ]);
+                $reportTarget = $messageStmt->fetch();
+                if (!$reportTarget || (int) $reportTarget['sender_id'] === $userId) {
+                    redirect_member('You can report only a message from another participant in your conversation.', 'error', 'messages');
+                }
+                $threadKey = 'offer-' . (int) $reportTarget['post_id'] . '-' . (int) $reportTarget['seeker_id'];
+            } else {
+                $messageStmt = $pdo->prepare(
+                    'SELECT m.id, m.sender_id, rr.id AS response_id
+                     FROM request_response_messages m
+                     JOIN request_responses rr ON rr.id = m.response_id
+                     JOIN blood_requests br ON br.id = rr.request_id
+                     WHERE m.id = :message_id
+                       AND (br.requester_id = :requester_viewer OR rr.user_id = :responder_viewer)
+                     LIMIT 1'
+                );
+                $messageStmt->execute([
+                    ':message_id' => $messageId,
+                    ':requester_viewer' => $userId,
+                    ':responder_viewer' => $userId
+                ]);
+                $reportTarget = $messageStmt->fetch();
+                if (!$reportTarget || (int) $reportTarget['sender_id'] === $userId) {
+                    redirect_member('You can report only a message from another participant in your conversation.', 'error', 'messages');
+                }
+                $threadKey = 'request-' . (int) $reportTarget['response_id'];
+            }
+
+            $existingReport = $pdo->prepare(
+                'SELECT id FROM member_message_reports
+                 WHERE reporter_id = :reporter_id AND message_type = :message_type AND message_id = :message_id
+                 LIMIT 1'
+            );
+            $existingReport->execute([
+                ':reporter_id' => $userId,
+                ':message_type' => $messageType,
+                ':message_id' => $messageId
+            ]);
+            if ($existingReport->fetchColumn()) {
+                redirect_member('You have already reported that message.', 'info', 'messages', null, $threadKey);
+            }
+            $reportStmt = $pdo->prepare(
+                'INSERT INTO member_message_reports (reporter_id, message_type, message_id, reason)
+                 VALUES (:reporter_id, :message_type, :message_id, :reason)'
+            );
+            $reportStmt->execute([
+                ':reporter_id' => $userId,
+                ':message_type' => $messageType,
+                ':message_id' => $messageId,
+                ':reason' => $reason
+            ]);
+            redirect_member('The message has been reported for administrator review.', 'success', 'messages', null, $threadKey);
 
         case 'notification_open':
             $notificationId = filter_var($_POST['notification_id'] ?? null, FILTER_VALIDATE_INT);
@@ -704,7 +820,7 @@ try {
                 redirect_member('Choose a valid notification.', 'error', 'notifications');
             }
             $stmt = $pdo->prepare(
-                'SELECT notification_type, target_id FROM member_notifications
+                'SELECT notification_type, target_id, actor_id FROM member_notifications
                  WHERE id = :id AND user_id = :user_id LIMIT 1'
             );
             $stmt->execute([':id' => $notificationId, ':user_id' => $userId]);
@@ -716,23 +832,27 @@ try {
             $stmt->execute([':id' => $notificationId, ':user_id' => $userId]);
             if ($notification['notification_type'] === 'request_message') {
                 $threadStmt = $pdo->prepare(
-                    'SELECT br.requester_id, rr.user_id AS responder_id
+                    'SELECT rr.id AS response_id
                      FROM request_responses rr
                      JOIN blood_requests br ON br.id = rr.request_id
                      WHERE br.id = :request_id
+                       AND rr.status = \'accepted\'
                        AND (br.requester_id = :requester_id OR rr.user_id = :responder_id)
+                       AND (br.requester_id = :actor_requester OR rr.user_id = :actor_responder)
                      LIMIT 1'
                 );
                 $threadStmt->execute([
                     ':request_id' => (int) $notification['target_id'],
                     ':requester_id' => $userId,
-                    ':responder_id' => $userId
+                    ':responder_id' => $userId,
+                    ':actor_requester' => (int) $notification['actor_id'],
+                    ':actor_responder' => (int) $notification['actor_id']
                 ]);
                 $thread = $threadStmt->fetch();
                 if (!$thread) {
                     redirect_member('That conversation is no longer available.', 'error', 'notifications');
                 }
-                redirect_member('Conversation opened.', 'success', (int) $thread['requester_id'] === $userId ? 'my-requests' : 'responded');
+                redirect_member('Conversation opened.', 'success', 'messages', null, 'request-' . (int) $thread['response_id']);
             }
             if ($notification['notification_type'] === 'request_response') {
                 $requestStmt = $pdo->prepare(
@@ -761,7 +881,7 @@ try {
             }
             if ($notification['notification_type'] === 'donation_offer_message') {
                 $offerThreadStmt = $pdo->prepare(
-                    "SELECT cp.id
+                    "SELECT cp.id, cp.user_id
                      FROM community_posts cp
                      WHERE cp.id = :post_id AND cp.post_type = 'donation'
                        AND (cp.user_id = :owner_id OR EXISTS (
@@ -775,10 +895,26 @@ try {
                     ':owner_id' => $userId,
                     ':seeker_id' => $userId
                 ]);
-                if (!$offerThreadStmt->fetchColumn()) {
+                $offerForNotification = $offerThreadStmt->fetch();
+                if (!$offerForNotification) {
                     redirect_member('That donation conversation is no longer available.', 'error', 'notifications');
                 }
-                redirect_member('Donation offer conversation opened.', 'success', 'donation-offers', (int) $notification['target_id']);
+                $seekerId = (int) $offerForNotification['user_id'] === $userId
+                    ? (int) $notification['actor_id']
+                    : $userId;
+                $threadExistsStmt = $pdo->prepare(
+                    'SELECT 1 FROM donation_offer_messages
+                     WHERE post_id = :post_id AND seeker_id = :seeker_id
+                     LIMIT 1'
+                );
+                $threadExistsStmt->execute([
+                    ':post_id' => (int) $notification['target_id'],
+                    ':seeker_id' => $seekerId
+                ]);
+                if (!$threadExistsStmt->fetchColumn()) {
+                    redirect_member('That donation conversation is no longer available.', 'error', 'notifications');
+                }
+                redirect_member('Donation offer conversation opened.', 'success', 'messages', null, 'offer-' . (int) $notification['target_id'] . '-' . $seekerId);
             }
             if (in_array($notification['notification_type'], ['post_like', 'post_comment', 'post_share', 'post_save'], true)) {
                 redirect_member('Post activity opened.', 'success', 'my-posts', (int) $notification['target_id']);

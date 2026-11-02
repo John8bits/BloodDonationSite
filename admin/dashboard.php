@@ -42,7 +42,7 @@ $sections = [
     'members' => 'Member Management',
     'requests' => 'Blood Request Management',
     'posts' => 'Community Posts',
-    'reports' => 'Reported Posts',
+    'reports' => 'Reported Content',
     'events' => 'Donation Event Management',
     'analytics' => 'Reports & Analytics',
     'activity' => 'Admin Activity Log',
@@ -55,6 +55,7 @@ if (!isset($sections[$currentPage])) {
 $schema = [
     'account_status' => admin_column_exists($pdo, 'uinfo', 'account_status'),
     'donor_available' => admin_column_exists($pdo, 'uinfo', 'donor_available'),
+    'donor_verified' => admin_column_exists($pdo, 'uinfo', 'donor_verified'),
     'city' => admin_column_exists($pdo, 'uinfo', 'city'),
     'requests' => admin_table_exists($pdo, 'blood_requests'),
     'responses' => admin_table_exists($pdo, 'request_responses'),
@@ -64,6 +65,7 @@ $schema = [
     'activity' => admin_table_exists($pdo, 'admin_activity_log'),
     'settings' => admin_table_exists($pdo, 'platform_settings'),
     'report_reason' => admin_column_exists($pdo, 'post_interactions', 'report_reason'),
+    'message_reports' => admin_table_exists($pdo, 'member_message_reports'),
     'event_fields' => admin_column_exists($pdo, 'community_posts', 'event_title')
 ];
 $flash = $_SESSION['admin_flash'] ?? null;
@@ -89,6 +91,7 @@ $stats = [
 ];
 
 $rows = [];
+$messageReportRows = [];
 $bloodBreakdown = [];
 $cityBreakdown = [];
 $statusBreakdown = [];
@@ -128,8 +131,9 @@ if ($currentPage === 'members') {
     $citySelect = $schema['city'] ? 'city' : "'' AS city";
     $donorSelect = $schema['donor_available'] ? 'donor_available' : '0 AS donor_available';
     $statusSelect = $schema['account_status'] ? 'account_status' : "'active' AS account_status";
+    $verifiedSelect = $schema['donor_verified'] ? 'donor_verified' : '0 AS donor_verified';
     $stmt = $pdo->prepare(
-        "SELECT id, fname, lname, email, btype, phone, {$citySelect}, {$donorSelect}, {$statusSelect}, created_at
+        "SELECT id, fname, lname, email, btype, phone, {$citySelect}, {$donorSelect}, {$statusSelect}, {$verifiedSelect}, created_at
          FROM uinfo WHERE " . implode(' AND ', $conditions) . ' ORDER BY created_at DESC LIMIT 250'
     );
     $stmt->execute($params);
@@ -222,6 +226,26 @@ if ($currentPage === 'reports' && $schema['interactions'] && $schema['posts']) {
          ORDER BY pi.created_at ASC LIMIT 250"
     );
     $rows = $stmt->fetchAll();
+}
+
+if ($currentPage === 'reports' && $schema['message_reports']) {
+    $stmt = $pdo->query(
+        "SELECT r.id, r.message_type, r.reason, r.status, r.created_at,
+                r.message_id, reporter.fname AS reporter_first, reporter.lname AS reporter_last,
+                COALESCE(offer_message.message, request_message.message) AS reported_message,
+                COALESCE(offer_sender.fname, request_sender.fname) AS sender_first,
+                COALESCE(offer_sender.lname, request_sender.lname) AS sender_last
+         FROM member_message_reports r
+         JOIN uinfo reporter ON reporter.id = r.reporter_id
+         LEFT JOIN donation_offer_messages offer_message
+           ON r.message_type = 'donation_offer' AND offer_message.id = r.message_id
+         LEFT JOIN request_response_messages request_message
+           ON r.message_type = 'request_response' AND request_message.id = r.message_id
+         LEFT JOIN uinfo offer_sender ON offer_sender.id = offer_message.sender_id
+         LEFT JOIN uinfo request_sender ON request_sender.id = request_message.sender_id
+         ORDER BY (r.status = 'pending') DESC, r.created_at ASC LIMIT 250"
+    );
+    $messageReportRows = $stmt->fetchAll();
 }
 
 if ($currentPage === 'activity' && $schema['activity']) {
@@ -374,8 +398,9 @@ $adminName = trim(($firstName ?? '') . ' ' . ($lastName ?? ''));
                 <?php if ($schema['account_status']): ?><select name="status"><option value="">All account statuses</option><option value="active" <?= $status === 'active' ? 'selected' : '' ?>>Active</option><option value="suspended" <?= $status === 'suspended' ? 'selected' : '' ?>>Suspended</option></select><?php endif; ?>
                 <button type="submit">Filter members</button>
             </form>
-            <div class="admin-table-wrapper"><table class="admin-table"><thead><tr><th>Member</th><th>Email</th><th>Blood type</th><th>City</th><th>Donor search</th><th>Status</th><th>Joined</th><th>Actions</th></tr></thead><tbody>
-            <?php foreach ($rows as $member): ?><tr><td><?= admin_h(trim($member['fname'] . ' ' . $member['lname']) ?: 'Unnamed member') ?></td><td><?= admin_h($member['email']) ?></td><td><?= admin_h($member['btype'] ?: '—') ?></td><td><?= admin_h($member['city'] ?: '—') ?></td><td><?= $member['donor_available'] ? 'Opted in' : 'No' ?></td><td><?= admin_h($member['account_status']) ?></td><td><?= admin_h(date('M j, Y', strtotime($member['created_at']))) ?></td><td><?php if ((int) $member['id'] === (int) current_user_id()): ?>You<?php else: ?>
+            <div class="admin-table-wrapper"><table class="admin-table"><thead><tr><th>Member</th><th>Email</th><th>Blood type</th><th>City</th><th>Donor search</th><th>Verification</th><th>Status</th><th>Joined</th><th>Actions</th></tr></thead><tbody>
+            <?php foreach ($rows as $member): ?><tr><td><?= admin_h(trim($member['fname'] . ' ' . $member['lname']) ?: 'Unnamed member') ?></td><td><?= admin_h($member['email']) ?></td><td><?= admin_h($member['btype'] ?: '—') ?></td><td><?= admin_h($member['city'] ?: '—') ?></td><td><?= $member['donor_available'] ? 'Opted in' : 'No' ?></td><td><?= $member['donor_verified'] ? 'Verified' : 'Not verified' ?></td><td><?= admin_h($member['account_status']) ?></td><td><?= admin_h(date('M j, Y', strtotime($member['created_at']))) ?></td><td><?php if ((int) $member['id'] === (int) current_user_id()): ?>You<?php else: ?>
+                <?php if ($schema['donor_verified']): ?><form class="admin-inline-form" method="post" action="action.php"><input type="hidden" name="csrf_token" value="<?= admin_h($csrfToken) ?>"><input type="hidden" name="action" value="member_verification"><input type="hidden" name="user_id" value="<?= (int) $member['id'] ?>"><input type="hidden" name="verified" value="<?= $member['donor_verified'] ? '0' : '1' ?>"><button class="admin-button secondary"><?= $member['donor_verified'] ? 'Remove verification' : 'Verify donor' ?></button></form><?php endif; ?>
                 <?php if ($schema['account_status']): ?><form class="admin-inline-form" method="post" action="action.php"><input type="hidden" name="csrf_token" value="<?= admin_h($csrfToken) ?>"><input type="hidden" name="action" value="member_status"><input type="hidden" name="user_id" value="<?= (int) $member['id'] ?>"><input type="hidden" name="status" value="<?= $member['account_status'] === 'suspended' ? 'active' : 'suspended' ?>"><button class="admin-button secondary"><?= $member['account_status'] === 'suspended' ? 'Reactivate' : 'Suspend' ?></button></form><?php endif; ?>
                 <form class="admin-inline-form confirm-delete" method="post" action="action.php"><input type="hidden" name="csrf_token" value="<?= admin_h($csrfToken) ?>"><input type="hidden" name="action" value="member_delete"><input type="hidden" name="user_id" value="<?= (int) $member['id'] ?>"><button class="admin-button danger">Remove</button></form>
             <?php endif; ?></td></tr><?php endforeach; ?></tbody></table><?php if (!$rows): ?><p class="empty-state">No members match these filters.</p><?php endif; ?></div>
@@ -389,6 +414,24 @@ $adminName = trim(($firstName ?? '') . ' ' . ($lastName ?? ''));
             <div class="admin-table-wrapper"><table class="admin-table"><thead><tr><th>Post</th><th>Author</th><th>Category</th><th>Engagement</th><th>Published</th><th>Actions</th></tr></thead><tbody><?php foreach ($rows as $post): ?><tr><td><details><summary><?= admin_h(function_exists('mb_strimwidth') ? mb_strimwidth($post['content'], 0, 100, '…') : substr($post['content'], 0, 100)) ?></summary><p><?= nl2br(admin_h($post['content'])) ?></p></details></td><td><?= admin_h(trim($post['fname'] . ' ' . $post['lname'])) ?></td><td><?= admin_h($post['post_type']) ?></td><td><?= (int) $post['like_count'] ?> likes · <?= (int) $post['comment_count'] ?> comments</td><td><?= admin_h($post['created_at']) ?></td><td><form method="post" action="action.php" class="admin-inline-form confirm-delete"><input type="hidden" name="csrf_token" value="<?= admin_h($csrfToken) ?>"><input type="hidden" name="action" value="post_remove"><input type="hidden" name="post_id" value="<?= (int) $post['id'] ?>"><input name="reason" maxlength="255" placeholder="Moderation reason" required><button class="admin-button danger">Remove</button></form></td></tr><?php endforeach; ?></tbody></table><?php if (!$rows): ?><p class="empty-state">No community posts found.</p><?php endif; ?></div>
         <?php elseif ($currentPage === 'reports'): ?>
             <div class="admin-table-wrapper"><table class="admin-table"><thead><tr><th>Reported post</th><th>Author</th><th>Reporter / reason</th><th>Report date</th><th>Counts</th><th>Review action</th></tr></thead><tbody><?php foreach ($rows as $report): ?><tr><td><details><summary><?= admin_h(function_exists('mb_strimwidth') ? mb_strimwidth($report['content'], 0, 100, '…') : substr($report['content'], 0, 100)) ?></summary><p><?= nl2br(admin_h($report['content'])) ?></p></details></td><td><?= admin_h(trim($report['author_first'] . ' ' . $report['author_last'])) ?></td><td><?= admin_h(trim($report['reporter_first'] . ' ' . $report['reporter_last'])) ?><br><small><?= admin_h($report['report_reason'] ?: 'No reason supplied') ?></small></td><td><?= admin_h($report['reported_at']) ?></td><td><?= (int) $report['report_count'] ?> reports<br><small><?= (int) $report['author_report_count'] ?> on this author</small></td><td><form method="post" action="review_report.php" class="admin-action-form report-review-form"><input type="hidden" name="csrf_token" value="<?= admin_h($csrfToken) ?>"><input type="hidden" name="post_id" value="<?= (int) $report['post_id'] ?>"><input type="hidden" name="reporter_id" value="<?= (int) $report['reporter_id'] ?>"><input name="reason" maxlength="255" placeholder="Review reason" required><button name="action" value="dismiss" class="admin-button secondary">Dismiss</button><button name="action" value="delete" class="admin-button danger">Remove post</button></form></td></tr><?php endforeach; ?></tbody></table><?php if (!$rows): ?><p class="empty-state">No posts are awaiting report review.</p><?php endif; ?></div>
+            <section class="admin-panel">
+                <h2>Reported private messages</h2>
+                <?php if (!$schema['message_reports']): ?>
+                    <p class="admin-alert info">Message reports are unavailable until <code>database_sql/messages_inbox_migration.sql</code> is applied.</p>
+                <?php else: ?>
+                    <div class="admin-table-wrapper"><table class="admin-table"><thead><tr><th>Message / sender</th><th>Reporter / reason</th><th>Report date</th><th>Status</th><th>Review</th></tr></thead><tbody>
+                    <?php foreach ($messageReportRows as $report): ?>
+                        <tr>
+                            <td><strong><?= admin_h($report['message_type'] === 'donation_offer' ? 'Donation offer' : 'Blood request') ?></strong><br><?= nl2br(admin_h($report['reported_message'] ?: '[Message no longer available]')) ?><br><small>From <?= admin_h(trim($report['sender_first'] . ' ' . $report['sender_last']) ?: 'Former member') ?></small></td>
+                            <td><?= admin_h(trim($report['reporter_first'] . ' ' . $report['reporter_last']) ?: 'Former member') ?><br><small><?= admin_h($report['reason']) ?></small></td>
+                            <td><?= admin_h($report['created_at']) ?></td>
+                            <td><?= admin_h(ucfirst($report['status'])) ?></td>
+                            <td><?php if ($report['status'] === 'pending'): ?><form method="post" action="action.php"><input type="hidden" name="csrf_token" value="<?= admin_h($csrfToken) ?>"><input type="hidden" name="action" value="message_report_review"><input type="hidden" name="report_id" value="<?= (int) $report['id'] ?>"><button class="admin-button secondary">Mark reviewed</button></form><?php else: ?>Reviewed<?php endif; ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                    </tbody></table><?php if (!$messageReportRows): ?><p class="empty-state">No private messages have been reported.</p><?php endif; ?></div>
+                <?php endif; ?>
+            </section>
         <?php elseif ($currentPage === 'events'): ?>
             <?php if (!$schema['event_fields']): ?><div class="admin-alert info">Donation event management needs the updated event columns. Apply <code>database_sql/blife_admin_modules_migration.sql</code>.</div><?php else: ?>
             <section class="admin-panel"><h2><?= $editingEvent ? 'Edit event announcement' : 'Create donation event announcement' ?></h2><form class="admin-event-form" method="post" action="action.php"><input type="hidden" name="csrf_token" value="<?= admin_h($csrfToken) ?>"><input type="hidden" name="action" value="event_save"><input type="hidden" name="post_id" value="<?= (int) ($editingEvent['id'] ?? 0) ?>"><label>Event title<input name="event_title" maxlength="160" required value="<?= admin_h($editingEvent['event_title'] ?? '') ?>"></label><label>Description<textarea name="content" maxlength="1000" rows="3" required><?= admin_h($editingEvent['content'] ?? '') ?></textarea></label><div class="admin-event-grid"><label>Organizer<input name="organizer" maxlength="160" value="<?= admin_h($editingEvent['organizer'] ?? '') ?>"></label><label>Date<input name="event_date" type="date" required value="<?= admin_h($editingEvent['event_date'] ?? '') ?>"></label><label>Time<input name="event_time" type="time" value="<?= admin_h($editingEvent['event_time'] ?? '') ?>"></label><label>Venue<input name="venue" maxlength="180" value="<?= admin_h($editingEvent['venue'] ?? '') ?>"></label><label>City<input name="event_city" maxlength="120" value="<?= admin_h($editingEvent['event_city'] ?? '') ?>"></label><label>Public contact<input name="public_contact" maxlength="180" value="<?= admin_h($editingEvent['public_contact'] ?? '') ?>"></label><label>Status<select name="event_status"><?php foreach (['published','draft','cancelled','completed'] as $value): ?><option value="<?= $value ?>" <?= ($editingEvent['event_status'] ?? 'published') === $value ? 'selected' : '' ?>><?= ucfirst($value) ?></option><?php endforeach; ?></select></label></div><p class="form-help">Announcements are not verified; attending or registering is not provided by this platform.</p><button class="admin-button"><?= $editingEvent ? 'Save changes' : 'Create event' ?></button><?php if ($editingEvent): ?><a class="admin-button secondary" href="dashboard.php?page=events">Cancel edit</a><?php endif; ?></form></section>
