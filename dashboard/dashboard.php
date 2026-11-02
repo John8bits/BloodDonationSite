@@ -61,11 +61,17 @@ function render_notification_items(array $notifications, string $csrfToken): voi
 $bloodTypes = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 $pages = [
     'home', 'find-blood', 'blood-requests', 'donation-offers', 'events', 'activity',
-    'my-posts', 'my-requests', 'responded', 'saved', 'messages', 'notifications',
+    'my-posts', 'my-requests', 'my-community-posts', 'my-blood-requests', 'my-donation-offers',
+    'responded', 'saved', 'messages', 'notifications',
     'profile', 'settings', 'help', 'search'
 ];
 $requestedPage = isset($_GET['page']) && is_string($_GET['page']) ? $_GET['page'] : 'home';
-$aliases = ['overview' => 'home', 'donors' => 'find-blood', 'requests' => 'blood-requests', 'community' => 'home', 'donations' => 'donation-offers'];
+$aliases = [
+    'overview' => 'home', 'donors' => 'find-blood', 'requests' => 'blood-requests',
+    'community' => 'home', 'donations' => 'donation-offers',
+    'my-community-posts' => 'my-posts', 'my-blood-requests' => 'my-posts',
+    'my-donation-offers' => 'my-posts', 'my-requests' => 'my-posts'
+];
 $requestedPage = $aliases[$requestedPage] ?? $requestedPage;
 $activePage = in_array($requestedPage, $pages, true) ? $requestedPage : 'home';
 $searchQuery = isset($_GET['q']) && is_string($_GET['q']) ? trim($_GET['q']) : '';
@@ -97,7 +103,7 @@ $selectedConversation = null;
 $newMessageOffer = null;
 $selectedThread = '';
 $unreadNotifications = 0;
-$statistics = ['posts' => 0, 'requests' => 0, 'responses' => 0, 'saved' => 0];
+$statistics = ['posts' => 0, 'offers' => 0, 'requests' => 0, 'responses' => 0, 'saved' => 0];
 $schemaReady = false;
 $schemaError = '';
 $donationFieldsAvailable = false;
@@ -226,13 +232,15 @@ try {
 
         $countStmt = $pdo->prepare(
             "SELECT
-                (SELECT COUNT(*) FROM community_posts WHERE user_id = :posts_user) AS posts,
+                (SELECT COUNT(*) FROM community_posts WHERE user_id = :posts_user AND post_type = 'community') AS posts,
+                (SELECT COUNT(*) FROM community_posts WHERE user_id = :offers_user AND post_type = 'donation') AS offers,
                 (SELECT COUNT(*) FROM blood_requests WHERE requester_id = :requests_user) AS requests,
                 (SELECT COUNT(*) FROM request_responses WHERE user_id = :responses_user) AS responses,
                 (SELECT COUNT(*) FROM post_interactions WHERE user_id = :saved_user AND interaction = 'save') AS saved"
         );
         $countStmt->execute([
             ':posts_user' => $userId,
+            ':offers_user' => $userId,
             ':requests_user' => $userId,
             ':responses_user' => $userId,
             ':saved_user' => $userId
@@ -341,6 +349,7 @@ try {
         if ($activePage === 'my-posts') {
             $postConditions[] = 'cp.user_id = :author_id';
             $postParams[':author_id'] = $userId;
+            $postConditions[] = "cp.post_type IN ('community', 'donation')";
         } elseif ($activePage === 'saved') {
             $postConditions[] = "EXISTS (SELECT 1 FROM post_interactions saved WHERE saved.post_id = cp.id AND saved.user_id = :saved_viewer AND saved.interaction = 'save')";
             $postParams[':saved_viewer'] = $userId;
@@ -722,8 +731,7 @@ $navGroups = [
     ],
     'My Activities' => [
         'activity' => ['▤', 'My Activity'],
-        'my-posts' => ['▧', 'My Posts'],
-        'my-requests' => ['♥', 'My Blood Requests'],
+        'my-posts' => ['▧', 'My Post'],
         'responded' => ['↗', "Requests I've Responded To"],
         'saved' => ['☆', 'Saved Posts']
     ],
@@ -743,8 +751,7 @@ $pageTitles = [
     'donation-offers' => 'Donation Offers',
     'events' => 'Donation Events',
     'activity' => 'My Activity',
-    'my-posts' => 'My Posts',
-    'my-requests' => 'My Blood Requests',
+    'my-posts' => 'My Post',
     'responded' => "Requests I've Responded To",
     'saved' => 'Saved Posts',
     'messages' => 'Messages',
@@ -1107,8 +1114,7 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                 <?php elseif ($activePage === 'activity'): ?>
                     <section class="activity-grid">
                         <?php foreach ([
-                            ['my-posts', 'My Posts', (int) $statistics['posts'], 'Community updates and event announcements you shared.'],
-                            ['my-requests', 'My Blood Requests', (int) $statistics['requests'], 'Requests you created and their current status.'],
+                            ['my-posts', 'My Post', (int) $statistics['posts'] + (int) $statistics['requests'] + (int) $statistics['offers'], 'Your community updates, blood requests, and donation offers.'],
                             ['responded', "Requests I've Responded To", (int) $statistics['responses'], 'Requests where you offered to help.'],
                             ['saved', 'Saved Posts', (int) $statistics['saved'], 'Posts you saved for later.']
                         ] as $activity): ?>
@@ -1117,11 +1123,41 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                     </section>
                 <?php elseif ($activePage === 'my-posts' || $activePage === 'saved'): ?>
                     <?php if ($activePage === 'my-posts' && !$donationStatusAvailable): ?><div class="notice notice-info" role="status">Donation offer status management needs the database update in <code>database_sql/donation_offer_status_migration.sql</code>.</div><?php endif; ?>
-                    <section class="feed-column">
-                        <?php if (!$posts): ?><div class="empty-state panel"><strong><?= $activePage === 'saved' ? 'No saved posts yet.' : 'You have not shared any posts yet.' ?></strong><span><?= $activePage === 'saved' ? 'Save posts from the community feed to find them here.' : 'Share an update, event, or success story with the community.' ?></span><?php if ($activePage === 'my-posts'): ?><a class="button button-primary" href="dashboard.php?page=home#postComposer">Create a Post</a><?php endif; ?></div><?php else: ?>
-                            <?php foreach ($posts as $post): ?><?php render_post_card($post, $commentsByPost[$post['id']] ?? [], $csrfToken, $userId, false, false, $donationStatusAvailable, $donationTimeAvailable); ?><?php endforeach; ?>
-                        <?php endif; ?>
-                    </section>
+                    <?php if ($activePage === 'my-posts'): ?>
+                        <?php $communityPosts = array_filter($posts, static fn(array $post): bool => $post['post_type'] === 'community'); ?>
+                        <div class="feed-column my-post-sections">
+                            <nav class="my-post-category-nav" aria-label="My post categories">
+                                <a href="#my-community-posts">Community Post</a>
+                                <a href="#my-blood-requests">Blood Request</a>
+                                <a href="#my-donation-offers">Donation Offer</a>
+                            </nav>
+                            <section class="my-post-section" id="my-community-posts">
+                                <div class="section-heading"><h2>Community Post</h2></div>
+                                <?php if (!$communityPosts): ?><div class="empty-state panel"><strong>No community updates yet.</strong><span>Updates you share will appear here.</span></div><?php else: ?>
+                                    <div class="feed-column"><?php foreach ($communityPosts as $post): ?><?php render_post_card($post, $commentsByPost[$post['id']] ?? [], $csrfToken, $userId, false, false, $donationStatusAvailable, $donationTimeAvailable); ?><?php endforeach; ?></div>
+                                <?php endif; ?>
+                            </section>
+                            <section class="my-post-section" id="my-blood-requests">
+                                <div class="section-heading"><h2>Blood Request</h2></div>
+                                <?php if (!$myRequests): ?><div class="empty-state panel"><strong>No blood requests yet.</strong><span>Requests you create will appear here.</span></div><?php else: ?>
+                                    <div class="request-list"><?php foreach ($myRequests as $request): ?><?php render_request_card($request, $csrfToken, true, false); ?><?php endforeach; ?></div>
+                                <?php endif; ?>
+                            </section>
+                            <section class="my-post-section" id="my-donation-offers">
+                                <div class="section-heading"><h2>Donation Offer</h2></div>
+                                <?php $donationPosts = array_filter($posts, static fn(array $post): bool => $post['post_type'] === 'donation'); ?>
+                                <?php if (!$donationPosts): ?><div class="empty-state panel"><strong>No donation offers yet.</strong><span>Offers you publish will appear here.</span><a class="button button-primary" href="dashboard.php?page=donation-offers">Offer Donation</a></div><?php else: ?>
+                                    <div class="feed-column"><?php foreach ($donationPosts as $post): ?><?php render_post_card($post, $commentsByPost[$post['id']] ?? [], $csrfToken, $userId, true, false, $donationStatusAvailable, $donationTimeAvailable); ?><?php endforeach; ?></div>
+                                <?php endif; ?>
+                            </section>
+                        </div>
+                    <?php else: ?>
+                        <section class="feed-column">
+                            <?php if (!$posts): ?><div class="empty-state panel"><strong>No saved posts yet.</strong><span>Save posts from the community feed to find them here.</span></div><?php else: ?>
+                                <?php foreach ($posts as $post): ?><?php render_post_card($post, $commentsByPost[$post['id']] ?? [], $csrfToken, $userId, false, false, $donationStatusAvailable, $donationTimeAvailable); ?><?php endforeach; ?>
+                            <?php endif; ?>
+                        </section>
+                    <?php endif; ?>
                 <?php elseif ($activePage === 'my-requests' || $activePage === 'responded'): ?>
                     <?php $requestList = $activePage === 'my-requests' ? $myRequests : $respondedRequests; ?>
                     <?php if (!$requestList): ?><div class="empty-state panel"><strong><?= $activePage === 'my-requests' ? 'You have not posted a blood request.' : "You haven't responded to any requests yet." ?></strong><span>Browse requests to offer help, or post a request when you need one.</span><a class="button button-primary" href="dashboard.php?page=blood-requests">View Blood Requests</a></div><?php else: ?>
@@ -1321,7 +1357,7 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
 </html>
 <?php
 
-function render_request_card(array $request, string $csrfToken, bool $isOwn): void
+function render_request_card(array $request, string $csrfToken, bool $isOwn, bool $showResponses = true): void
 {
     $requesterName = trim(($request['requester_name'] ?? '') . ' ' . ($request['requester_last_name'] ?? ''));
     if ($requesterName === '' && $isOwn) {
@@ -1382,7 +1418,7 @@ function render_request_card(array $request, string $csrfToken, bool $isOwn): vo
         <?php if ($request['details'] !== ''): ?><p class="request-details"><?= nl2br(h($request['details'])) ?></p><?php endif; ?>
         <?php if ($isOwn): ?>
             <p class="request-date"><?= (int) $request['response_count'] ?> response<?= (int) $request['response_count'] === 1 ? '' : 's' ?> received</p>
-            <?php if (!empty($request['responses'])): ?>
+            <?php if ($showResponses && !empty($request['responses'])): ?>
                 <section class="request-responses" aria-label="Offers from people responding to your request">
                     <h4>Offers from potential donors</h4>
                     <?php foreach ($request['responses'] as $response): ?>
