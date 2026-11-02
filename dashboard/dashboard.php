@@ -91,7 +91,7 @@ $profile = [
     'notify_post_comments' => 1
 ];
 $posts = $openRequests = $myRequests = $respondedRequests = $donors = $commentsByPost = [];
-$notificationRows = $searchPosts = $searchRequests = $offerMessagesByPost = [];
+$notificationRows = $searchPosts = $searchRequests = [];
 $messageConversations = $selectedThreadMessages = [];
 $selectedConversation = null;
 $newMessageOffer = null;
@@ -292,33 +292,6 @@ try {
         $respondedStmt->execute([':user_id' => $userId]);
         $respondedRequests = $respondedStmt->fetchAll();
 
-        $requestMessagesByResponse = [];
-        $requestMessagesStmt = $pdo->prepare(
-            'SELECT rrm.response_id, rrm.sender_id, rrm.message, rrm.created_at,
-                    sender.fname, sender.lname
-             FROM request_response_messages rrm
-             JOIN request_responses rr ON rr.id = rrm.response_id
-             JOIN blood_requests br ON br.id = rr.request_id
-             JOIN uinfo sender ON sender.id = rrm.sender_id
-             WHERE rr.status = \'accepted\'
-               AND (br.requester_id = :requester_id OR rr.user_id = :responder_id)
-             ORDER BY rrm.created_at ASC'
-        );
-        $requestMessagesStmt->execute([':requester_id' => $userId, ':responder_id' => $userId]);
-        foreach ($requestMessagesStmt->fetchAll() as $message) {
-            $requestMessagesByResponse[(int) $message['response_id']][] = $message;
-        }
-        foreach ($requestResponsesByRequest as &$responses) {
-            foreach ($responses as &$response) {
-                $response['thread_messages'] = $requestMessagesByResponse[(int) $response['response_id']] ?? [];
-            }
-            unset($response);
-        }
-        unset($responses);
-        foreach ($respondedRequests as &$response) {
-            $response['thread_messages'] = $requestMessagesByResponse[(int) $response['response_id']] ?? [];
-        }
-        unset($response);
         foreach ($myRequests as &$request) {
             $request['responses'] = $requestResponsesByRequest[(int) $request['id']] ?? [];
         }
@@ -435,56 +408,6 @@ try {
             $searchPosts = $posts;
         }
 
-        if ($activePage === 'donation-offers' && $offerMessagesAvailable && $posts) {
-            $postIds = array_map(static function ($post) {
-                return (int) $post['id'];
-            }, $posts);
-            $placeholders = implode(',', array_fill(0, count($postIds), '?'));
-            $offerMessageStmt = $pdo->prepare(
-                "SELECT m.post_id, m.seeker_id, m.sender_id, m.message, m.urgency, m.created_at,
-                        sender.fname AS sender_first_name, sender.lname AS sender_last_name,
-                        seeker.fname AS seeker_first_name, seeker.lname AS seeker_last_name
-                 FROM donation_offer_messages m
-                 JOIN community_posts cp ON cp.id = m.post_id
-                 JOIN uinfo sender ON sender.id = m.sender_id
-                 JOIN uinfo seeker ON seeker.id = m.seeker_id
-                 WHERE m.post_id IN ({$placeholders})
-                   AND (m.seeker_id = ? OR cp.user_id = ?)
-                 ORDER BY m.post_id, m.seeker_id, m.created_at, m.id"
-            );
-            $offerMessageStmt->execute(array_merge($postIds, [$userId, $userId]));
-            foreach ($offerMessageStmt->fetchAll() as $offerMessage) {
-                $postId = (int) $offerMessage['post_id'];
-                $seekerId = (int) $offerMessage['seeker_id'];
-                if (!isset($offerMessagesByPost[$postId][$seekerId])) {
-                    $offerMessagesByPost[$postId][$seekerId] = [
-                        'seeker_name' => trim((string) $offerMessage['seeker_first_name'] . ' ' . (string) $offerMessage['seeker_last_name']),
-                        'urgency' => 'routine',
-                        'latest_message' => '',
-                        'latest_at' => '',
-                        'messages' => []
-                    ];
-                }
-                $offerMessage['sender_name'] = trim((string) $offerMessage['sender_first_name'] . ' ' . (string) $offerMessage['sender_last_name']);
-                $thread = &$offerMessagesByPost[$postId][$seekerId];
-                if ($offerMessage['urgency'] !== null && $offerMessage['urgency'] !== '') {
-                    $thread['urgency'] = $offerMessage['urgency'];
-                }
-                $thread['latest_message'] = $offerMessage['message'];
-                $thread['latest_at'] = $offerMessage['created_at'];
-                $thread['messages'][] = $offerMessage;
-                unset($thread);
-            }
-            foreach ($offerMessagesByPost as &$postThreads) {
-                uasort($postThreads, static function (array $first, array $second): int {
-                    $priority = ['emergency' => 3, 'urgent' => 2, 'routine' => 1];
-                    $urgencyOrder = ($priority[$second['urgency']] ?? 0) <=> ($priority[$first['urgency']] ?? 0);
-                    return $urgencyOrder !== 0 ? $urgencyOrder : strcmp($second['latest_at'], $first['latest_at']);
-                });
-            }
-            unset($postThreads);
-        }
-
         if ($posts && $activePage !== 'donation-offers') {
             $postIds = array_map(static function ($post) {
                 return (int) $post['id'];
@@ -551,6 +474,8 @@ try {
                         ? trim($conversation['seeker_first'] . ' ' . $conversation['seeker_last'])
                         : trim($conversation['donor_first'] . ' ' . $conversation['donor_last']);
                     $conversation['kind'] = 'donation_offer';
+                    $conversation['category'] = $isOfferOwner ? 'requesters' : 'donors';
+                    $conversation['conversation_status'] = 'accepted';
                     $conversation['thread_key'] = 'offer-' . (int) $conversation['post_id'] . '-' . (int) $conversation['seeker_id'];
                     $conversation['peer_name'] = $peerName !== '' ? $peerName : 'BLife PH member';
                     $conversation['peer_initials'] = member_initials($conversation['peer_name']);
@@ -561,7 +486,7 @@ try {
             }
 
             $requestInboxStmt = $pdo->prepare(
-                'SELECT rr.id AS response_id, br.id AS request_id, br.requester_id, rr.user_id AS responder_id,
+                'SELECT rr.id AS response_id, rr.status AS approval_status, rr.created_at AS started_at, br.id AS request_id, br.requester_id, rr.user_id AS responder_id,
                         br.blood_type, br.hospital, br.location, br.urgency AS request_urgency, br.status AS request_status, br.needed_by,
                         latest.message AS latest_message, latest.sender_id AS latest_sender_id, latest.created_at AS latest_at,
                         requester.fname AS requester_first, requester.lname AS requester_last,
@@ -571,13 +496,13 @@ try {
                            AND unread.read_at IS NULL) AS unread_count
                  FROM request_responses rr
                  JOIN blood_requests br ON br.id = rr.request_id
-                 JOIN request_response_messages latest ON latest.id = (
+                 LEFT JOIN request_response_messages latest ON latest.id = (
                      SELECT MAX(last_message.id) FROM request_response_messages last_message
                      WHERE last_message.response_id = rr.id
                  )
                  JOIN uinfo requester ON requester.id = br.requester_id
                  JOIN uinfo responder ON responder.id = rr.user_id
-                 WHERE rr.status = \'accepted\'
+                 WHERE rr.status IN (\'pending\', \'accepted\')
                    AND (br.requester_id = :request_owner OR rr.user_id = :request_responder)
                  ORDER BY latest.created_at DESC'
             );
@@ -592,10 +517,15 @@ try {
                     ? trim($conversation['responder_first'] . ' ' . $conversation['responder_last'])
                     : trim($conversation['requester_first'] . ' ' . $conversation['requester_last']);
                 $conversation['kind'] = 'request_response';
+                $conversation['category'] = $isRequester ? 'donors' : 'requesters';
+                $conversation['viewer_is_request_owner'] = $isRequester;
+                $conversation['conversation_status'] = $conversation['approval_status'] ?? 'accepted';
                 $conversation['thread_key'] = 'request-' . (int) $conversation['response_id'];
                 $conversation['peer_name'] = $peerName !== '' ? $peerName : 'BLife PH member';
                 $conversation['peer_initials'] = member_initials($conversation['peer_name']);
                 $conversation['context'] = 'Blood request · ' . $conversation['blood_type'] . ' · ' . $conversation['hospital'];
+                $conversation['latest_at'] = $conversation['latest_at'] ?: $conversation['started_at'];
+                $conversation['latest_message'] = $conversation['latest_message'] ?: 'No messages yet';
                 $conversation['unread_count'] = (int) $conversation['unread_count'];
                 $messageConversations[] = $conversation;
             }
@@ -1092,7 +1022,7 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                             <div class="empty-state panel"><strong>No donation offers have been published yet.</strong><span>You can still request blood or publish the first offer when the database update is applied.</span></div>
                         <?php else: ?>
                             <?php foreach ($posts as $post): ?>
-                                <?php render_post_card($post, $commentsByPost[$post['id']] ?? [], $csrfToken, $userId, true, $offerMessagesByPost[$post['id']] ?? [], $offerMessagesAvailable); ?>
+                                <?php render_post_card($post, $commentsByPost[$post['id']] ?? [], $csrfToken, $userId, true, $offerMessagesAvailable); ?>
                             <?php endforeach; ?>
                         <?php endif; ?>
                     </section>
@@ -1199,7 +1129,7 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                                         <p><strong><?= h($request['hospital']) ?></strong> · <?= h($request['location']) ?> · needed <?= h(date('M j, Y', strtotime($request['needed_by']))) ?></p>
                                         <div class="private-response"><strong>Your offer to help</strong><p><?= $request['response_message'] !== '' ? nl2br(h($request['response_message'])) : 'You offered to help without a message.' ?></p></div>
                                         <?php if ($request['approval_status'] === 'accepted'): ?>
-                                            <?php render_request_conversation((int) $request['response_id'], $request['thread_messages'] ?? [], $csrfToken, $userId, $request['status'] === 'open' && $request['needed_by'] >= date('Y-m-d')); ?>
+                                            <a class="button button-secondary button-small" href="dashboard.php?page=messages&amp;thread=request-<?= (int) $request['response_id'] ?>">Open conversation in Messages</a>
                                         <?php else: ?>
                                             <p class="offer-pending-label">Your offer is waiting for the requester to accept it. Private messaging will open after acceptance.</p>
                                         <?php endif; ?>
@@ -1223,21 +1153,34 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                     <?php else: ?>
                         <div class="messages-layout">
                             <aside class="panel inbox-panel" aria-label="Conversations">
-                                <div class="inbox-heading"><h2>Inbox</h2><span><?= count($messageConversations) ?> conversation<?= count($messageConversations) === 1 ? '' : 's' ?></span></div>
+                                <div class="inbox-heading"><h2>Messages</h2><span><?= count($messageConversations) ?> conversation<?= count($messageConversations) === 1 ? '' : 's' ?></span></div>
                                 <?php if (!$messageConversations): ?>
                                     <div class="empty-state inbox-empty"><strong>No conversations yet.</strong><span>Open a donation offer to message a donor, or continue an accepted blood-request conversation.</span><a class="button button-secondary button-small" href="dashboard.php?page=donation-offers">Browse donation offers</a></div>
                                 <?php else: ?>
                                     <nav class="inbox-list" aria-label="Message threads">
-                                        <?php foreach ($messageConversations as $conversation): ?>
-                                            <a class="inbox-conversation <?= $selectedThread === $conversation['thread_key'] ? 'selected' : '' ?>" href="dashboard.php?page=messages&amp;thread=<?= h($conversation['thread_key']) ?>" <?= $selectedThread === $conversation['thread_key'] ? 'aria-current="page"' : '' ?>>
-                                                <span class="avatar"><?= h($conversation['peer_initials']) ?></span>
-                                                <span class="inbox-conversation-copy">
-                                                    <span class="inbox-conversation-top"><strong><?= h($conversation['peer_name']) ?></strong><time datetime="<?= h($conversation['latest_at']) ?>"><?= h(date('M j', strtotime($conversation['latest_at']))) ?></time></span>
-                                                    <small><?= h($conversation['context']) ?></small>
-                                                    <span class="inbox-preview"><?= h($conversation['latest_message']) ?></span>
-                                                </span>
-                                                <?php if ($conversation['unread_count'] > 0): ?><span class="unread-indicator" aria-label="<?= (int) $conversation['unread_count'] ?> unread messages"><?= (int) $conversation['unread_count'] > 99 ? '99+' : (int) $conversation['unread_count'] ?></span><?php endif; ?>
-                                            </a>
+                                        <?php foreach (['donors' => 'Donors Chat', 'requesters' => 'Requester Chat'] as $categoryKey => $categoryTitle):
+                                            $categoryItems = array_values(array_filter($messageConversations, static fn(array $item): bool => ($item['category'] ?? 'donors') === $categoryKey));
+                                            $pendingItems = array_values(array_filter($categoryItems, static fn(array $item): bool => ($item['conversation_status'] ?? 'accepted') === 'pending'));
+                                            $activeItems = array_values(array_filter($categoryItems, static fn(array $item): bool => ($item['conversation_status'] ?? 'accepted') !== 'pending'));
+                                            $categoryUnread = array_sum(array_column($categoryItems, 'unread_count'));
+                                        ?>
+                                            <?php if ($categoryItems): ?><section class="inbox-category" aria-label="<?= h($categoryTitle) ?>">
+                                                <h3 class="inbox-category-heading"><span><?= h($categoryTitle) ?></span><span class="inbox-category-count"><?= count($categoryItems) ?></span><?php if ($categoryUnread): ?><span class="inbox-category-unread"><?= $categoryUnread > 99 ? '99+' : $categoryUnread ?> unread</span><?php endif; ?></h3>
+                                                <?php foreach (['pending' => $pendingItems, 'active' => $activeItems] as $groupStatus => $group): if (!$group) continue; $statusTitle = $groupStatus === 'pending' ? (($categoryKey === 'requesters') ? 'Requests Sent' : 'Pending Offers') : 'Active Chats'; ?>
+                                                    <h4 class="inbox-status-heading"><?= h($statusTitle) ?><span><?= count($group) ?></span></h4>
+                                                    <?php foreach ($group as $conversation): $isPendingConversation = ($conversation['conversation_status'] ?? 'accepted') === 'pending'; ?>
+                                                        <a class="inbox-conversation <?= $selectedThread === $conversation['thread_key'] ? 'selected' : '' ?>" href="dashboard.php?page=messages&amp;thread=<?= h($conversation['thread_key']) ?>" <?= $selectedThread === $conversation['thread_key'] ? 'aria-current="page"' : '' ?>>
+                                                            <span class="avatar inbox-avatar"><?= h($conversation['peer_initials']) ?></span>
+                                                            <span class="inbox-conversation-copy">
+                                                                <span class="inbox-conversation-top"><strong><?= h($conversation['peer_name']) ?></strong><time datetime="<?= h($conversation['latest_at']) ?>"><?= h(date('M j', strtotime($conversation['latest_at']))) ?></time></span>
+                                                                <small><?= h($conversation['context']) ?></small>
+                                                                <span class="inbox-preview"><?= $isPendingConversation ? '<span class="inbox-sent-badge">' . (($conversation['viewer_is_request_owner'] ?? false) ? 'New offer' : 'Sent') . '</span> ' . h(($conversation['viewer_is_request_owner'] ?? false) ? 'Waiting for your response...' : 'Waiting for response...') : h($conversation['latest_message']) ?></span>
+                                                            </span>
+                                                            <?php if ($conversation['unread_count'] > 0): ?><span class="unread-indicator" aria-label="<?= (int) $conversation['unread_count'] ?> unread messages"><?= (int) $conversation['unread_count'] > 99 ? '99+' : (int) $conversation['unread_count'] ?></span><?php endif; ?><span class="inbox-chevron" aria-hidden="true">›</span>
+                                                        </a>
+                                                    <?php endforeach; ?>
+                                                <?php endforeach; ?>
+                                            </section><?php endif; ?>
                                         <?php endforeach; ?>
                                     </nav>
                                 <?php endif; ?>
@@ -1283,6 +1226,8 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                                     </ol>
                                     <?php if ($selectedConversation['kind'] === 'donation_offer'): ?>
                                         <?php render_offer_message_form((int) $selectedConversation['post_id'], (int) $selectedConversation['seeker_id'], $csrfToken, true, false, 'messages'); ?>
+                                    <?php elseif (($selectedConversation['approval_status'] ?? 'accepted') === 'pending'): ?>
+                                        <p class="conversation-closed">Offer sent. Private messaging becomes available after the requester accepts this response.</p>
                                     <?php elseif ($selectedConversation['request_status'] === 'open' && $selectedConversation['needed_by'] >= date('Y-m-d')): ?>
                                         <form class="conversation-reply-form inbox-reply-form" method="post" action="action.php">
                                             <input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>"><input type="hidden" name="action" value="request_message"><input type="hidden" name="response_id" value="<?= (int) $selectedConversation['response_id'] ?>"><input type="hidden" name="return_page" value="messages">
@@ -1425,7 +1370,7 @@ function render_request_card(array $request, string $csrfToken, bool $isOwn): vo
                                 </form>
                             <?php elseif ($response['approval_status'] === 'accepted'): ?>
                                 <!-- <p class="offer-accepted-label">Offer accepted — private messaging is open.</p> -->
-                                <?php render_request_conversation((int) $response['response_id'], $response['thread_messages'] ?? [], $csrfToken, (int) current_user_id(), ($request['effective_status'] ?? $request['status']) === 'open' && $request['needed_by'] >= date('Y-m-d')); ?>
+                                <a class="button button-secondary button-small" href="dashboard.php?page=messages&amp;thread=request-<?= (int) $response['response_id'] ?>">Open conversation in Messages</a>
                             <?php else: ?>
                                 <p class="offer-pending-label">Waiting for your decision.</p>
                             <?php endif; ?>
@@ -1457,41 +1402,6 @@ function render_request_card(array $request, string $csrfToken, bool $isOwn): vo
     <?php
 }
 
-function render_request_conversation(int $responseId, array $messages, string $csrfToken, int $userId, bool $canReply): void
-{
-    ?>
-    <section class="request-conversation" aria-label="Private conversation">
-        <h5>Private conversation</h5>
-        <?php if (!$messages): ?><p class="conversation-empty">No replies yet. You can continue the conversation here.</p><?php else: ?>
-            <ol class="conversation-messages">
-                <?php foreach ($messages as $message): ?>
-                    <?php $senderName = trim(($message['fname'] ?? '') . ' ' . ($message['lname'] ?? '')); ?>
-                    <li class="<?= (int) $message['sender_id'] === $userId ? 'sent' : 'received' ?>">
-                        <div class="conversation-message-heading">
-                            <strong><?= (int) $message['sender_id'] === $userId ? 'You' : h($senderName !== '' ? $senderName : 'BloodLife member') ?></strong>
-                            <time datetime="<?= h($message['created_at']) ?>"><?= h(date('M j, Y g:i a', strtotime($message['created_at']))) ?></time>
-                        </div>
-                        <p><?= nl2br(h($message['message'])) ?></p>
-                    </li>
-                <?php endforeach; ?>
-            </ol>
-        <?php endif; ?>
-        <?php if ($canReply): ?>
-            <form class="conversation-reply-form" method="post" action="action.php">
-                <input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>">
-                <input type="hidden" name="action" value="request_message">
-                <input type="hidden" name="response_id" value="<?= $responseId ?>">
-                <label>Reply privately<textarea name="message" maxlength="1000" rows="2" required placeholder="Write a message to continue this conversation..."></textarea></label>
-                <button class="button button-primary button-small" type="submit">Send message</button>
-            </form>
-        <?php else: ?>
-            <p class="conversation-closed">This request is closed. The conversation can no longer receive replies.</p>
-        <?php endif; ?>
-        <p class="conversation-privacy-note">Your contact details stay private. Coordinate any donation through an authorized medical facility.</p>
-    </section>
-    <?php
-}
-
 function render_offer_message_form(int $postId, int $seekerId, string $csrfToken, bool $isReply, bool $isFirstMessage = false, string $returnPage = 'donation-offers'): void
 {
     $formId = 'offer-message-' . $postId . '-' . $seekerId;
@@ -1519,71 +1429,7 @@ function render_offer_message_form(int $postId, int $seekerId, string $csrfToken
     <?php
 }
 
-function render_offer_message_thread(array $thread, int $postId, int $seekerId, string $csrfToken, int $userId, bool $isOfferOwner): void
-{
-    ?>
-    <details class="offer-message-thread" <?= $isOfferOwner ? '' : 'open' ?>>
-        <?php if ($isOfferOwner): ?>
-            <summary class="offer-thread-summary">
-                <span class="offer-thread-title">
-                    <strong><?= h($thread['seeker_name'] ?: 'Interested member') ?></strong>
-                    <span class="urgency-badge urgency-<?= h($thread['urgency']) ?>"><?= h(ucfirst($thread['urgency'])) ?></span>
-                    <span class="urgency-source">Self-reported</span>
-                    <span class="offer-thread-count"><?= count($thread['messages']) ?> message<?= count($thread['messages']) === 1 ? '' : 's' ?></span>
-                </span>
-                <span class="offer-thread-preview"><?= h($thread['latest_message']) ?></span>
-                <time datetime="<?= h($thread['latest_at']) ?>"><?= h(date('M j, Y g:i a', strtotime($thread['latest_at']))) ?></time>
-            </summary>
-        <?php else: ?>
-            <h4>Your conversation with the donor</h4>
-        <?php endif; ?>
-        <ol class="offer-message-list">
-            <?php foreach ($thread['messages'] as $message): ?>
-                <?php $isOwnMessage = (int) $message['sender_id'] === $userId; ?>
-                <li class="<?= $isOwnMessage ? 'sent' : 'received' ?>">
-                    <div class="offer-message-meta">
-                        <strong><?= $isOwnMessage ? 'You' : h($message['sender_name'] ?: 'BloodLife member') ?></strong>
-                        <time datetime="<?= h($message['created_at']) ?>"><?= h(date('M j, Y g:i a', strtotime($message['created_at']))) ?></time>
-                    </div>
-                    <p><?= nl2br(h($message['message'])) ?></p>
-                </li>
-            <?php endforeach; ?>
-        </ol>
-        <?php render_offer_message_form($postId, $seekerId, $csrfToken, true); ?>
-    </details>
-    <?php
-}
-
-function render_donation_offer_conversation(array $post, array $threads, string $csrfToken, int $userId): void
-{
-    $postId = (int) $post['id'];
-    $isOfferOwner = (int) $post['user_id'] === $userId;
-    ?>
-    <section class="donation-offer-conversation" aria-label="Private messages about this donation offer">
-        <?php if ($isOfferOwner): ?>
-            <!-- <h3>Interested members</h3>
-            <p class="offer-conversation-help">Conversations are ordered by the urgency selected by each member. Urgency is self-reported; review each request and reply individually.</p> -->
-            <?php if (!$threads): ?>
-                <p class="offer-conversation-empty">No one has contacted you about this offer yet.</p>
-            <?php else: ?>
-                <?php foreach ($threads as $seekerId => $thread): ?>
-                    <?php render_offer_message_thread($thread, $postId, (int) $seekerId, $csrfToken, $userId, true); ?>
-                <?php endforeach; ?>
-            <?php endif; ?>
-        <?php else: ?>
-            <h3>Contact the donor privately</h3>
-            <p class="offer-conversation-help">Your messages are visible only to you and the donor. Do not share sensitive medical information.</p>
-            <?php if (isset($threads[$userId])): ?>
-                <?php render_offer_message_thread($threads[$userId], $postId, $userId, $csrfToken, $userId, false); ?>
-            <?php else: ?>
-                <?php render_offer_message_form($postId, $userId, $csrfToken, false, true); ?>
-            <?php endif; ?>
-        <?php endif; ?>
-    </section>
-    <?php
-}
-
-function render_post_card(array $post, array $comments, string $csrfToken, int $userId, bool $donationOfferView = false, array $offerThreads = [], bool $offerMessagesAvailable = false): void
+function render_post_card(array $post, array $comments, string $csrfToken, int $userId, bool $donationOfferView = false, bool $offerMessagesAvailable = false): void
 {
     $authorName = trim(($post['author_name'] ?? '') . ' ' . ($post['author_last_name'] ?? ''));
     if ($authorName === '') {
@@ -1625,9 +1471,6 @@ function render_post_card(array $post, array $comments, string $csrfToken, int $
         <!-- <?php if ($post['post_type'] === 'donation'): ?><p class="form-help offer-safety-note">Availability is not guaranteed. Avoid sharing private contact details; confirm screening and donation with an authorized facility.</p><?php endif; ?> -->
         <?php if ($donationOfferView && !$isOwnPost && $offerMessagesAvailable): ?>
             <a class="button button-primary message-donor-button" href="dashboard.php?page=messages&amp;offer=<?= (int) $post['id'] ?>">✉ Message donor</a>
-        <?php endif; ?>
-        <?php if ($donationOfferView && $offerMessagesAvailable): ?>
-            <?php render_donation_offer_conversation($post, $offerThreads, $csrfToken, $userId); ?>
         <?php endif; ?>
         <?php if (!$donationOfferView): ?>
             <div class="post-counts"><span><?= (int) $post['like_count'] ?> likes</span><button type="button" data-disclosure-toggle="comments-<?= (int) $post['id'] ?>" aria-controls="comments-<?= (int) $post['id'] ?>" aria-expanded="false"><?= (int) $post['comment_count'] ?> comments</button></div>
