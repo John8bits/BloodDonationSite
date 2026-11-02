@@ -259,8 +259,36 @@ document.addEventListener("DOMContentLoaded", function () {
 
     document.querySelectorAll(".confirm-delete-form").forEach(function (form) {
         form.addEventListener("submit", function (event) {
-            if (!window.confirm("Delete this post and its comments? This cannot be undone.")) {
-                event.preventDefault();
+            if (form.dataset.deleteConfirmed === "true") {
+                delete form.dataset.deleteConfirmed;
+                return;
+            }
+            event.preventDefault();
+            const isRequest = form.querySelector('[name="action"]')?.value === "delete_request";
+            const title = isRequest ? "Delete this blood request?" : "Delete this post?";
+            const detail = isRequest
+                ? "Requests with donor responses or conversations are protected and cannot be deleted."
+                : "This removes the post and its comments. Donation offers with message history are protected.";
+            if (window.Swal && typeof window.Swal.fire === "function") {
+                window.Swal.fire({
+                    title: title,
+                    text: detail,
+                    icon: "warning",
+                    showCancelButton: true,
+                    confirmButtonText: "Delete",
+                    cancelButtonText: "Keep it",
+                    confirmButtonColor: "#b42332",
+                    reverseButtons: true,
+                    focusCancel: true
+                }).then(function (result) {
+                    if (result.isConfirmed) {
+                        form.dataset.deleteConfirmed = "true";
+                        form.requestSubmit();
+                    }
+                });
+            } else if (window.confirm(title + " " + detail)) {
+                form.dataset.deleteConfirmed = "true";
+                form.requestSubmit();
             }
         });
     });

@@ -610,6 +610,10 @@ input:disabled {
     background: #eee;
 }
 
+.status-available { color: #176333; background: #e3f5e9; }
+.status-unavailable { color: #596579; background: #edf0f4; }
+.status-completed { color: #175b70; background: #e0f4f7; }
+
 .safety-panel {
     background: #fffafa;
     border-color: #f1dede;
@@ -1770,6 +1774,7 @@ input:disabled {
 }
 
 .dashboard-main .post-card {
+    position: relative;
     padding: 20px 22px 12px;
     scroll-margin-top: 95px;
 }
@@ -1818,6 +1823,7 @@ input:disabled {
 
 .post-meta time {
     margin-left: auto;
+    margin-right: 48px;
     white-space: nowrap;
 }
 
@@ -1912,6 +1918,74 @@ input:disabled {
 
 .post-actions .delete-post-button:hover {
     color: #b91c1c;
+}
+
+.content-management-menu {
+    position: absolute;
+    z-index: 6;
+    top: 12px;
+    right: 12px;
+}
+
+.content-management-menu > summary {
+    display: inline-flex;
+    width: 36px;
+    min-height: 36px;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    color: #526075;
+    background: #f4f6f9;
+    border: 1px solid #e5e9ef;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 22px;
+    line-height: 1;
+    font-weight: 750;
+    list-style: none;
+}
+
+.content-management-menu > summary::-webkit-details-marker,
+.content-edit-disclosure > summary::-webkit-details-marker { display: none; }
+
+.content-management-panel {
+    position: absolute;
+    z-index: 5;
+    top: calc(100% + 6px);
+    right: 0;
+    display: grid;
+    width: min(360px, calc(100vw - 48px));
+    max-height: 70vh;
+    gap: 10px;
+    overflow: auto;
+    padding: 12px;
+    background: #fff;
+    border: 1px solid #e7ebf1;
+    border-radius: 14px;
+    box-shadow: 0 16px 38px rgb(25 39 61 / 16%);
+}
+
+.content-management-menu[open] > summary { color: #a51f2e; background: #fff5f6; }
+.content-menu-action { width: 100%; padding: 8px 6px; color: #263449; background: transparent; border: 0; border-radius: 7px; cursor: pointer; font: inherit; font-size: 13px; font-weight: 700; text-align: left; }
+.content-menu-action:hover { background: #f3f5f8; }
+.content-edit-form, .content-status-form { display: grid; gap: 9px; padding: 6px 0; }
+.content-edit-form label, .content-status-form label, .content-management-panel > .inline-actions label { display: grid; gap: 5px; color: #536076; font-size: 11px; font-weight: 700; }
+.content-edit-form input, .content-edit-form select, .content-edit-form textarea,
+.content-status-form select, .content-management-panel > .inline-actions select {
+    width: 100%; min-width: 0; padding: 9px 10px; color: #263449; background: #fff;
+    border: 1px solid #dce2ea; border-radius: 9px; font: inherit; font-size: 13px;
+}
+.content-edit-form textarea { resize: vertical; }
+.content-management-panel .delete-post-button { justify-self: start; padding: 7px 0; color: #b42332; background: transparent; border: 0; cursor: pointer; font: inherit; font-size: 12px; font-weight: 750; }
+.request-management-menu .content-management-panel { left: auto; right: 0; }
+
+.dashboard-modal .content-edit-form { display: grid; gap: 13px; padding: 20px 24px 24px; }
+.dashboard-modal .content-edit-form label { display: grid; gap: 6px; color: #536076; font-size: 12px; font-weight: 700; }
+.dashboard-modal .content-edit-form input, .dashboard-modal .content-edit-form select, .dashboard-modal .content-edit-form textarea { width: 100%; padding: 10px 11px; color: #263449; background: #fff; border: 1px solid #dce2ea; border-radius: 9px; font: inherit; font-size: 14px; }
+.dashboard-modal .content-edit-form textarea { resize: vertical; }
+
+@media (max-width: 540px) {
+    .content-management-panel { position: absolute; top: calc(100% + 6px); right: 0; bottom: auto; left: auto; width: min(320px, calc(100vw - 40px)); max-height: 70vh; }
 }
 
 .post-comments {
@@ -2084,8 +2158,11 @@ input:disabled {
 }
 
 .dashboard-main .request-card {
+    position: relative;
     padding: 19px;
 }
+
+.request-card-own .request-heading-badges { margin-right: 48px; }
 
 .dashboard-main .request-card > p {
     color: #475569;
