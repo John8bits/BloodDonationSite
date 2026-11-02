@@ -13,9 +13,21 @@ document.addEventListener("DOMContentLoaded", function () {
 
     document.querySelectorAll("[data-modal-open]").forEach(function (button) {
         button.addEventListener("click", function () {
+            const managementMenu = button.closest(".content-management-menu");
+            if (managementMenu) {
+                managementMenu.removeAttribute("open");
+            }
             const modal = document.getElementById(button.dataset.modalOpen);
             if (modal instanceof HTMLDialogElement) {
                 modal.showModal();
+            }
+        });
+    });
+
+    document.addEventListener("click", function (event) {
+        document.querySelectorAll(".content-management-menu[open]").forEach(function (menu) {
+            if (!menu.contains(event.target)) {
+                menu.removeAttribute("open");
             }
         });
     });

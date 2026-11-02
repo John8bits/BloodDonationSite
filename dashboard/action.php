@@ -388,6 +388,23 @@ try {
             if (!$postId) {
                 redirect_member('Choose a valid post to delete.', 'error', 'my-posts');
             }
+            $ownedPostStmt = $pdo->prepare('SELECT post_type FROM community_posts WHERE id = :id AND user_id = :user_id LIMIT 1');
+            $ownedPostStmt->execute([':id' => $postId, ':user_id' => $userId]);
+            $ownedPostType = $ownedPostStmt->fetchColumn();
+            if ($ownedPostType === false) {
+                redirect_member('That post could not be deleted because it is not yours or is no longer available.', 'error', 'my-posts');
+            }
+            if ($ownedPostType === 'donation') {
+                $offerMessagesTable = $pdo->prepare("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'donation_offer_messages'");
+                $offerMessagesTable->execute();
+                if ((int) $offerMessagesTable->fetchColumn() > 0) {
+                    $activeOfferStmt = $pdo->prepare('SELECT COUNT(*) FROM donation_offer_messages WHERE post_id = :post_id');
+                    $activeOfferStmt->execute([':post_id' => $postId]);
+                    if ((int) $activeOfferStmt->fetchColumn() > 0) {
+                        redirect_member('This offer has conversation history and cannot be deleted. Mark it unavailable or completed to preserve those messages.', 'error', 'my-posts');
+                    }
+                }
+            }
             $stmt = $pdo->prepare('DELETE FROM community_posts WHERE id = :id AND user_id = :user_id');
             $stmt->execute([':id' => $postId, ':user_id' => $userId]);
             if ($stmt->rowCount() !== 1) {
@@ -401,6 +418,71 @@ try {
             );
             $notifyStmt->execute([':user_id' => $userId, ':post_id' => $postId]);
             redirect_member('Your post and its comments have been deleted.', 'success', 'my-posts');
+
+        case 'edit_post':
+            $postId = filter_var($_POST['post_id'] ?? null, FILTER_VALIDATE_INT);
+            $content = trim($_POST['content'] ?? '');
+            if (!$postId || $content === '' || strlen($content) > 1000) {
+                redirect_member('Post content must contain 1 to 1,000 characters.', 'error', 'my-posts');
+            }
+            $ownedPostStmt = $pdo->prepare('SELECT post_type FROM community_posts WHERE id = :id AND user_id = :user_id LIMIT 1');
+            $ownedPostStmt->execute([':id' => $postId, ':user_id' => $userId]);
+            $postType = $ownedPostStmt->fetchColumn();
+            if ($postType === false) {
+                redirect_member('That post is not available to edit.', 'error', 'my-posts');
+            }
+            if ($postType === 'donation') {
+                $bloodType = $_POST['donation_blood_type'] ?? '';
+                $location = trim($_POST['donation_location'] ?? '');
+                $availableDate = $_POST['donation_available_date'] ?? '';
+                $availableTime = $_POST['donation_available_time'] ?? '';
+                if (!in_array($bloodType, $bloodTypes, true) || $location === '' || strlen($location) > 120) {
+                    redirect_member('Enter a valid blood type and offer location.', 'error', 'my-posts');
+                }
+                $availableDateObject = $availableDate !== '' ? DateTime::createFromFormat('!Y-m-d', $availableDate) : null;
+                if ($availableDate !== '' && (!$availableDateObject || $availableDateObject->format('Y-m-d') !== $availableDate)) {
+                    redirect_member('Choose a valid availability date.', 'error', 'my-posts');
+                }
+                if ($availableTime !== '' && (!DateTime::createFromFormat('!H:i', $availableTime) || DateTime::createFromFormat('!H:i', $availableTime)->format('H:i') !== $availableTime)) redirect_member('Choose a valid availability time.', 'error', 'my-posts');
+                $hasTime = (int) $pdo->query("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'community_posts' AND COLUMN_NAME = 'donation_available_time'")->fetchColumn() > 0;
+                $sql = 'UPDATE community_posts SET content = :content, donation_blood_type = :blood_type, donation_location = :location, donation_available_date = :available_date';
+                if ($hasTime) $sql .= ', donation_available_time = :available_time';
+                $sql .= ' WHERE id = :id AND user_id = :user_id AND post_type = \'donation\'';
+                $editStmt = $pdo->prepare($sql);
+                $values = [':content' => $content, ':blood_type' => $bloodType, ':location' => $location, ':available_date' => $availableDate !== '' ? $availableDate : null, ':id' => $postId, ':user_id' => $userId];
+                if ($hasTime) $values[':available_time'] = $availableTime !== '' ? $availableTime : null;
+                $editStmt->execute($values);
+            } else {
+                $eventDate = null;
+                if ($postType === 'event') {
+                    $eventDateValue = $_POST['event_date'] ?? '';
+                    $eventDate = DateTime::createFromFormat('!Y-m-d', $eventDateValue);
+                    if (!$eventDate || $eventDate->format('Y-m-d') !== $eventDateValue) {
+                        redirect_member('Choose a valid event date.', 'error', 'my-posts');
+                    }
+                }
+                $editStmt = $pdo->prepare('UPDATE community_posts SET content = :content, event_date = :event_date WHERE id = :id AND user_id = :user_id');
+                $editStmt->execute([':content' => $content, ':event_date' => $eventDate ? $eventDate->format('Y-m-d') : null, ':id' => $postId, ':user_id' => $userId]);
+            }
+            redirect_member('Your post has been updated.', 'success', $postType === 'donation' ? 'donation-offers' : 'home', $postId);
+
+        case 'donation_status':
+            $postId = filter_var($_POST['post_id'] ?? null, FILTER_VALIDATE_INT);
+            $status = $_POST['status'] ?? '';
+            if (!$postId || !in_array($status, ['available', 'unavailable', 'completed'], true)) {
+                redirect_member('Choose a valid donation offer status.', 'error', 'my-posts');
+            }
+            $statusColumn = $pdo->prepare("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'community_posts' AND COLUMN_NAME = 'donation_status'");
+            $statusColumn->execute();
+            if ((int) $statusColumn->fetchColumn() === 0) {
+                redirect_member('Donation status support is not installed. Apply database_sql/donation_offer_status_migration.sql.', 'error', 'my-posts');
+            }
+            $ownedOffer = $pdo->prepare("SELECT id FROM community_posts WHERE id = :id AND user_id = :user_id AND post_type = 'donation'");
+            $ownedOffer->execute([':id' => $postId, ':user_id' => $userId]);
+            if (!$ownedOffer->fetchColumn()) redirect_member('That donation offer is not yours or is no longer available.', 'error', 'my-posts');
+            $statusStmt = $pdo->prepare("UPDATE community_posts SET donation_status = :status WHERE id = :id AND user_id = :user_id AND post_type = 'donation'");
+            $statusStmt->execute([':status' => $status, ':id' => $postId, ':user_id' => $userId]);
+            redirect_member('Donation offer status updated.', 'success', 'my-posts', $postId);
 
         case 'comment':
             $postId = filter_var($_POST['post_id'] ?? null, FILTER_VALIDATE_INT);
@@ -605,6 +687,40 @@ try {
                 redirect_member('Only your open requests can be updated.', 'error', 'requests');
             }
             redirect_member('Your request status has been updated.', 'success', 'requests');
+
+        case 'edit_request':
+            $requestId = filter_var($_POST['request_id'] ?? null, FILTER_VALIDATE_INT);
+            $bloodType = $_POST['blood_type'] ?? '';
+            $units = filter_var($_POST['units'] ?? null, FILTER_VALIDATE_INT);
+            $hospital = trim($_POST['hospital'] ?? '');
+            $location = trim($_POST['location'] ?? '');
+            $neededBy = $_POST['needed_by'] ?? '';
+            $urgency = $_POST['urgency'] ?? '';
+            $details = trim($_POST['details'] ?? '');
+            $date = DateTime::createFromFormat('!Y-m-d', $neededBy);
+            if (!$requestId || !in_array($bloodType, $bloodTypes, true) || !$units || $units < 1 || $units > 20 || $hospital === '' || strlen($hospital) > 160 || $location === '' || strlen($location) > 160 || !$date || $date->format('Y-m-d') !== $neededBy || $neededBy < date('Y-m-d') || !in_array($urgency, ['routine', 'urgent', 'emergency'], true) || strlen($details) > 1000) {
+                redirect_member('Review the blood request fields and try again.', 'error', 'my-requests');
+            }
+            $hasAcceptedResponse = $pdo->prepare("SELECT COUNT(*) FROM request_responses rr JOIN blood_requests br ON br.id = rr.request_id WHERE br.id = :id AND br.requester_id = :user_id AND rr.status = 'accepted'");
+            $hasAcceptedResponse->execute([':id' => $requestId, ':user_id' => $userId]);
+            if ((int) $hasAcceptedResponse->fetchColumn() > 0) redirect_member('This request has an accepted donor conversation, so its details are locked to preserve that transaction.', 'error', 'my-requests');
+            $editableRequest = $pdo->prepare("SELECT id FROM blood_requests WHERE id = :id AND requester_id = :user_id AND status = 'open'");
+            $editableRequest->execute([':id' => $requestId, ':user_id' => $userId]);
+            if (!$editableRequest->fetchColumn()) redirect_member('Only your open requests can be edited.', 'error', 'my-requests');
+            $editRequestStmt = $pdo->prepare("UPDATE blood_requests SET blood_type = :blood_type, units = :units, hospital = :hospital, location = :location, needed_by = :needed_by, urgency = :urgency, details = :details WHERE id = :id AND requester_id = :user_id AND status = 'open'");
+            $editRequestStmt->execute([':blood_type' => $bloodType, ':units' => $units, ':hospital' => $hospital, ':location' => $location, ':needed_by' => $neededBy, ':urgency' => $urgency, ':details' => $details, ':id' => $requestId, ':user_id' => $userId]);
+            redirect_member('Your blood request has been updated.', 'success', 'my-requests');
+
+        case 'delete_request':
+            $requestId = filter_var($_POST['request_id'] ?? null, FILTER_VALIDATE_INT);
+            if (!$requestId) redirect_member('Choose a valid blood request.', 'error', 'my-requests');
+            $responseCountStmt = $pdo->prepare('SELECT COUNT(*) FROM request_responses rr JOIN blood_requests br ON br.id = rr.request_id WHERE br.id = :id AND br.requester_id = :user_id');
+            $responseCountStmt->execute([':id' => $requestId, ':user_id' => $userId]);
+            if ((int) $responseCountStmt->fetchColumn() > 0) redirect_member('This request has donor responses or conversations and cannot be deleted. Close it as fulfilled or cancelled to preserve its history.', 'error', 'my-requests');
+            $deleteRequestStmt = $pdo->prepare('DELETE FROM blood_requests WHERE id = :id AND requester_id = :user_id');
+            $deleteRequestStmt->execute([':id' => $requestId, ':user_id' => $userId]);
+            if ($deleteRequestStmt->rowCount() !== 1) redirect_member('That request is not yours or is no longer available.', 'error', 'my-requests');
+            redirect_member('Your blood request has been deleted.', 'success', 'my-requests');
 
         case 'request_message':
             $responseId = filter_var($_POST['response_id'] ?? null, FILTER_VALIDATE_INT);

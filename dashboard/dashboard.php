@@ -803,7 +803,7 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                     </select>
                 </label>
                     <label>Municipality / city, province
-                        <input type="text" name="donation_location" maxlength="120" placeholder="e.g., Quezon City, Metro Manila" <?= $donationOnly ? 'required' : '' ?>>
+                        <input type="text" name="donation_location" maxlength="120" placeholder="e.g., Libagon, Southern Leytef" <?= $donationOnly ? 'required' : '' ?>>
                 </label>
             </div>
                 <div class="form-row">
@@ -1055,7 +1055,7 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                 <?php elseif ($activePage === 'blood-requests'): ?>
                     <div class="dashboard-columns">
                         <section class="feed-column">
-                            <div class="section-heading"><div><p class="eyebrow"></p><h2>Need Blood? Post a blood request</h2></div></div>
+                            <div class="section-heading"><div><p class="eyebrow"></p><h2>Need Blood? Request Now</h2></div></div>
                             <p class="form-help"> <a href="dashboard.php?page=donation-offers"> Browse or publish donation offers</a>.</p>
                             <?php if (!$openRequests): ?><div class="empty-state panel"><strong>No open requests right now.</strong></div><?php else: ?>
                                 <?php foreach ($openRequests as $request): ?><?php render_request_card($request, $csrfToken, (int) $request['requester_id'] === $userId); ?><?php endforeach; ?>
@@ -1461,6 +1461,7 @@ function render_post_card(array $post, array $comments, string $csrfToken, int $
         $authorName = 'BLife PH member';
     }
     $isOwnPost = (int) $post['user_id'] === $userId;
+    $hasCommunityActions = ($post['post_type'] ?? '') === 'community';
     ?>
     <article class="post-card panel<?= $donationOfferView ? ' donation-offer-card' : '' ?>" id="post-<?= (int) $post['id'] ?>">
         <div class="post-meta">
@@ -1498,11 +1499,11 @@ function render_post_card(array $post, array $comments, string $csrfToken, int $
         <?php if ($donationOfferView && !$isOwnPost && $offerMessagesAvailable): ?>
             <a class="button button-primary message-donor-button" href="dashboard.php?page=messages&amp;offer=<?= (int) $post['id'] ?>">✉ Message donor</a>
         <?php endif; ?>
-        <?php if (!$donationOfferView): ?>
+        <?php if ($hasCommunityActions): ?>
             <div class="post-counts"><span><?= (int) $post['like_count'] ?> likes</span><button type="button" data-disclosure-toggle="comments-<?= (int) $post['id'] ?>" aria-controls="comments-<?= (int) $post['id'] ?>" aria-expanded="false"><?= (int) $post['comment_count'] ?> comments</button></div>
         <?php endif; ?>
         <div class="post-actions<?= $donationOfferView ? ' donation-offer-actions' : '' ?>">
-            <?php if (!$donationOfferView): ?>
+            <?php if ($hasCommunityActions): ?>
                 <form method="post" action="action.php">
                     <input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>"><input type="hidden" name="action" value="post_interaction"><input type="hidden" name="post_id" value="<?= (int) $post['id'] ?>"><input type="hidden" name="interaction" value="like"><input type="hidden" name="return_page" value="<?= $post['post_type'] === 'donation' ? 'donation-offers' : 'home' ?>">
                     <button type="submit" class="<?= $post['liked_by_me'] ? 'selected' : '' ?>"><?= $post['liked_by_me'] ? '♥ Liked' : '♡ Like' ?></button>
@@ -1517,9 +1518,9 @@ function render_post_card(array $post, array $comments, string $csrfToken, int $
                     <button type="submit" class="<?= $post['saved_by_me'] ? 'selected' : '' ?>"><?= $post['saved_by_me'] ? '★ Saved' : '☆ Save' ?></button>
                 </form>
             <?php endif; ?>
-            <?php if (!$donationOfferView && (int) $post['user_id'] !== $userId && !$post['reported_by_me']): ?>
+            <?php if ($hasCommunityActions && (int) $post['user_id'] !== $userId && !$post['reported_by_me']): ?>
                 <button type="button" data-disclosure-toggle="report-form-<?= (int) $post['id'] ?>" aria-controls="report-form-<?= (int) $post['id'] ?>" aria-expanded="false">⚑ Report</button>
-            <?php elseif (!$donationOfferView && $post['reported_by_me']): ?><span class="reported-label">Reported</span><?php endif; ?>
+            <?php elseif ($hasCommunityActions && $post['reported_by_me']): ?><span class="reported-label">Reported</span><?php endif; ?>
             <?php if ($donationOfferView && !$isOwnPost && !$post['reported_by_me']): ?>
                 <details class="offer-report">
                     <summary>Report offer</summary>
@@ -1535,7 +1536,7 @@ function render_post_card(array $post, array $comments, string $csrfToken, int $
                 <details class="content-management-menu">
                     <summary aria-label="Manage your <?= h($post['post_type'] === 'donation' ? 'donation offer' : 'post') ?>">&hellip;</summary>
                     <div class="content-management-panel">
-                        <button class="content-menu-action" type="button" data-modal-open="editPost<?= (int) $post['id'] ?>">Edit</button>
+                        <button class="content-menu-action" type="button" data-modal-open="editPost<?= (int) $post['id'] ?>">Edit Post</button>
                         <?php if ($post['post_type'] === 'donation' && $donationStatusAvailable): ?>
                             <form class="content-status-form" method="post" action="action.php"><input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>"><input type="hidden" name="action" value="donation_status"><input type="hidden" name="post_id" value="<?= (int) $post['id'] ?>"><label>Offer status<select name="status"><?php foreach (['available' => 'Available', 'unavailable' => 'Unavailable', 'completed' => 'Completed'] as $statusValue => $statusLabel): ?><option value="<?= h($statusValue) ?>" <?= ($post['donation_status'] ?? 'available') === $statusValue ? 'selected' : '' ?>><?= h($statusLabel) ?></option><?php endforeach; ?></select></label><button class="text-button" type="submit">Update status</button></form>
                         <?php endif; ?>
@@ -1562,7 +1563,7 @@ function render_post_card(array $post, array $comments, string $csrfToken, int $
                 </form>
             </dialog>
         <?php endif; ?>
-        <?php if (!$donationOfferView && (int) $post['user_id'] !== $userId && !$post['reported_by_me']): ?>
+        <?php if ($hasCommunityActions && (int) $post['user_id'] !== $userId && !$post['reported_by_me']): ?>
             <div class="post-report-disclosure" id="report-form-<?= (int) $post['id'] ?>" hidden>
                 <form class="post-report-form confirm-report-form" method="post" action="action.php">
                     <input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>"><input type="hidden" name="action" value="post_interaction"><input type="hidden" name="post_id" value="<?= (int) $post['id'] ?>"><input type="hidden" name="interaction" value="report">
@@ -1573,7 +1574,7 @@ function render_post_card(array $post, array $comments, string $csrfToken, int $
                 </form>
             </div>
         <?php endif; ?>
-        <?php if (!$donationOfferView): ?>
+        <?php if ($hasCommunityActions): ?>
             <div class="post-comments" id="comments-<?= (int) $post['id'] ?>" hidden>
                 <?php foreach ($comments as $comment): ?>
                     <?php $commentAuthor = trim(($comment['author_name'] ?? '') . ' ' . ($comment['author_last_name'] ?? '')); ?>
