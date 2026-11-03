@@ -1126,24 +1126,24 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                     <?php if ($activePage === 'my-posts'): ?>
                         <?php $communityPosts = array_filter($posts, static fn(array $post): bool => $post['post_type'] === 'community'); ?>
                         <div class="feed-column my-post-sections">
-                            <nav class="my-post-category-nav" aria-label="My post categories">
-                                <a href="#my-community-posts">Community Post</a>
-                                <a href="#my-blood-requests">Blood Request</a>
-                                <a href="#my-donation-offers">Donation Offer</a>
+                            <nav class="my-post-category-nav" role="tablist" aria-label="My post categories">
+                                <button id="my-community-tab" type="button" role="tab" aria-selected="true" aria-controls="my-community-posts" tabindex="0" data-my-post-tab="community">Community Post</button>
+                                <button id="my-blood-tab" type="button" role="tab" aria-selected="false" aria-controls="my-blood-requests" tabindex="-1" data-my-post-tab="blood">Blood Request</button>
+                                <button id="my-donation-tab" type="button" role="tab" aria-selected="false" aria-controls="my-donation-offers" tabindex="-1" data-my-post-tab="donation">Donation Offer</button>
                             </nav>
-                            <section class="my-post-section" id="my-community-posts">
+                            <section class="my-post-section" id="my-community-posts" role="tabpanel" aria-labelledby="my-community-tab" data-my-post-panel="community" tabindex="0">
                                 <div class="section-heading"><h2>Community Post</h2></div>
                                 <?php if (!$communityPosts): ?><div class="empty-state panel"><strong>No community updates yet.</strong><span>Updates you share will appear here.</span></div><?php else: ?>
                                     <div class="feed-column"><?php foreach ($communityPosts as $post): ?><?php render_post_card($post, $commentsByPost[$post['id']] ?? [], $csrfToken, $userId, false, false, $donationStatusAvailable, $donationTimeAvailable); ?><?php endforeach; ?></div>
                                 <?php endif; ?>
                             </section>
-                            <section class="my-post-section" id="my-blood-requests">
+                            <section class="my-post-section" id="my-blood-requests" role="tabpanel" aria-labelledby="my-blood-tab" data-my-post-panel="blood" tabindex="0" hidden>
                                 <div class="section-heading"><h2>Blood Request</h2></div>
                                 <?php if (!$myRequests): ?><div class="empty-state panel"><strong>No blood requests yet.</strong><span>Requests you create will appear here.</span></div><?php else: ?>
                                     <div class="request-list"><?php foreach ($myRequests as $request): ?><?php render_request_card($request, $csrfToken, true, false); ?><?php endforeach; ?></div>
                                 <?php endif; ?>
                             </section>
-                            <section class="my-post-section" id="my-donation-offers">
+                            <section class="my-post-section" id="my-donation-offers" role="tabpanel" aria-labelledby="my-donation-tab" data-my-post-panel="donation" tabindex="0" hidden>
                                 <div class="section-heading"><h2>Donation Offer</h2></div>
                                 <?php $donationPosts = array_filter($posts, static fn(array $post): bool => $post['post_type'] === 'donation'); ?>
                                 <?php if (!$donationPosts): ?><div class="empty-state panel"><strong>No donation offers yet.</strong><span>Offers you publish will appear here.</span><a class="button button-primary" href="dashboard.php?page=donation-offers">Offer Donation</a></div><?php else: ?>

@@ -5,6 +5,48 @@ document.addEventListener("DOMContentLoaded", function () {
     const sidebarLinks = document.querySelectorAll(".sidebar-link");
     const notificationMenu = document.querySelector(".notification-menu");
 
+    document.querySelectorAll(".my-post-sections").forEach(function (tabContainer) {
+        const tabs = Array.from(tabContainer.querySelectorAll("[data-my-post-tab]"));
+        const panels = Array.from(tabContainer.querySelectorAll("[data-my-post-panel]"));
+
+        function activateTab(tab, moveFocus) {
+            const category = tab.dataset.myPostTab;
+            tabs.forEach(function (item) {
+                const isActive = item === tab;
+                item.setAttribute("aria-selected", String(isActive));
+                item.tabIndex = isActive ? 0 : -1;
+            });
+            panels.forEach(function (panel) {
+                panel.hidden = panel.dataset.myPostPanel !== category;
+            });
+            if (moveFocus) {
+                tab.focus();
+            }
+        }
+
+        tabs.forEach(function (tab, index) {
+            tab.addEventListener("click", function () {
+                activateTab(tab, false);
+            });
+            tab.addEventListener("keydown", function (event) {
+                let nextIndex = index;
+                if (event.key === "ArrowRight") {
+                    nextIndex = (index + 1) % tabs.length;
+                } else if (event.key === "ArrowLeft") {
+                    nextIndex = (index - 1 + tabs.length) % tabs.length;
+                } else if (event.key === "Home") {
+                    nextIndex = 0;
+                } else if (event.key === "End") {
+                    nextIndex = tabs.length - 1;
+                } else {
+                    return;
+                }
+                event.preventDefault();
+                activateTab(tabs[nextIndex], true);
+            });
+        });
+    });
+
     document.addEventListener("click", function (event) {
         if (notificationMenu && !notificationMenu.contains(event.target)) {
             notificationMenu.removeAttribute("open");

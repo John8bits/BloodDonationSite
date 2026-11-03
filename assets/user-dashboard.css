@@ -1378,19 +1378,21 @@ input:disabled {
     gap: 8px;
 }
 
-.my-post-category-nav a {
+.my-post-category-nav button {
     padding: 7px 12px;
     color: #536076;
     background: #fff;
     border: 1px solid var(--line);
     border-radius: 999px;
+    font: inherit;
     font-size: 12px;
     font-weight: 700;
-    text-decoration: none;
+    cursor: pointer;
 }
 
-.my-post-category-nav a:hover,
-.my-post-category-nav a:focus-visible {
+.my-post-category-nav button:hover,
+.my-post-category-nav button:focus-visible,
+.my-post-category-nav button[aria-selected="true"] {
     color: var(--primary-dark);
     background: #fff5f6;
     border-color: #f2c7cb;
@@ -1400,6 +1402,10 @@ input:disabled {
     display: grid;
     gap: 12px;
     min-width: 0;
+}
+
+.my-post-section[hidden] {
+    display: none;
 }
 
 .my-post-section > :not(.section-heading) {
