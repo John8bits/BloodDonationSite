@@ -413,7 +413,7 @@ $adminName = trim(($firstName ?? '') . ' ' . ($lastName ?? ''));
                         <option <?= $bloodType === $type ? 'selected' : '' ?>><?= $type ?></option><?php endforeach; ?>
                 </select>
                 <?php if ($schema['city']): ?><input name="city" value="<?= admin_h($cityFilter) ?>"
-                        placeholder="City"><?php endif; ?>
+                        placeholder="Province"><?php endif; ?>
                 <button type="submit">Filter members</button>
             </form>
             <div class="admin-table-wrapper">
@@ -423,7 +423,7 @@ $adminName = trim(($firstName ?? '') . ' ' . ($lastName ?? ''));
                             <th>Member</th>
                             <th>Email</th>
                             <th>Blood type</th>
-                            <th>City</th>
+                            <th>Province</th>
                             <th>Status</th>
                             <th>Joined</th>
                             <th>Actions</th>
