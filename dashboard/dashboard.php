@@ -1042,7 +1042,7 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                         <form class="filter-form donation-offer-filter" method="get" action="dashboard.php">
                             <input type="hidden" name="page" value="donation-offers">
                             <label>Blood type<select name="offer_btype"><option value="">All blood types</option><?php foreach ($bloodTypes as $type): ?><option value="<?= h($type) ?>" <?= $offerBloodType === $type ? 'selected' : '' ?>><?= h($type) ?></option><?php endforeach; ?></select></label>
-                            <label>Municipality / city, province<input type="search" name="offer_city" maxlength="120" value="<?= h($offerCity) ?>" placeholder="Search donation area"></label>
+                            <label>Province<select name="offer_city"><option value="">All provinces</option><?php foreach ($philippineProvinces as $province): ?><option value="<?= h($province) ?>" <?= $offerCity === $province ? 'selected' : '' ?>><?= h($province) ?></option><?php endforeach; ?></select></label>
                             <button class="button button-primary" type="submit">Search offers</button>
                             <?php if ($offerBloodType !== '' || $offerCity !== ''): ?><a class="clear-link" href="dashboard.php?page=donation-offers">Clear filters</a><?php endif; ?>
                         </form>
@@ -1562,9 +1562,9 @@ function render_post_card(array $post, array $comments, string $csrfToken, int $
         <?php if ($post['post_type'] === 'donation' && !empty($post['donation_blood_type'])): ?>
             <?php if ($isOwnPost && $donationStatusAvailable): $offerStatus = $post['donation_status'] ?? 'available'; ?><p><span class="status-badge status-<?= h($offerStatus) ?>"><?= h(ucfirst($offerStatus)) ?></span></p><?php endif; ?>
             <div class="donation-offer-details">
-                <p class="donation-blood-row"><strong>Blood type</strong><span class="blood-type-badge"><?= h($post['donation_blood_type']) ?></span></p>
-                <p><strong>Area</strong><span class="donation-location">⌖ <?= h($post['donation_location'] ?: 'Not specified') ?></span></p>
-                <p><strong>Availability</strong><span>
+                <p class="donation-blood-row"><strong>Blood type:</strong><span class="blood-type-badge"><?= h($post['donation_blood_type']) ?></span></p>
+                <p><strong>Location:</strong><span class="donation-location"> <?= h($post['donation_location'] ?: 'Not specified') ?></span></p>
+                <p><strong>Availability:</strong><span>
                     <?php
                     $availabilityParts = [];
                     if (!empty($post['donation_available_date'])) {

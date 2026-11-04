@@ -3095,16 +3095,16 @@ input:disabled {
 
 .blood-type-badge {
     display: inline-flex;
-    min-width: 42px;
+    /* min-width: 42px; */
     align-items: center;
     justify-content: center;
-    padding: 4px 10px;
-    color: #a61b1b;
-    background: #fce8e8;
-    border: 1px solid #f3c9ca;
+    /* padding: 4px 10px; */
+    /* color: #a61b1b; */
+    /* background: #fce8e8; */
+    /* border: 1px solid #f3c9ca; */
     border-radius: 999px;
     font-size: 13px;
-    font-weight: 800;
+    font-weight: 600;
 }
 
 .donation-location {
