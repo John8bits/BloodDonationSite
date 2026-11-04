@@ -1302,13 +1302,16 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                                     <?php elseif ($selectedConversation['request_status'] === 'open' && $selectedConversation['needed_by'] >= date('Y-m-d')): ?>
                                         <form class="conversation-reply-form inbox-reply-form" method="post" action="action.php">
                                             <input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>"><input type="hidden" name="action" value="request_message"><input type="hidden" name="response_id" value="<?= (int) $selectedConversation['response_id'] ?>"><input type="hidden" name="return_page" value="messages">
-                                            <label>Reply privately<textarea name="message" maxlength="1000" rows="2" required placeholder="Write a message to continue this conversation..."></textarea></label>
-                                            <button class="button button-primary button-small" type="submit">Send message</button>
+                                            <label class="visually-hidden" for="requestMessageInput">Reply privately</label>
+                                            <div class="message-composer-row">
+                                                <input id="requestMessageInput" type="text" name="message" maxlength="1000" required placeholder="Write a message...">
+                                                <button class="message-send-button" type="submit" aria-label="Send message"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.8 20.5 21.5 12 2.8 3.5 2.5 10l11 2-11 2 .3 6.5Z" /></svg></button>
+                                            </div>
                                         </form>
                                     <?php else: ?>
                                         <p class="conversation-closed">This blood request is closed. The conversation remains available as history.</p>
                                     <?php endif; ?>
-                                    <p class="conversation-privacy-note">Keep personal and medical details private. Donations and transfusions must be coordinated through an authorized facility.</p>
+                                    <!-- <p class="conversation-privacy-note">Keep personal and medical details private. Donations and transfusions must be coordinated through an authorized facility.</p> -->
                                 <?php elseif ($newMessageOffer): ?>
                                     <?php $newOfferDonor = trim($newMessageOffer['fname'] . ' ' . $newMessageOffer['lname']) ?: 'BLife PH member'; ?>
                                     <header class="message-thread-heading">
@@ -1504,18 +1507,22 @@ function render_offer_message_form(int $postId, int $seekerId, string $csrfToken
         <input type="hidden" name="seeker_id" value="<?= $seekerId ?>">
         <input type="hidden" name="return_page" value="<?= h($returnPage) ?>">
         <?php if ($isFirstMessage): ?>
-            <label class="offer-urgency-label" for="<?= h($formId) ?>-urgency">How urgent is the need?
-                <select id="<?= h($formId) ?>-urgency" name="urgency" required>
-                    <option value="routine">Routine</option>
-                    <option value="urgent">Urgent</option>
-                    <option value="emergency">Emergency</option>
-                </select>
-            </label>
-            <p class="offer-conversation-help">Urgency is self-reported, not medically verified. For emergencies, contact a hospital or emergency service immediately.</p>
+            <div class="offer-first-message-fields">
+                <label class="offer-urgency-label" for="<?= h($formId) ?>-urgency">How urgent is the need?
+                    <select id="<?= h($formId) ?>-urgency" name="urgency" required>
+                        <option value="routine">Routine</option>
+                        <option value="urgent">Urgent</option>
+                        <option value="emergency">Emergency</option>
+                    </select>
+                </label>
+                <p class="offer-conversation-help">Urgency is self-reported, not medically verified. For emergencies, contact a hospital or emergency service immediately.</p>
+            </div>
         <?php endif; ?>
         <label class="visually-hidden" for="<?= h($formId) ?>"><?= $isReply ? 'Reply to this private conversation' : 'Message the donor privately' ?></label>
-        <textarea id="<?= h($formId) ?>" name="message" maxlength="1000" rows="2" required placeholder="<?= $isReply ? 'Write a private reply...' : 'Ask the donor about this offer...' ?>"></textarea>
-        <button class="button button-primary button-small" type="submit"><?= $isReply ? 'Send reply' : 'Message donor' ?></button>
+        <div class="message-composer-row">
+            <input id="<?= h($formId) ?>" type="text" name="message" maxlength="1000" required placeholder="<?= $isReply ? 'Write a private reply...' : 'Ask the donor about this offer...' ?>">
+            <button class="message-send-button" type="submit" aria-label="<?= $isReply ? 'Send reply' : 'Send message to donor' ?>"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.8 20.5 21.5 12 2.8 3.5 2.5 10l11 2-11 2 .3 6.5Z" /></svg></button>
+        </div>
     </form>
     <?php
 }

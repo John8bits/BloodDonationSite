@@ -567,6 +567,10 @@ input:disabled {
     justify-self: start;
 }
 
+.message-thread-panel .inbox-reply-form {
+    display: block;
+}
+
 .inline-actions {
     display: flex;
     align-items: center;
@@ -1743,20 +1747,93 @@ input:disabled {
 
 .offer-message-form {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: end;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+}
+
+.offer-first-message-fields {
+    display: grid;
     gap: 8px;
 }
 
-.offer-message-form textarea {
-    min-height: 42px;
-    max-height: 120px;
-    padding: 9px 10px;
-    font-size: 12px;
+.offer-first-message-fields .offer-urgency-label {
+    display: grid;
+    gap: 5px;
+    color: #536076;
+    font-size: 11px;
+    font-weight: 700;
 }
 
-.offer-message-form button {
+.message-composer-row {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 9px;
+    padding: 5px 7px 5px 15px;
+    background: #fff;
+    border: 1px solid #dce2ea;
+    border-radius: 999px;
+    box-shadow: 0 2px 8px rgb(25 39 61 / 5%);
+}
+
+.message-composer-row:focus-within {
+    border-color: #e4a4ab;
+    box-shadow: 0 0 0 3px rgb(198 40 40 / 10%);
+}
+
+.message-composer-row input {
+    width: 100%;
+    min-width: 0;
     min-height: 38px;
+    padding: 7px 0;
+    color: var(--ink);
+    background: transparent;
+    border: 0;
+    outline: 0;
+    box-shadow: none;
+    font: inherit;
+    font-size: 13px;
+}
+
+.message-composer-row input:focus {
+    outline: 0;
+    box-shadow: none;
+}
+
+.message-composer-row input::placeholder {
+    color: #94a3b8;
+}
+
+.message-send-button {
+    display: inline-flex;
+    width: 38px;
+    height: 38px;
+    flex: 0 0 38px;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    color: #fff;
+    background: var(--primary);
+    border: 0;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: background 0.16s ease, transform 0.16s ease;
+}
+
+.message-send-button:hover {
+    background: var(--primary-dark);
+    transform: translateY(-1px);
+}
+
+.message-send-button:focus-visible {
+    outline: 3px solid rgb(198 40 40 / 24%);
+    outline-offset: 2px;
+}
+
+.message-send-button svg {
+    width: 18px;
+    height: 18px;
+    fill: currentColor;
 }
 
 .donation-offer-card .donation-offer-actions {
@@ -3335,6 +3412,8 @@ input:disabled {
 .message-history {
     display: grid;
     align-content: start;
+    flex: 1 1 auto;
+    min-height: 0;
     gap: 10px;
     max-height: min(48vh, 540px);
     overflow-y: auto;
@@ -3420,7 +3499,7 @@ input:disabled {
 
 .message-thread-panel .offer-message-form,
 .message-thread-panel .inbox-reply-form {
-    margin: 0 18px;
+    margin: auto 18px 0;
 }
 
 .message-thread-panel .offer-conversation-help,
