@@ -1112,7 +1112,6 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                                     <label>Blood type<select name="blood_type" required><option value="">Select</option><?php foreach ($bloodTypes as $type): ?><option value="<?= h($type) ?>"><?= h($type) ?></option><?php endforeach; ?></select></label>
                                     <label>Units<input type="number" name="units" min="1" max="20" value="1" required></label>
                                 </div>
-                                <label>Hospital or blood bank<input type="text" name="hospital" maxlength="160" required></label>
                                 <label>Province
                                     <select name="location" required>
                                         <option value="" selected disabled>-- Select province --</option>
@@ -1127,7 +1126,7 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                                     </select>
                                 </label>
                                 <label>Needed by<input type="date" name="needed_by" min="<?= h(date('Y-m-d')) ?>" required></label>
-                                <label>Additional details <span class="optional">(optional)</span><textarea name="details" maxlength="1000" rows="3" placeholder="Avoid sharing sensitive medical information."></textarea></label>
+                                <label><span class="label-heading-row"><span>Additional Details</span><span class="optional">Optional</span></span><textarea name="details" maxlength="1000" rows="3" placeholder="Add helpful context for potential donors."></textarea></label>
                                 <button class="button button-primary" type="submit">Publish request</button>
                         </form>
 
@@ -1195,7 +1194,7 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                                 <?php else: ?>
                                     <article class="request-card panel">
                                         <div class="request-heading"><span class="blood-mark"><?= h($request['blood_type']) ?></span><div><h3><?= (int) $request['units'] ?> unit<?= (int) $request['units'] === 1 ? '' : 's' ?> requested</h3><p>Requested by <?= h($request['requester_name'] ?: 'BLife PH member') ?></p></div><span class="status-badge status-<?= h($request['effective_status'] ?? $request['status']) ?>"><?= h(ucfirst($request['effective_status'] ?? $request['status'])) ?></span></div>
-                                        <p><strong><?= h($request['hospital']) ?></strong> · <?= h($request['location']) ?> · needed <?= h(date('M j, Y', strtotime($request['needed_by']))) ?></p>
+                                        <p><?= $request['hospital'] !== '' ? '<strong>' . h($request['hospital']) . '</strong> · ' : '' ?><?= h($request['location']) ?> · needed <?= h(date('M j, Y', strtotime($request['needed_by']))) ?></p>
                                         <div class="private-response"><strong>Your offer to help</strong><p><?= $request['response_message'] !== '' ? nl2br(h($request['response_message'])) : 'You offered to help without a message.' ?></p></div>
                                         <?php if ($request['approval_status'] === 'accepted'): ?>
                                             <a class="button button-secondary button-small" href="dashboard.php?page=messages&amp;thread=request-<?= (int) $request['response_id'] ?>">Open conversation in Messages</a>
@@ -1425,7 +1424,6 @@ function render_request_card(array $request, string $csrfToken, bool $isOwn, boo
                     <input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>"><input type="hidden" name="action" value="edit_request"><input type="hidden" name="request_id" value="<?= (int) $request['id'] ?>">
                     <label>Blood type<select name="blood_type" required><?php foreach (['A+','A-','B+','B-','AB+','AB-','O+','O-'] as $type): ?><option value="<?= h($type) ?>" <?= $request['blood_type'] === $type ? 'selected' : '' ?>><?= h($type) ?></option><?php endforeach; ?></select></label>
                     <label>Units<input type="number" name="units" min="1" max="20" required value="<?= (int) $request['units'] ?>"></label>
-                    <label>Hospital<input name="hospital" maxlength="160" required value="<?= h($request['hospital']) ?>"></label>
                     <label>Province
                         <select name="location" required>
                             <option value="" disabled <?= !in_array($request['location'], $philippineProvinces, true) ? 'selected' : '' ?>>Select province</option>
@@ -1458,7 +1456,7 @@ function render_request_card(array $request, string $csrfToken, bool $isOwn, boo
             <p><strong>Blood Type:</strong> <?= h($request['blood_type']) ?></p>
             <p><strong>Unit:</strong> <?= (int) $request['units'] ?></p>
             <p><strong>Province:</strong> <?= h($request['location']) ?></p>
-            <p><strong>Hospital:</strong> <?= h($request['hospital']) ?></p>
+            <?php if (!empty($request['hospital'])): ?><p><strong>Hospital:</strong> <?= h($request['hospital']) ?></p><?php endif; ?>
             <p><strong>Needed by:</strong> <?= h(date('M j, Y', strtotime($request['needed_by']))) ?></p>
         </div>
         <?php if ($request['details'] !== ''): ?><p class="request-details"><?= nl2br(h($request['details'])) ?></p><?php endif; ?>

@@ -288,6 +288,18 @@ label {
     font-weight: 700;
 }
 
+.label-heading-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+}
+
+.label-heading-row .optional {
+    font-weight: 500;
+}
+
 input,
 select,
 textarea {

@@ -525,7 +525,8 @@ try {
         case 'request':
             $bloodType = $_POST['blood_type'] ?? '';
             $units = filter_var($_POST['units'] ?? null, FILTER_VALIDATE_INT);
-            $hospital = trim($_POST['hospital'] ?? '');
+            // Keep the legacy non-null database column compatible while the form no longer collects a facility.
+            $hospital = '';
             $location = trim($_POST['location'] ?? '');
             $urgency = $_POST['urgency'] ?? '';
             $neededBy = $_POST['needed_by'] ?? '';
@@ -542,8 +543,8 @@ try {
             if (!$units || $units < 1 || $units > 20) {
                 redirect_member('Requested units must be between 1 and 20.', 'error', 'requests');
             }
-            if ($hospital === '' || strlen($hospital) > 160 || !in_array($location, $philippineProvinces, true)) {
-                redirect_member('Enter a hospital and select a valid province.', 'error', 'requests');
+            if (!in_array($location, $philippineProvinces, true)) {
+                redirect_member('Select a valid province.', 'error', 'requests');
             }
             if (!$dateIsValid || $neededBy < date('Y-m-d')) {
                 redirect_member('Choose a valid date today or later.', 'error', 'requests');
@@ -693,13 +694,12 @@ try {
             $requestId = filter_var($_POST['request_id'] ?? null, FILTER_VALIDATE_INT);
             $bloodType = $_POST['blood_type'] ?? '';
             $units = filter_var($_POST['units'] ?? null, FILTER_VALIDATE_INT);
-            $hospital = trim($_POST['hospital'] ?? '');
             $location = trim($_POST['location'] ?? '');
             $neededBy = $_POST['needed_by'] ?? '';
             $urgency = $_POST['urgency'] ?? '';
             $details = trim($_POST['details'] ?? '');
             $date = DateTime::createFromFormat('!Y-m-d', $neededBy);
-            if (!$requestId || !in_array($bloodType, $bloodTypes, true) || !$units || $units < 1 || $units > 20 || $hospital === '' || strlen($hospital) > 160 || !in_array($location, $philippineProvinces, true) || !$date || $date->format('Y-m-d') !== $neededBy || $neededBy < date('Y-m-d') || !in_array($urgency, ['routine', 'urgent', 'emergency'], true) || strlen($details) > 1000) {
+            if (!$requestId || !in_array($bloodType, $bloodTypes, true) || !$units || $units < 1 || $units > 20 || !in_array($location, $philippineProvinces, true) || !$date || $date->format('Y-m-d') !== $neededBy || $neededBy < date('Y-m-d') || !in_array($urgency, ['routine', 'urgent', 'emergency'], true) || strlen($details) > 1000) {
                 redirect_member('Review the blood request fields and try again.', 'error', 'my-requests');
             }
             $hasAcceptedResponse = $pdo->prepare("SELECT COUNT(*) FROM request_responses rr JOIN blood_requests br ON br.id = rr.request_id WHERE br.id = :id AND br.requester_id = :user_id AND rr.status = 'accepted'");
@@ -708,8 +708,8 @@ try {
             $editableRequest = $pdo->prepare("SELECT id FROM blood_requests WHERE id = :id AND requester_id = :user_id AND status = 'open'");
             $editableRequest->execute([':id' => $requestId, ':user_id' => $userId]);
             if (!$editableRequest->fetchColumn()) redirect_member('Only your open requests can be edited.', 'error', 'my-requests');
-            $editRequestStmt = $pdo->prepare("UPDATE blood_requests SET blood_type = :blood_type, units = :units, hospital = :hospital, location = :location, needed_by = :needed_by, urgency = :urgency, details = :details WHERE id = :id AND requester_id = :user_id AND status = 'open'");
-            $editRequestStmt->execute([':blood_type' => $bloodType, ':units' => $units, ':hospital' => $hospital, ':location' => $location, ':needed_by' => $neededBy, ':urgency' => $urgency, ':details' => $details, ':id' => $requestId, ':user_id' => $userId]);
+            $editRequestStmt = $pdo->prepare("UPDATE blood_requests SET blood_type = :blood_type, units = :units, location = :location, needed_by = :needed_by, urgency = :urgency, details = :details WHERE id = :id AND requester_id = :user_id AND status = 'open'");
+            $editRequestStmt->execute([':blood_type' => $bloodType, ':units' => $units, ':location' => $location, ':needed_by' => $neededBy, ':urgency' => $urgency, ':details' => $details, ':id' => $requestId, ':user_id' => $userId]);
             redirect_member('Your blood request has been updated.', 'success', 'my-requests');
 
         case 'delete_request':
