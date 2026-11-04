@@ -226,15 +226,20 @@ table.admin-table th {
 
 /* BLife PH administration */
 .admin-layout {
-    min-height: 100vh;
+    height: 100vh;
+    overflow: hidden;
     display: flex;
     color: #263238;
     background: #f5f7fa;
 }
 
 .admin-sidebar {
+    position: sticky;
+    top: 0;
     width: 270px;
-    min-height: 100vh;
+    height: 100vh;
+    min-height: 0;
+    overflow-y: auto;
     display: flex;
     flex: 0 0 270px;
     flex-direction: column;
@@ -252,6 +257,13 @@ table.admin-table th {
     text-decoration: none;
     font-weight: 800;
     font-size: 19px;
+}
+
+.admin-brand img {
+    width: 42px;
+    height: 42px;
+    flex: 0 0 42px;
+    object-fit: contain;
 }
 
 .admin-brand-mark {
@@ -335,8 +347,12 @@ table.admin-table th {
 }
 
 .admin-main {
-    width: min(100% - 270px, 1600px);
-    margin: 0 auto;
+    width: auto;
+    min-width: 0;
+    height: 100vh;
+    flex: 1 1 auto;
+    overflow-y: auto;
+    margin: 0;
     padding: 34px clamp(20px, 4vw, 54px) 56px;
 }
 
