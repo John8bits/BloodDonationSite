@@ -102,6 +102,7 @@ $messageConversations = $selectedThreadMessages = [];
 $selectedConversation = null;
 $newMessageOffer = null;
 $selectedThread = '';
+$activeMessageCategory = 'donors';
 $unreadNotifications = 0;
 $statistics = ['posts' => 0, 'offers' => 0, 'requests' => 0, 'responses' => 0, 'saved' => 0];
 $schemaReady = false;
@@ -551,16 +552,32 @@ try {
             });
 
             $requestedThread = isset($_GET['thread']) && is_string($_GET['thread']) ? $_GET['thread'] : '';
+            $requestedCategory = isset($_GET['category']) && is_string($_GET['category']) && in_array($_GET['category'], ['donors', 'requesters'], true)
+                ? $_GET['category']
+                : (isset($_GET['offer']) ? 'donors' : null);
+            $activeMessageCategory = $requestedCategory ?? ($messageConversations[0]['category'] ?? 'donors');
             foreach ($messageConversations as $conversation) {
                 if ($conversation['thread_key'] === $requestedThread) {
                     $selectedConversation = $conversation;
                     $selectedThread = $requestedThread;
+                    $activeMessageCategory = $conversation['category'];
                     break;
                 }
             }
             if ($selectedConversation === null && $requestedThread === '' && !isset($_GET['offer']) && $messageConversations) {
-                $selectedConversation = $messageConversations[0];
-                $selectedThread = $selectedConversation['thread_key'];
+                foreach ($messageConversations as $conversation) {
+                    if ($conversation['category'] === $activeMessageCategory) {
+                        $selectedConversation = $conversation;
+                        break;
+                    }
+                }
+                if ($selectedConversation === null && $requestedCategory === null) {
+                    $selectedConversation = $messageConversations[0];
+                    $activeMessageCategory = $selectedConversation['category'];
+                }
+                if ($selectedConversation !== null) {
+                    $selectedThread = $selectedConversation['thread_key'];
+                }
             }
 
             $offerId = null;
@@ -597,6 +614,7 @@ try {
                         if ($conversation['thread_key'] === $newThreadKey) {
                             $selectedConversation = $conversation;
                             $selectedThread = $newThreadKey;
+                            $activeMessageCategory = $conversation['category'];
                             $newMessageOffer = null;
                             break;
                         }
@@ -1198,8 +1216,17 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                         <div class="messages-layout">
                             <aside class="panel inbox-panel" aria-label="Conversations">
                                 <div class="inbox-heading"><h2>Messages</h2><span><?= count($messageConversations) ?> conversation<?= count($messageConversations) === 1 ? '' : 's' ?></span></div>
-                                <?php if (!$messageConversations): ?>
-                                    <div class="empty-state inbox-empty"><strong>No conversations yet.</strong><span>Open a donation offer to message a donor, or continue an accepted blood-request conversation.</span><a class="button button-secondary button-small" href="dashboard.php?page=donation-offers">Browse donation offers</a></div>
+                                <?php
+                                $donorChatItems = array_values(array_filter($messageConversations, static fn(array $item): bool => ($item['category'] ?? 'donors') === 'donors'));
+                                $requesterChatItems = array_values(array_filter($messageConversations, static fn(array $item): bool => ($item['category'] ?? 'donors') === 'requesters'));
+                                $activeChatItems = $activeMessageCategory === 'requesters' ? $requesterChatItems : $donorChatItems;
+                                ?>
+                                <nav class="message-category-tabs" aria-label="Message categories">
+                                    <a href="dashboard.php?page=messages&amp;category=donors" class="<?= $activeMessageCategory === 'donors' ? 'active' : '' ?>" <?= $activeMessageCategory === 'donors' ? 'aria-current="page"' : '' ?>>Donors Chat <span><?= count($donorChatItems) ?></span></a>
+                                    <a href="dashboard.php?page=messages&amp;category=requesters" class="<?= $activeMessageCategory === 'requesters' ? 'active' : '' ?>" <?= $activeMessageCategory === 'requesters' ? 'aria-current="page"' : '' ?>>Requester Chat <span><?= count($requesterChatItems) ?></span></a>
+                                </nav>
+                                <?php if (!$activeChatItems): ?>
+                                    <div class="empty-state inbox-empty"><strong>No <?= $activeMessageCategory === 'requesters' ? 'requester' : 'donor' ?> chats yet.</strong><span><?= $activeMessageCategory === 'requesters' ? 'Conversations with members who responded to your donation offers will appear here.' : 'Open a donation offer to message a donor, or review offers on your blood requests.' ?></span><?php if ($activeMessageCategory === 'donors'): ?><a class="button button-secondary button-small" href="dashboard.php?page=donation-offers">Browse donation offers</a><?php endif; ?></div>
                                 <?php else: ?>
                                     <nav class="inbox-list" aria-label="Message threads">
                                         <?php foreach (['donors' => 'Donors Chat', 'requesters' => 'Requester Chat'] as $categoryKey => $categoryTitle):
@@ -1208,12 +1235,12 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                                             $activeItems = array_values(array_filter($categoryItems, static fn(array $item): bool => ($item['conversation_status'] ?? 'accepted') !== 'pending'));
                                             $categoryUnread = array_sum(array_column($categoryItems, 'unread_count'));
                                         ?>
-                                            <?php if ($categoryItems): ?><section class="inbox-category" aria-label="<?= h($categoryTitle) ?>">
-                                                <h3 class="inbox-category-heading"><span><?= h($categoryTitle) ?></span><span class="inbox-category-count"><?= count($categoryItems) ?></span><?php if ($categoryUnread): ?><span class="inbox-category-unread"><?= $categoryUnread > 99 ? '99+' : $categoryUnread ?> unread</span><?php endif; ?></h3>
+                                            <?php if ($categoryItems && $categoryKey === $activeMessageCategory): ?><section class="inbox-category" aria-label="<?= h($categoryTitle) ?>">
+                                                <?php if ($categoryUnread): ?><p class="inbox-category-unread"><?= $categoryUnread > 99 ? '99+' : $categoryUnread ?> unread</p><?php endif; ?>
                                                 <?php foreach (['pending' => $pendingItems, 'active' => $activeItems] as $groupStatus => $group): if (!$group) continue; $statusTitle = $groupStatus === 'pending' ? (($categoryKey === 'requesters') ? 'Requests Sent' : 'Pending Offers') : 'Active Chats'; ?>
                                                     <h4 class="inbox-status-heading"><?= h($statusTitle) ?><span><?= count($group) ?></span></h4>
                                                     <?php foreach ($group as $conversation): $isPendingConversation = ($conversation['conversation_status'] ?? 'accepted') === 'pending'; ?>
-                                                        <a class="inbox-conversation <?= $selectedThread === $conversation['thread_key'] ? 'selected' : '' ?>" href="dashboard.php?page=messages&amp;thread=<?= h($conversation['thread_key']) ?>" <?= $selectedThread === $conversation['thread_key'] ? 'aria-current="page"' : '' ?>>
+                                                        <a class="inbox-conversation <?= $selectedThread === $conversation['thread_key'] ? 'selected' : '' ?>" href="dashboard.php?page=messages&amp;category=<?= h($categoryKey) ?>&amp;thread=<?= h($conversation['thread_key']) ?>" <?= $selectedThread === $conversation['thread_key'] ? 'aria-current="page"' : '' ?>>
                                                             <span class="avatar inbox-avatar"><?= h($conversation['peer_initials']) ?></span>
                                                             <span class="inbox-conversation-copy">
                                                                 <span class="inbox-conversation-top"><strong><?= h($conversation['peer_name']) ?></strong><time datetime="<?= h($conversation['latest_at']) ?>"><?= h(date('M j', strtotime($conversation['latest_at']))) ?></time></span>
