@@ -334,36 +334,46 @@ $adminName = trim(($firstName ?? '') . ' ' . ($lastName ?? ''));
 ?>
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= admin_h($title) ?> | BLife PH Admin</title>
     <link rel="stylesheet" href="../assets/dashb.css">
 </head>
+
 <body class="admin-layout">
     <aside class="admin-sidebar" id="adminSidebar">
-        <a class="admin-brand" href="dashboard.php"><img src="../images/BlifePH_no_bg.png" alt=""><span>BLife PH<small>ADMINISTRATION</small></span></a>
+        <a class="admin-brand" href="dashboard.php"><img src="../images/BlifePH_no_bg.png" alt=""><span>BLife
+                PH</span></a>
         <nav aria-label="Admin navigation">
             <?php foreach ($sections as $key => $label): ?>
-                <a href="dashboard.php?page=<?= admin_h($key) ?>" class="<?= $currentPage === $key ? 'active' : '' ?>" <?= $currentPage === $key ? 'aria-current="page"' : '' ?>>
-                    <span aria-hidden="true"><?= admin_h(['overview' => '▦', 'members' => '♙', 'requests' => '＋', 'posts' => '▤', 'reports' => '⚑', 'events' => '◷', 'analytics' => '▥', 'activity' => '◴', 'settings' => '⚙'][$key]) ?></span>
+                <a href="dashboard.php?page=<?= admin_h($key) ?>" class="<?= $currentPage === $key ? 'active' : '' ?>"
+                    <?= $currentPage === $key ? 'aria-current="page"' : '' ?>>
+                    <span
+                        aria-hidden="true"><?= admin_h(['overview' => '▦', 'members' => '♙', 'requests' => '＋', 'posts' => '▤', 'reports' => '⚑', 'events' => '◷', 'analytics' => '▥', 'activity' => '◴', 'settings' => '⚙'][$key]) ?></span>
                     <?= admin_h($label) ?>
                     <?php if ($key === 'reports' && $stats['reports'] > 0): ?><b><?= (int) $stats['reports'] ?></b><?php endif; ?>
                 </a>
             <?php endforeach; ?>
             <a href="../logout.php" class="admin-logout"><span aria-hidden="true">↪</span>Log Out</a>
         </nav>
-        <div class="admin-sidebar-user"><span><?= admin_h($adminName ?: 'Administrator') ?></span><small>Administrator</small></div>
+        <div class="admin-sidebar-user">
+            <span><?= admin_h($adminName ?: 'Administrator') ?></span><small>Administrator</small></div>
     </aside>
     <main class="admin-main">
         <header class="admin-page-header">
-            <button class="admin-menu-toggle" id="adminMenuToggle" aria-label="Toggle admin navigation" aria-expanded="false">☰</button>
-            <div><h1><?= admin_h($title) ?></h1></div>
+            <button class="admin-menu-toggle" id="adminMenuToggle" aria-label="Toggle admin navigation"
+                aria-expanded="false">☰</button>
+            <div>
+                <h1><?= admin_h($title) ?></h1>
+            </div>
             <span class="admin-role">ADMIN</span>
         </header>
 
         <?php if (is_array($flash)): ?>
-            <div class="admin-alert <?= admin_h($flash['type'] ?? 'success') ?>" role="status"><?= admin_h($flash['message'] ?? '') ?></div>
+            <div class="admin-alert <?= admin_h($flash['type'] ?? 'success') ?>" role="status">
+                <?= admin_h($flash['message'] ?? '') ?></div>
         <?php endif; ?>
         <?php if (!$schema['account_status'] || !$schema['activity'] || !$schema['settings']): ?>
             <div class="admin-alert info">
@@ -376,71 +386,372 @@ $adminName = trim(($firstName ?? '') . ' ' . ($lastName ?? ''));
         <?php if ($currentPage === 'overview'): ?>
             <section class="admin-stat-grid" aria-label="Platform overview">
                 <?php foreach ([
-                    'Registered members' => $stats['members'], 'Donor-search opt-ins' => $stats['donors'],
-                    'Blood requests' => $stats['requests'], 'Open requests' => $stats['open'],
-                    'Fulfilled requests' => $stats['fulfilled'], 'Cancelled / expired' => $stats['closed'],
-                    'Community posts' => $stats['posts'], 'Pending reports' => $stats['reports'],
+                    'Registered members' => $stats['members'],
+                    'Donor-search opt-ins' => $stats['donors'],
+                    'Blood requests' => $stats['requests'],
+                    'Open requests' => $stats['open'],
+                    'Fulfilled requests' => $stats['fulfilled'],
+                    'Cancelled / expired' => $stats['closed'],
+                    'Community posts' => $stats['posts'],
+                    'Pending reports' => $stats['reports'],
                     'Member responses' => $stats['responses']
                 ] as $label => $value): ?>
-                    <article class="admin-stat"><span><?= admin_h($label) ?></span><strong><?= number_format($value) ?></strong></article>
+                    <article class="admin-stat"><span><?= admin_h($label) ?></span><strong><?= number_format($value) ?></strong>
+                    </article>
                 <?php endforeach; ?>
             </section>
             <?php require __DIR__ . '/partials/analytics.php'; ?>
         <?php elseif ($currentPage === 'members'): ?>
             <form class="admin-filter-form" method="get">
                 <input type="hidden" name="page" value="members">
-                <input name="q" value="<?= admin_h($query) ?>" placeholder="Search name, email, or phone">
-                <select name="btype"><option value="">Any blood type</option><?php foreach (['A+','A-','B+','B-','AB+','AB-','O+','O-'] as $type): ?><option <?= $bloodType === $type ? 'selected' : '' ?>><?= $type ?></option><?php endforeach; ?></select>
-                <?php if ($schema['city']): ?><input name="city" value="<?= admin_h($cityFilter) ?>" placeholder="City"><?php endif; ?>
-                <?php if ($schema['donor_available']): ?><select name="donor"><option value="">All donor preferences</option><option value="1" <?= ($_GET['donor'] ?? '') === '1' ? 'selected' : '' ?>>Opted into donor search</option><option value="0" <?= ($_GET['donor'] ?? '') === '0' ? 'selected' : '' ?>>Not opted in</option></select><?php endif; ?>
-                <?php if ($schema['account_status']): ?><select name="status"><option value="">All account statuses</option><option value="active" <?= $status === 'active' ? 'selected' : '' ?>>Active</option><option value="suspended" <?= $status === 'suspended' ? 'selected' : '' ?>>Suspended</option></select><?php endif; ?>
+                <input name="q" value="<?= admin_h($query) ?>" placeholder="Search name">
+                <select name="btype">
+                    <option value="">Any blood type</option>
+                    <?php foreach (['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'] as $type): ?>
+                        <option <?= $bloodType === $type ? 'selected' : '' ?>><?= $type ?></option><?php endforeach; ?>
+                </select>
+                <?php if ($schema['city']): ?><input name="city" value="<?= admin_h($cityFilter) ?>"
+                        placeholder="City"><?php endif; ?>
                 <button type="submit">Filter members</button>
             </form>
-            <div class="admin-table-wrapper"><table class="admin-table"><thead><tr><th>Member</th><th>Email</th><th>Blood type</th><th>City</th><th>Status</th><th>Joined</th><th>Actions</th></tr></thead><tbody>
-            <?php foreach ($rows as $member): ?><tr><td><?= admin_h(trim($member['fname'] . ' ' . $member['lname']) ?: 'Unnamed member') ?></td><td><?= admin_h($member['email']) ?></td><td><?= admin_h($member['btype'] ?: '—') ?></td><td><?= admin_h($member['city'] ?: '—') ?></td><td><?= admin_h($member['account_status']) ?></td><td><?= admin_h(date('M j, Y', strtotime($member['created_at']))) ?></td><td><?php if ((int) $member['id'] === (int) current_user_id()): ?>You<?php else: ?>
-                <?php if ($schema['account_status']): ?><form class="admin-inline-form" method="post" action="action.php"><input type="hidden" name="csrf_token" value="<?= admin_h($csrfToken) ?>"><input type="hidden" name="action" value="member_status"><input type="hidden" name="user_id" value="<?= (int) $member['id'] ?>"><input type="hidden" name="status" value="<?= $member['account_status'] === 'suspended' ? 'active' : 'suspended' ?>"><button class="admin-button secondary"><?= $member['account_status'] === 'suspended' ? 'Reactivate' : 'Suspend' ?></button></form><?php endif; ?>
-                <form class="admin-inline-form confirm-delete" method="post" action="action.php"><input type="hidden" name="csrf_token" value="<?= admin_h($csrfToken) ?>"><input type="hidden" name="action" value="member_delete"><input type="hidden" name="user_id" value="<?= (int) $member['id'] ?>"><button class="admin-button danger">Remove</button></form>
-            <?php endif; ?></td></tr><?php endforeach; ?></tbody></table><?php if (!$rows): ?><p class="empty-state">No members match these filters.</p><?php endif; ?></div>
+            <div class="admin-table-wrapper">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>Member</th>
+                            <th>Email</th>
+                            <th>Blood type</th>
+                            <th>City</th>
+                            <th>Status</th>
+                            <th>Joined</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($rows as $member): ?>
+                            <tr>
+                                <td><?= admin_h(trim($member['fname'] . ' ' . $member['lname']) ?: 'Unnamed member') ?></td>
+                                <td><?= admin_h($member['email']) ?></td>
+                                <td><?= admin_h($member['btype'] ?: '—') ?></td>
+                                <td><?= admin_h($member['city'] ?: '—') ?></td>
+                                <td><?= admin_h($member['account_status']) ?></td>
+                                <td><?= admin_h(date('M j, Y', strtotime($member['created_at']))) ?></td>
+                                <td><?php if ((int) $member['id'] === (int) current_user_id()): ?>You<?php else: ?>
+                                        <?php if ($schema['account_status']): ?>
+                                            <form class="admin-inline-form" method="post" action="action.php"><input type="hidden"
+                                                    name="csrf_token" value="<?= admin_h($csrfToken) ?>"><input type="hidden"
+                                                    name="action" value="member_status"><input type="hidden" name="user_id"
+                                                    value="<?= (int) $member['id'] ?>"><input type="hidden" name="status"
+                                                    value="<?= $member['account_status'] === 'suspended' ? 'active' : 'suspended' ?>"><button
+                                                    class="admin-button secondary"><?= $member['account_status'] === 'suspended' ? 'Reactivate' : 'Suspend' ?></button>
+                                            </form><?php endif; ?>
+                                        <form class="admin-inline-form confirm-delete" method="post" action="action.php"><input
+                                                type="hidden" name="csrf_token" value="<?= admin_h($csrfToken) ?>"><input
+                                                type="hidden" name="action" value="member_delete"><input type="hidden"
+                                                name="user_id" value="<?= (int) $member['id'] ?>"><button
+                                                class="admin-button danger">Remove</button></form>
+                                    <?php endif; ?>
+                                </td>
+                            </tr><?php endforeach; ?>
+                    </tbody>
+                </table><?php if (!$rows): ?>
+                    <p class="empty-state">No members match these filters.</p><?php endif; ?>
+            </div>
         <?php elseif ($currentPage === 'requests'): ?>
-            <?php if (!$schema['requests']): ?><div class="admin-alert info">Blood request tables are not installed. Apply the member panel migration first.</div><?php else: ?>
-            <form class="admin-filter-form" method="get"><input type="hidden" name="page" value="requests"><input name="q" value="<?= admin_h($query) ?>" placeholder="Search hospital, location, requester"><select name="btype"><option value="">Any blood type</option><?php foreach (['A+','A-','B+','B-','AB+','AB-','O+','O-'] as $type): ?><option <?= $bloodType === $type ? 'selected' : '' ?>><?= $type ?></option><?php endforeach; ?></select><select name="status"><option value="">Any status</option><?php foreach (['open','fulfilled','cancelled','expired'] as $value): ?><option value="<?= $value ?>" <?= $status === $value ? 'selected' : '' ?>><?= ucfirst($value) ?></option><?php endforeach; ?></select><select name="urgency"><option value="">Any urgency</option><option value="urgent" <?= $urgency === 'urgent' ? 'selected' : '' ?>>Needed within 3 days</option><option value="upcoming" <?= $urgency === 'upcoming' ? 'selected' : '' ?>>Needed later</option></select><input type="date" name="needed_by" value="<?= admin_h($neededDate) ?>" aria-label="Needed by date"><button>Filter requests</button></form>
-            <div class="admin-table-wrapper"><table class="admin-table"><thead><tr><th>Request</th><th>Requester</th><th>Hospital / Location</th><th>Needed by</th><th>Responses</th><th>Status</th><th>Admin action</th></tr></thead><tbody>
-            <?php foreach ($rows as $request): $requestExpired = $request['status'] === 'open' && $request['needed_by'] < date('Y-m-d'); ?><tr><td><?= admin_h($request['blood_type']) ?> · <?= (int) $request['units'] ?> unit(s)<br><small><?= admin_h($request['details']) ?></small></td><td><?= admin_h(trim($request['fname'] . ' ' . $request['lname'])) ?></td><td><?= admin_h($request['hospital']) ?><br><small><?= admin_h($request['location']) ?></small></td><td><?= admin_h($request['needed_by']) ?></td><td><?= (int) $request['response_count'] ?></td><td><?= $requestExpired ? 'Expired' : admin_h(ucfirst($request['status'])) ?><?php if (!empty($request['status_reason'])): ?><br><small><?= admin_h($request['status_reason']) ?></small><?php endif; ?></td><td><form method="post" action="action.php" class="admin-action-form"><input type="hidden" name="csrf_token" value="<?= admin_h($csrfToken) ?>"><input type="hidden" name="action" value="request_status"><input type="hidden" name="request_id" value="<?= (int) $request['id'] ?>"><select name="status"><option value="open">Open</option><option value="fulfilled">Fulfilled</option><option value="cancelled">Cancelled</option><option value="expired">Expired</option></select><input name="reason" maxlength="255" placeholder="Reason (required)" required><button class="admin-button">Update</button></form><form method="post" action="action.php" class="admin-inline-form confirm-delete"><input type="hidden" name="csrf_token" value="<?= admin_h($csrfToken) ?>"><input type="hidden" name="action" value="request_remove"><input type="hidden" name="request_id" value="<?= (int) $request['id'] ?>"><input name="reason" maxlength="255" placeholder="Removal reason" required><button class="admin-button danger">Remove</button></form></td></tr><?php endforeach; ?></tbody></table><?php if (!$rows): ?><p class="empty-state">No requests found.</p><?php endif; ?></div><?php endif; ?>
+            <?php if (!$schema['requests']): ?>
+                <div class="admin-alert info">Blood request tables are not installed. Apply the member panel migration first.
+                </div><?php else: ?>
+                <form class="admin-filter-form" method="get">
+                        <input type="hidden" name="page" value="requests"><input name="q"
+                        value="<?= admin_h($query) ?>" placeholder="Search Requester"><select name="btype">
+                        <option value="">Any blood type</option>
+                        <?php foreach (['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'] as $type): ?>
+                            <option <?= $bloodType === $type ? 'selected' : '' ?>><?= $type ?></option><?php endforeach; ?>
+                    </select>
+                    <button>Filter requests</button>
+                </form>
+                <div class="admin-table-wrapper">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Request</th>
+                                <th>Requester</th>
+                                <th>Province</th>
+                                <th>Needed by</th>
+                                <th>Responses</th>
+                                <th>Status</th>
+                                <th>Removal</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($rows as $request):
+                                $requestExpired = $request['status'] === 'open' && $request['needed_by'] < date('Y-m-d'); ?>
+                                <tr>
+                                    <td><?= admin_h($request['blood_type']) ?> · <?= (int) $request['units'] ?>
+                                        unit(s)<br><small><?= admin_h($request['details']) ?></small></td>
+                                    <td><?= admin_h(trim($request['fname'] . ' ' . $request['lname'])) ?></td>
+                                    <td><?php if (!empty($request['hospital'])): ?><?= admin_h($request['hospital']) ?><br><?php endif; ?><small><?= admin_h($request['location']) ?></small>
+                                    </td>
+                                    <td><?= admin_h($request['needed_by']) ?></td>
+                                    <td><?= (int) $request['response_count'] ?></td>
+                                    <td><?= $requestExpired ? 'Expired' : admin_h(ucfirst($request['status'])) ?><?php if (!empty($request['status_reason'])): ?><br><small><?= admin_h($request['status_reason']) ?></small><?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <form method="post" action="action.php" class="request-removal-form confirm-delete"><input
+                                                type="hidden" name="csrf_token" value="<?= admin_h($csrfToken) ?>"><input
+                                                type="hidden" name="action" value="request_remove"><input type="hidden"
+                                                name="request_id" value="<?= (int) $request['id'] ?>"><input name="reason"
+                                                maxlength="255" placeholder="Removal reason" aria-label="Removal reason"
+                                                required><button class="admin-button danger" type="submit">Remove</button></form>
+                                    </td>
+                                </tr><?php endforeach; ?>
+                        </tbody>
+                    </table><?php if (!$rows): ?>
+                        <p class="empty-state">No requests found.</p><?php endif; ?>
+                </div><?php endif; ?>
         <?php elseif ($currentPage === 'posts'): ?>
-            <form class="admin-filter-form" method="get"><input type="hidden" name="page" value="posts"><input name="q" value="<?= admin_h($query) ?>" placeholder="Search post or author"><button>Search posts</button></form>
-            <div class="admin-table-wrapper"><table class="admin-table"><thead><tr><th>Post</th><th>Author</th><th>Category</th><th>Engagement</th><th>Published</th><th>Actions</th></tr></thead><tbody><?php foreach ($rows as $post): ?><tr><td><details><summary><?= admin_h(function_exists('mb_strimwidth') ? mb_strimwidth($post['content'], 0, 100, '…') : substr($post['content'], 0, 100)) ?></summary><p><?= nl2br(admin_h($post['content'])) ?></p></details></td><td><?= admin_h(trim($post['fname'] . ' ' . $post['lname'])) ?></td><td><?= admin_h($post['post_type']) ?></td><td><?= (int) $post['like_count'] ?> likes · <?= (int) $post['comment_count'] ?> comments</td><td><?= admin_h($post['created_at']) ?></td><td><form method="post" action="action.php" class="admin-inline-form confirm-delete"><input type="hidden" name="csrf_token" value="<?= admin_h($csrfToken) ?>"><input type="hidden" name="action" value="post_remove"><input type="hidden" name="post_id" value="<?= (int) $post['id'] ?>"><input name="reason" maxlength="255" placeholder="Moderation reason" required><button class="admin-button danger">Remove</button></form></td></tr><?php endforeach; ?></tbody></table><?php if (!$rows): ?><p class="empty-state">No community posts found.</p><?php endif; ?></div>
+            <form class="admin-filter-form" method="get"><input type="hidden" name="page" value="posts"><input name="q"
+                    value="<?= admin_h($query) ?>" placeholder="Search post or author"><button>Search posts</button></form>
+            <div class="admin-table-wrapper">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>Post</th>
+                            <th>Author</th>
+                            <th>Category</th>
+                            <th>Engagement</th>
+                            <th>Published</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody><?php foreach ($rows as $post): ?>
+                            <tr>
+                                <td>
+                                    <details>
+                                        <summary>
+                                            <?= admin_h(function_exists('mb_strimwidth') ? mb_strimwidth($post['content'], 0, 100, '…') : substr($post['content'], 0, 100)) ?>
+                                        </summary>
+                                        <p><?= nl2br(admin_h($post['content'])) ?></p>
+                                    </details>
+                                </td>
+                                <td><?= admin_h(trim($post['fname'] . ' ' . $post['lname'])) ?></td>
+                                <td><?= admin_h($post['post_type']) ?></td>
+                                <td><?= (int) $post['like_count'] ?> likes · <?= (int) $post['comment_count'] ?> comments</td>
+                                <td><?= admin_h($post['created_at']) ?></td>
+                                <td>
+                                    <form method="post" action="action.php" class="admin-inline-form confirm-delete"><input
+                                            type="hidden" name="csrf_token" value="<?= admin_h($csrfToken) ?>"><input
+                                            type="hidden" name="action" value="post_remove"><input type="hidden" name="post_id"
+                                            value="<?= (int) $post['id'] ?>"><input name="reason" maxlength="255"
+                                            placeholder="Moderation reason" required><button
+                                            class="admin-button danger">Remove</button></form>
+                                </td>
+                            </tr><?php endforeach; ?>
+                    </tbody>
+                </table><?php if (!$rows): ?>
+                    <p class="empty-state">No community posts found.</p><?php endif; ?>
+            </div>
         <?php elseif ($currentPage === 'reports'): ?>
-            <div class="admin-table-wrapper"><table class="admin-table"><thead><tr><th>Reported post</th><th>Author</th><th>Reporter / reason</th><th>Report date</th><th>Counts</th><th>Review action</th></tr></thead><tbody><?php foreach ($rows as $report): ?><tr><td><details><summary><?= admin_h(function_exists('mb_strimwidth') ? mb_strimwidth($report['content'], 0, 100, '…') : substr($report['content'], 0, 100)) ?></summary><p><?= nl2br(admin_h($report['content'])) ?></p></details></td><td><?= admin_h(trim($report['author_first'] . ' ' . $report['author_last'])) ?></td><td><?= admin_h(trim($report['reporter_first'] . ' ' . $report['reporter_last'])) ?><br><small><?= admin_h($report['report_reason'] ?: 'No reason supplied') ?></small></td><td><?= admin_h($report['reported_at']) ?></td><td><?= (int) $report['report_count'] ?> reports<br><small><?= (int) $report['author_report_count'] ?> on this author</small></td><td><form method="post" action="review_report.php" class="admin-action-form report-review-form"><input type="hidden" name="csrf_token" value="<?= admin_h($csrfToken) ?>"><input type="hidden" name="post_id" value="<?= (int) $report['post_id'] ?>"><input type="hidden" name="reporter_id" value="<?= (int) $report['reporter_id'] ?>"><input name="reason" maxlength="255" placeholder="Review reason" required><button name="action" value="dismiss" class="admin-button secondary">Dismiss</button><button name="action" value="delete" class="admin-button danger">Remove post</button></form></td></tr><?php endforeach; ?></tbody></table><?php if (!$rows): ?><p class="empty-state">No posts are awaiting report review.</p><?php endif; ?></div>
+            <div class="admin-table-wrapper">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>Reported post</th>
+                            <th>Author</th>
+                            <th>Reporter / reason</th>
+                            <th>Report date</th>
+                            <th>Counts</th>
+                            <th>Review action</th>
+                        </tr>
+                    </thead>
+                    <tbody><?php foreach ($rows as $report): ?>
+                            <tr>
+                                <td>
+                                    <details>
+                                        <summary>
+                                            <?= admin_h(function_exists('mb_strimwidth') ? mb_strimwidth($report['content'], 0, 100, '…') : substr($report['content'], 0, 100)) ?>
+                                        </summary>
+                                        <p><?= nl2br(admin_h($report['content'])) ?></p>
+                                    </details>
+                                </td>
+                                <td><?= admin_h(trim($report['author_first'] . ' ' . $report['author_last'])) ?></td>
+                                <td><?= admin_h(trim($report['reporter_first'] . ' ' . $report['reporter_last'])) ?><br><small><?= admin_h($report['report_reason'] ?: 'No reason supplied') ?></small>
+                                </td>
+                                <td><?= admin_h($report['reported_at']) ?></td>
+                                <td><?= (int) $report['report_count'] ?>
+                                    reports<br><small><?= (int) $report['author_report_count'] ?> on this author</small></td>
+                                <td>
+                                    <form method="post" action="review_report.php" class="admin-action-form report-review-form">
+                                        <input type="hidden" name="csrf_token" value="<?= admin_h($csrfToken) ?>"><input
+                                            type="hidden" name="post_id" value="<?= (int) $report['post_id'] ?>"><input
+                                            type="hidden" name="reporter_id" value="<?= (int) $report['reporter_id'] ?>"><input
+                                            name="reason" maxlength="255" placeholder="Review reason" required><button
+                                            name="action" value="dismiss" class="admin-button secondary">Dismiss</button><button
+                                            name="action" value="delete" class="admin-button danger">Remove post</button></form>
+                                </td>
+                            </tr><?php endforeach; ?>
+                    </tbody>
+                </table><?php if (!$rows): ?>
+                    <p class="empty-state">No posts are awaiting report review.</p><?php endif; ?>
+            </div>
             <section class="admin-panel">
                 <h2>Reported private messages</h2>
                 <?php if (!$schema['message_reports']): ?>
-                    <p class="admin-alert info">Message reports are unavailable until <code>database_sql/messages_inbox_migration.sql</code> is applied.</p>
+                    <p class="admin-alert info">Message reports are unavailable until
+                        <code>database_sql/messages_inbox_migration.sql</code> is applied.</p>
                 <?php else: ?>
-                    <div class="admin-table-wrapper"><table class="admin-table"><thead><tr><th>Message / sender</th><th>Reporter / reason</th><th>Report date</th><th>Status</th><th>Review</th></tr></thead><tbody>
-                    <?php foreach ($messageReportRows as $report): ?>
-                        <tr>
-                            <td><strong><?= admin_h($report['message_type'] === 'donation_offer' ? 'Donation offer' : 'Blood request') ?></strong><br><?= nl2br(admin_h($report['reported_message'] ?: '[Message no longer available]')) ?><br><small>From <?= admin_h(trim($report['sender_first'] . ' ' . $report['sender_last']) ?: 'Former member') ?></small></td>
-                            <td><?= admin_h(trim($report['reporter_first'] . ' ' . $report['reporter_last']) ?: 'Former member') ?><br><small><?= admin_h($report['reason']) ?></small></td>
-                            <td><?= admin_h($report['created_at']) ?></td>
-                            <td><?= admin_h(ucfirst($report['status'])) ?></td>
-                            <td><?php if ($report['status'] === 'pending'): ?><form method="post" action="action.php"><input type="hidden" name="csrf_token" value="<?= admin_h($csrfToken) ?>"><input type="hidden" name="action" value="message_report_review"><input type="hidden" name="report_id" value="<?= (int) $report['id'] ?>"><button class="admin-button secondary">Mark reviewed</button></form><?php else: ?>Reviewed<?php endif; ?></td>
-                        </tr>
-                    <?php endforeach; ?>
-                    </tbody></table><?php if (!$messageReportRows): ?><p class="empty-state">No private messages have been reported.</p><?php endif; ?></div>
+                    <div class="admin-table-wrapper">
+                        <table class="admin-table">
+                            <thead>
+                                <tr>
+                                    <th>Message / sender</th>
+                                    <th>Reporter / reason</th>
+                                    <th>Report date</th>
+                                    <th>Status</th>
+                                    <th>Review</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($messageReportRows as $report): ?>
+                                    <tr>
+                                        <td><strong><?= admin_h($report['message_type'] === 'donation_offer' ? 'Donation offer' : 'Blood request') ?></strong><br><?= nl2br(admin_h($report['reported_message'] ?: '[Message no longer available]')) ?><br><small>From
+                                                <?= admin_h(trim($report['sender_first'] . ' ' . $report['sender_last']) ?: 'Former member') ?></small>
+                                        </td>
+                                        <td><?= admin_h(trim($report['reporter_first'] . ' ' . $report['reporter_last']) ?: 'Former member') ?><br><small><?= admin_h($report['reason']) ?></small>
+                                        </td>
+                                        <td><?= admin_h($report['created_at']) ?></td>
+                                        <td><?= admin_h(ucfirst($report['status'])) ?></td>
+                                        <td><?php if ($report['status'] === 'pending'): ?>
+                                                <form method="post" action="action.php"><input type="hidden" name="csrf_token"
+                                                        value="<?= admin_h($csrfToken) ?>"><input type="hidden" name="action"
+                                                        value="message_report_review"><input type="hidden" name="report_id"
+                                                        value="<?= (int) $report['id'] ?>"><button class="admin-button secondary">Mark
+                                                        reviewed</button></form><?php else: ?>Reviewed<?php endif; ?>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table><?php if (!$messageReportRows): ?>
+                            <p class="empty-state">No private messages have been reported.</p><?php endif; ?>
+                    </div>
                 <?php endif; ?>
             </section>
         <?php elseif ($currentPage === 'events'): ?>
-            <?php if (!$schema['event_fields']): ?><div class="admin-alert info">Donation event management needs the updated event columns. Apply <code>database_sql/blife_admin_modules_migration.sql</code>.</div><?php else: ?>
-            <section class="admin-panel"><h2><?= $editingEvent ? 'Edit event announcement' : 'Create donation event announcement' ?></h2><form class="admin-event-form" method="post" action="action.php"><input type="hidden" name="csrf_token" value="<?= admin_h($csrfToken) ?>"><input type="hidden" name="action" value="event_save"><input type="hidden" name="post_id" value="<?= (int) ($editingEvent['id'] ?? 0) ?>"><label>Event title<input name="event_title" maxlength="160" required value="<?= admin_h($editingEvent['event_title'] ?? '') ?>"></label><label>Description<textarea name="content" maxlength="1000" rows="3" required><?= admin_h($editingEvent['content'] ?? '') ?></textarea></label><div class="admin-event-grid"><label>Organizer<input name="organizer" maxlength="160" value="<?= admin_h($editingEvent['organizer'] ?? '') ?>"></label><label>Date<input name="event_date" type="date" required value="<?= admin_h($editingEvent['event_date'] ?? '') ?>"></label><label>Time<input name="event_time" type="time" value="<?= admin_h($editingEvent['event_time'] ?? '') ?>"></label><label>Venue<input name="venue" maxlength="180" value="<?= admin_h($editingEvent['venue'] ?? '') ?>"></label><label>City<input name="event_city" maxlength="120" value="<?= admin_h($editingEvent['event_city'] ?? '') ?>"></label><label>Public contact<input name="public_contact" maxlength="180" value="<?= admin_h($editingEvent['public_contact'] ?? '') ?>"></label><label>Status<select name="event_status"><?php foreach (['published','draft','cancelled','completed'] as $value): ?><option value="<?= $value ?>" <?= ($editingEvent['event_status'] ?? 'published') === $value ? 'selected' : '' ?>><?= ucfirst($value) ?></option><?php endforeach; ?></select></label></div><p class="form-help">Announcements are not verified; attending or registering is not provided by this platform.</p><button class="admin-button"><?= $editingEvent ? 'Save changes' : 'Create event' ?></button><?php if ($editingEvent): ?><a class="admin-button secondary" href="dashboard.php?page=events">Cancel edit</a><?php endif; ?></form></section>
-            <div class="admin-table-wrapper"><table class="admin-table"><thead><tr><th>Event</th><th>Date / Venue</th><th>Organizer</th><th>Status</th><th>Actions</th></tr></thead><tbody><?php foreach ($rows as $event): ?><tr><td><?= admin_h($event['event_title']) ?><br><small><?= admin_h($event['content']) ?></small></td><td><?= admin_h($event['event_date']) ?><br><?= admin_h($event['venue'] . ', ' . $event['event_city']) ?></td><td><?= admin_h($event['organizer']) ?></td><td><?= admin_h($event['event_status']) ?></td><td><a class="admin-button secondary" href="dashboard.php?page=events&amp;edit=<?= (int) $event['id'] ?>">Edit</a><form method="post" action="action.php" class="admin-inline-form event-status-form"><input type="hidden" name="csrf_token" value="<?= admin_h($csrfToken) ?>"><input type="hidden" name="action" value="event_status"><input type="hidden" name="post_id" value="<?= (int) $event['id'] ?>"><select name="status"><option value="published">Publish</option><option value="draft">Unpublish</option><option value="cancelled">Cancel</option><option value="completed">Complete</option></select><button class="admin-button">Update</button></form></td></tr><?php endforeach; ?></tbody></table><?php if (!$rows): ?><p class="empty-state">No donation events have been created.</p><?php endif; ?></div><?php endif; ?>
+            <?php if (!$schema['event_fields']): ?>
+                <div class="admin-alert info">Donation event management needs the updated event columns. Apply
+                    <code>database_sql/blife_admin_modules_migration.sql</code>.</div><?php else: ?>
+                <section class="admin-panel">
+                    <h2><?= $editingEvent ? 'Edit event announcement' : 'Create donation event announcement' ?></h2>
+                    <form class="admin-event-form" method="post" action="action.php"><input type="hidden" name="csrf_token"
+                            value="<?= admin_h($csrfToken) ?>"><input type="hidden" name="action" value="event_save"><input
+                            type="hidden" name="post_id" value="<?= (int) ($editingEvent['id'] ?? 0) ?>"><label>Event
+                            title<input name="event_title" maxlength="160" required
+                                value="<?= admin_h($editingEvent['event_title'] ?? '') ?>"></label><label>Description<textarea
+                                name="content" maxlength="1000" rows="3"
+                                required><?= admin_h($editingEvent['content'] ?? '') ?></textarea></label>
+                        <div class="admin-event-grid"><label>Organizer<input name="organizer" maxlength="160"
+                                    value="<?= admin_h($editingEvent['organizer'] ?? '') ?>"></label><label>Date<input
+                                    name="event_date" type="date" required
+                                    value="<?= admin_h($editingEvent['event_date'] ?? '') ?>"></label><label>Time<input
+                                    name="event_time" type="time"
+                                    value="<?= admin_h($editingEvent['event_time'] ?? '') ?>"></label><label>Venue<input
+                                    name="venue" maxlength="180"
+                                    value="<?= admin_h($editingEvent['venue'] ?? '') ?>"></label><label>City<input
+                                    name="event_city" maxlength="120"
+                                    value="<?= admin_h($editingEvent['event_city'] ?? '') ?>"></label><label>Public
+                                contact<input name="public_contact" maxlength="180"
+                                    value="<?= admin_h($editingEvent['public_contact'] ?? '') ?>"></label><label>Status<select
+                                    name="event_status"><?php foreach (['published', 'draft', 'cancelled', 'completed'] as $value): ?>
+                                        <option value="<?= $value ?>" <?= ($editingEvent['event_status'] ?? 'published') === $value ? 'selected' : '' ?>><?= ucfirst($value) ?></option><?php endforeach; ?>
+                                </select></label></div>
+                        <p class="form-help">Announcements are not verified; attending or registering is not provided by this
+                            platform.</p><button
+                            class="admin-button"><?= $editingEvent ? 'Save changes' : 'Create event' ?></button><?php if ($editingEvent): ?><a
+                                class="admin-button secondary" href="dashboard.php?page=events">Cancel edit</a><?php endif; ?>
+                    </form>
+                </section>
+                <div class="admin-table-wrapper">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Event</th>
+                                <th>Date / Venue</th>
+                                <th>Organizer</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody><?php foreach ($rows as $event): ?>
+                                <tr>
+                                    <td><?= admin_h($event['event_title']) ?><br><small><?= admin_h($event['content']) ?></small>
+                                    </td>
+                                    <td><?= admin_h($event['event_date']) ?><br><?= admin_h($event['venue'] . ', ' . $event['event_city']) ?>
+                                    </td>
+                                    <td><?= admin_h($event['organizer']) ?></td>
+                                    <td><?= admin_h($event['event_status']) ?></td>
+                                    <td><a class="admin-button secondary"
+                                            href="dashboard.php?page=events&amp;edit=<?= (int) $event['id'] ?>">Edit</a>
+                                        <form method="post" action="action.php" class="admin-inline-form event-status-form"><input
+                                                type="hidden" name="csrf_token" value="<?= admin_h($csrfToken) ?>"><input
+                                                type="hidden" name="action" value="event_status"><input type="hidden" name="post_id"
+                                                value="<?= (int) $event['id'] ?>"><select name="status">
+                                                <option value="published">Publish</option>
+                                                <option value="draft">Unpublish</option>
+                                                <option value="cancelled">Cancel</option>
+                                                <option value="completed">Complete</option>
+                                            </select><button class="admin-button">Update</button></form>
+                                    </td>
+                                </tr><?php endforeach; ?>
+                        </tbody>
+                    </table><?php if (!$rows): ?>
+                        <p class="empty-state">No donation events have been created.</p><?php endif; ?>
+                </div><?php endif; ?>
         <?php elseif ($currentPage === 'analytics'): ?>
             <?php require __DIR__ . '/partials/analytics.php'; ?>
-            <?php if ($schema['requests']): ?><a class="admin-button" href="dashboard.php?page=analytics&amp;export=requests">Export requests CSV</a><?php endif; ?>
+            <?php if ($schema['requests']): ?><a class="admin-button"
+                    href="dashboard.php?page=analytics&amp;export=requests">Export requests CSV</a><?php endif; ?>
         <?php elseif ($currentPage === 'activity'): ?>
-            <?php if (!$schema['activity']): ?><div class="admin-alert info">The audit table is not installed. Apply the admin enhancement migration.</div><?php else: ?><div class="admin-table-wrapper"><table class="admin-table"><thead><tr><th>When</th><th>Administrator</th><th>Action</th><th>Record</th><th>Reason / details</th></tr></thead><tbody><?php foreach ($rows as $log): ?><tr><td><?= admin_h($log['created_at']) ?></td><td><?= admin_h(trim(($log['fname'] ?? '') . ' ' . ($log['lname'] ?? '')) ?: 'Admin #' . $log['admin_id']) ?></td><td><?= admin_h($log['action']) ?></td><td><?= admin_h($log['affected_table']) ?> #<?= (int) $log['affected_record_id'] ?></td><td><?= admin_h($log['reason'] ?: $log['action_details']) ?></td></tr><?php endforeach; ?></tbody></table><?php if (!$rows): ?><p class="empty-state">No recorded admin actions yet.</p><?php endif; ?></div><?php endif; ?>
+            <?php if (!$schema['activity']): ?>
+                <div class="admin-alert info">The audit table is not installed. Apply the admin enhancement migration.</div>
+            <?php else: ?>
+                <div class="admin-table-wrapper">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>When</th>
+                                <th>Administrator</th>
+                                <th>Action</th>
+                                <th>Record</th>
+                                <th>Reason / details</th>
+                            </tr>
+                        </thead>
+                        <tbody><?php foreach ($rows as $log): ?>
+                                <tr>
+                                    <td><?= admin_h($log['created_at']) ?></td>
+                                    <td><?= admin_h(trim(($log['fname'] ?? '') . ' ' . ($log['lname'] ?? '')) ?: 'Admin #' . $log['admin_id']) ?>
+                                    </td>
+                                    <td><?= admin_h($log['action']) ?></td>
+                                    <td><?= admin_h($log['affected_table']) ?> #<?= (int) $log['affected_record_id'] ?></td>
+                                    <td><?= admin_h($log['reason'] ?: $log['action_details']) ?></td>
+                                </tr><?php endforeach; ?>
+                        </tbody>
+                    </table><?php if (!$rows): ?>
+                        <p class="empty-state">No recorded admin actions yet.</p><?php endif; ?>
+                </div><?php endif; ?>
         <?php elseif ($currentPage === 'settings'): ?>
-            <?php if (!$schema['settings']): ?><div class="admin-alert info">Settings storage needs the admin enhancement migration.</div><?php else: ?>
-            <section class="admin-panel"><h2>Platform information and moderation guidance</h2><form class="admin-event-form" method="post" action="action.php"><input type="hidden" name="csrf_token" value="<?= admin_h($csrfToken) ?>"><input type="hidden" name="action" value="save_settings"><label>Platform information<textarea name="platform_info" rows="4" maxlength="3000" required><?= admin_h($platformInfo ?: 'BLife PH helps community members connect about blood requests and potential donation support. The platform does not confirm blood availability, determine medical eligibility, or replace authorized hospitals and blood banks.') ?></textarea></label><label>Moderation guidelines<textarea name="moderation_guidelines" rows="5" maxlength="3000" required><?= admin_h($moderationGuidelines ?: 'Review reports in context, remove content that violates community rules, and record a clear reason for moderation. Do not represent content moderation as hospital confirmation or medical verification.') ?></textarea></label><button class="admin-button">Save settings</button></form></section><?php endif; ?>
+            <?php if (!$schema['settings']): ?>
+                <div class="admin-alert info">Settings storage needs the admin enhancement migration.</div><?php else: ?>
+                <section class="admin-panel">
+                    <h2>Platform information and moderation guidance</h2>
+                    <form class="admin-event-form" method="post" action="action.php"><input type="hidden" name="csrf_token"
+                            value="<?= admin_h($csrfToken) ?>"><input type="hidden" name="action"
+                            value="save_settings"><label>Platform information<textarea name="platform_info" rows="4"
+                                maxlength="3000"
+                                required><?= admin_h($platformInfo ?: 'BLife PH helps community members connect about blood requests and potential donation support. The platform does not confirm blood availability, determine medical eligibility, or replace authorized hospitals and blood banks.') ?></textarea></label><label>Moderation
+                            guidelines<textarea name="moderation_guidelines" rows="5" maxlength="3000"
+                                required><?= admin_h($moderationGuidelines ?: 'Review reports in context, remove content that violates community rules, and record a clear reason for moderation. Do not represent content moderation as hospital confirmation or medical verification.') ?></textarea></label><button
+                            class="admin-button">Save settings</button></form>
+                </section><?php endif; ?>
         <?php endif; ?>
     </main>
     <script>
@@ -463,4 +774,5 @@ $adminName = trim(($firstName ?? '') . ' ' . ($lastName ?? ''));
         }));
     </script>
 </body>
+
 </html>

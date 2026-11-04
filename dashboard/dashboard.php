@@ -919,7 +919,7 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                 <div class="profile-dropdown">
                     <a href="dashboard.php?page=profile">My Profile</a>
                     <a href="dashboard.php?page=settings">Settings &amp; Privacy</a>
-                    <a href="../logout.php">Log Out</a>
+                    <a href="../logout.php">Sign Out</a>
                 </div>
             </details>
         </div>
@@ -945,13 +945,7 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                     </div>
                 <?php endforeach; ?>
             </nav>
-            <div class="sidebar-bottom">
-                <!-- <p>One community. Many ways to help.</p> -->
-                <?php if ($activePage === 'home'): ?>
-                    <!-- <button class="sidebar-link sidebar-action" type="button" data-modal-open="createPostModal"><span class="nav-icon" aria-hidden="true">＋</span><span class="nav-label">Create Post</span></button> -->
-                <?php endif; ?>
-                <a class="sidebar-link logout-sidebar" href="../logout.php"><span class="nav-icon" aria-hidden="true"></span><span class="nav-label">Sign Out</span></a>
-            </div>
+            
         </aside>
 
         <main class="dashboard-main">
