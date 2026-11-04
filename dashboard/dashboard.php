@@ -59,6 +59,7 @@ function render_notification_items(array $notifications, string $csrfToken): voi
 }
 
 $bloodTypes = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+$philippineProvinces = require __DIR__ . '/../config/philippine_provinces.php';
 $pages = [
     'home', 'find-blood', 'blood-requests', 'donation-offers', 'events', 'activity',
     'my-posts', 'my-requests', 'my-community-posts', 'my-blood-requests', 'my-donation-offers',
@@ -752,13 +753,14 @@ $navGroups = [
     ],
     'Activities' => [
         'activity' => ['▤', 'My Activity'],
+        'messages' => ['✉', 'Messages'],
         'my-posts' => ['▧', 'My Post'],
         'responded' => ['↗', "My Resposes"],
         'saved' => ['☆', 'Saved Posts']
     ],
-    'Communication' => [
-        'messages' => ['✉', 'Messages']
-    ],
+    // 'Communication' => [
+    //     'messages' => ['✉', 'Messages']
+    // ],
     'Account' => [
         'profile' => ['👤', 'My Profile'],
         'settings' => ['⚙', 'Settings & Privacy'],
@@ -1111,7 +1113,12 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                                     <label>Units<input type="number" name="units" min="1" max="20" value="1" required></label>
                                 </div>
                                 <label>Hospital or blood bank<input type="text" name="hospital" maxlength="160" required></label>
-                                <label>City or province<input type="text" name="location" maxlength="160" required></label>
+                                <label>Province
+                                    <select name="location" required>
+                                        <option value="" selected disabled>-- Select province --</option>
+                                        <?php foreach ($philippineProvinces as $province): ?><option value="<?= h($province) ?>"><?= h($province) ?></option><?php endforeach; ?>
+                                    </select>
+                                </label>
                                 <label>Urgency
                                     <select name="urgency" required>
                                         <option value="routine">Routine</option>
@@ -1419,7 +1426,13 @@ function render_request_card(array $request, string $csrfToken, bool $isOwn, boo
                     <label>Blood type<select name="blood_type" required><?php foreach (['A+','A-','B+','B-','AB+','AB-','O+','O-'] as $type): ?><option value="<?= h($type) ?>" <?= $request['blood_type'] === $type ? 'selected' : '' ?>><?= h($type) ?></option><?php endforeach; ?></select></label>
                     <label>Units<input type="number" name="units" min="1" max="20" required value="<?= (int) $request['units'] ?>"></label>
                     <label>Hospital<input name="hospital" maxlength="160" required value="<?= h($request['hospital']) ?>"></label>
-                    <label>Location<input name="location" maxlength="160" required value="<?= h($request['location']) ?>"></label>
+                    <label>Province
+                        <select name="location" required>
+                            <option value="" disabled <?= !in_array($request['location'], $philippineProvinces, true) ? 'selected' : '' ?>>Select province</option>
+                            <?php foreach ($philippineProvinces as $province): ?><option value="<?= h($province) ?>" <?= $request['location'] === $province ? 'selected' : '' ?>><?= h($province) ?></option><?php endforeach; ?>
+                        </select>
+                        <?php if (!in_array($request['location'], $philippineProvinces, true)): ?><small class="form-help">Choose a province to replace the current location.</small><?php endif; ?>
+                    </label>
                     <label>Needed by<input type="date" name="needed_by" min="<?= h(date('Y-m-d')) ?>" required value="<?= h($request['needed_by']) ?>"></label>
                     <label>Urgency<select name="urgency" required><?php foreach (['routine' => 'Routine', 'urgent' => 'Urgent', 'emergency' => 'Emergency'] as $urgencyValue => $urgencyLabel): ?><option value="<?= h($urgencyValue) ?>" <?= $request['urgency'] === $urgencyValue ? 'selected' : '' ?>><?= h($urgencyLabel) ?></option><?php endforeach; ?></select></label>
                     <label>Details<textarea name="details" maxlength="1000" rows="3"><?= h($request['details']) ?></textarea></label>
@@ -1444,7 +1457,7 @@ function render_request_card(array $request, string $csrfToken, bool $isOwn, boo
         <div class="donation-offer-details request-offer-details">
             <p><strong>Blood Type:</strong> <?= h($request['blood_type']) ?></p>
             <p><strong>Unit:</strong> <?= (int) $request['units'] ?></p>
-            <p><strong>Location:</strong> <?= h($request['location']) ?></p>
+            <p><strong>Province:</strong> <?= h($request['location']) ?></p>
             <p><strong>Hospital:</strong> <?= h($request['hospital']) ?></p>
             <p><strong>Needed by:</strong> <?= h(date('M j, Y', strtotime($request['needed_by']))) ?></p>
         </div>
