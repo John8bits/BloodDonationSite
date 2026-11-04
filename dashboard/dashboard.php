@@ -430,7 +430,7 @@ try {
             }, $posts);
             $placeholders = implode(',', array_fill(0, count($postIds), '?'));
             $commentStmt = $pdo->prepare(
-                "SELECT pc.post_id, pc.comment, pc.created_at, u.fname AS author_name, u.lname AS author_last_name
+                "SELECT pc.post_id, pc.user_id AS commenter_id, pc.comment, pc.created_at, u.fname AS author_name, u.lname AS author_last_name
                  FROM post_comments pc JOIN uinfo u ON u.id = pc.user_id
                  WHERE pc.post_id IN ({$placeholders}) ORDER BY pc.created_at ASC"
             );
@@ -928,9 +928,9 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
             <div class="sidebar-bottom">
                 <!-- <p>One community. Many ways to help.</p> -->
                 <?php if ($activePage === 'home'): ?>
-                    <button class="sidebar-link sidebar-action" type="button" data-modal-open="createPostModal"><span class="nav-icon" aria-hidden="true">＋</span><span class="nav-label">Create Post</span></button>
+                    <!-- <button class="sidebar-link sidebar-action" type="button" data-modal-open="createPostModal"><span class="nav-icon" aria-hidden="true">＋</span><span class="nav-label">Create Post</span></button> -->
                 <?php endif; ?>
-                <a class="sidebar-link logout-sidebar" href="../logout.php"><span class="nav-icon" aria-hidden="true">↪</span><span class="nav-label">Log Out</span></a>
+                <a class="sidebar-link logout-sidebar" href="../logout.php"><span class="nav-icon" aria-hidden="true"></span><span class="nav-label">Sign Out</span></a>
             </div>
         </aside>
 
@@ -1549,20 +1549,20 @@ function render_post_card(array $post, array $comments, string $csrfToken, int $
             <?php if ($hasCommunityActions): ?>
                 <form method="post" action="action.php">
                     <input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>"><input type="hidden" name="action" value="post_interaction"><input type="hidden" name="post_id" value="<?= (int) $post['id'] ?>"><input type="hidden" name="interaction" value="like"><input type="hidden" name="return_page" value="<?= $post['post_type'] === 'donation' ? 'donation-offers' : 'home' ?>">
-                    <button type="submit" class="<?= $post['liked_by_me'] ? 'selected' : '' ?>"><?= $post['liked_by_me'] ? '♥ Liked' : '♡ Like' ?></button>
+                    <button type="submit" style="text-decoration:underline;" class="<?= $post['liked_by_me'] ? 'selected' : '' ?>"><?= $post['liked_by_me'] ? 'Liked' : ' Like' ?></button>
                 </form>
-                <button type="button" data-disclosure-toggle="comments-<?= (int) $post['id'] ?>" aria-controls="comments-<?= (int) $post['id'] ?>" aria-expanded="false">▤ Comment</button>
-                <button type="button" class="share-post-button" data-share-form="sharePost<?= (int) $post['id'] ?>" data-share-url="<?= h('dashboard.php?page=home&post=' . (int) $post['id']) ?>" data-share-title="<?= h($authorName . ' on BLifePH') ?>">↗ Share</button>
+                <button type="button" data-disclosure-toggle="comments-<?= (int) $post['id'] ?>" aria-controls="comments-<?= (int) $post['id'] ?>" aria-expanded="false" style="text-decoration:underline;">Comment</button>
+                <button type="button" style="text-decoration:underline;" class="share-post-button" data-share-form="sharePost<?= (int) $post['id'] ?>" data-share-url="<?= h('dashboard.php?page=home&post=' . (int) $post['id']) ?>" data-share-title="<?= h($authorName . ' on BLifePH') ?>">Share</button>
                 <form class="visually-hidden share-record-form" id="sharePost<?= (int) $post['id'] ?>" method="post" action="action.php">
                     <input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>"><input type="hidden" name="action" value="post_share"><input type="hidden" name="async" value="1"><input type="hidden" name="post_id" value="<?= (int) $post['id'] ?>"><input type="hidden" name="return_page" value="<?= $post['post_type'] === 'donation' ? 'donation-offers' : 'home' ?>">
                 </form>
                 <form method="post" action="action.php">
                     <input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>"><input type="hidden" name="action" value="post_interaction"><input type="hidden" name="post_id" value="<?= (int) $post['id'] ?>"><input type="hidden" name="interaction" value="save"><input type="hidden" name="return_page" value="<?= $post['post_type'] === 'donation' ? 'donation-offers' : 'home' ?>">
-                    <button type="submit" class="<?= $post['saved_by_me'] ? 'selected' : '' ?>"><?= $post['saved_by_me'] ? '★ Saved' : '☆ Save' ?></button>
+                    <button type="submit"  style="text-decoration:underline;" class="<?= $post['saved_by_me'] ? 'selected' : '' ?>"><?= $post['saved_by_me'] ? 'Saved' : 'Save' ?></button>
                 </form>
             <?php endif; ?>
             <?php if ($hasCommunityActions && (int) $post['user_id'] !== $userId && !$post['reported_by_me']): ?>
-                <button type="button" data-disclosure-toggle="report-form-<?= (int) $post['id'] ?>" aria-controls="report-form-<?= (int) $post['id'] ?>" aria-expanded="false">⚑ Report</button>
+                <button type="button" data-disclosure-toggle="report-form-<?= (int) $post['id'] ?>" aria-controls="report-form-<?= (int) $post['id'] ?>" aria-expanded="false" style="text-decoration:underline;">Report</button>
             <?php elseif ($hasCommunityActions && $post['reported_by_me']): ?><span class="reported-label">Reported</span><?php endif; ?>
             <?php if ($donationOfferView && !$isOwnPost && !$post['reported_by_me']): ?>
                 <details class="offer-report">
@@ -1621,7 +1621,7 @@ function render_post_card(array $post, array $comments, string $csrfToken, int $
             <div class="post-comments" id="comments-<?= (int) $post['id'] ?>" hidden>
                 <?php foreach ($comments as $comment): ?>
                     <?php $commentAuthor = trim(($comment['author_name'] ?? '') . ' ' . ($comment['author_last_name'] ?? '')); ?>
-                    <div class="comment"><span class="avatar avatar-small"><?= h(member_initials($commentAuthor)) ?></span><div><strong><?= h($commentAuthor ?: 'BLife PH member') ?></strong><p><?= nl2br(h($comment['comment'])) ?></p></div></div>
+                    <div class="comment"><span class="avatar avatar-small"><?= h(member_initials($commentAuthor)) ?></span><div><div class="comment-author-line"><strong><?= h($commentAuthor ?: 'BLife PH member') ?></strong><?php if ((int) ($comment['commenter_id'] ?? 0) === $userId): ?><span class="comment-author-you">You</span><?php endif; ?></div><p><?= nl2br(h($comment['comment'])) ?></p></div></div>
                 <?php endforeach; ?>
                 <form class="comment-form" method="post" action="action.php">
                     <input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>"><input type="hidden" name="action" value="comment"><input type="hidden" name="post_id" value="<?= (int) $post['id'] ?>">

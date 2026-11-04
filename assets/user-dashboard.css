@@ -1307,6 +1307,7 @@ input:disabled {
 
 .logout-sidebar {
     color: var(--primary-dark);
+    background:var(--soft-red);
 }
 
 .dashboard-main {
@@ -1866,7 +1867,8 @@ input:disabled {
     white-space: nowrap;
 }
 
-.post-author .post-author-you {
+.post-author .post-author-you,
+.comment-author-you {
     flex: 0 0 auto;
     padding: 2px 6px;
     color: var(--primary-dark);
@@ -2126,6 +2128,12 @@ input:disabled {
 
 .comment > div {
     min-width: 0;
+}
+
+.comment-author-line {
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
 
 .comment strong {
