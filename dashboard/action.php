@@ -3,6 +3,7 @@
 session_start();
 require_once __DIR__ . '/../config/auth.php';
 require_once __DIR__ . '/../config/database.php';
+$philippineProvinces = require __DIR__ . '/../config/philippine_provinces.php';
 
 require_login('../login.php');
 
@@ -541,8 +542,8 @@ try {
             if (!$units || $units < 1 || $units > 20) {
                 redirect_member('Requested units must be between 1 and 20.', 'error', 'requests');
             }
-            if ($hospital === '' || strlen($hospital) > 160 || $location === '' || strlen($location) > 160) {
-                redirect_member('Enter a hospital and location, each up to 160 characters.', 'error', 'requests');
+            if ($hospital === '' || strlen($hospital) > 160 || !in_array($location, $philippineProvinces, true)) {
+                redirect_member('Enter a hospital and select a valid province.', 'error', 'requests');
             }
             if (!$dateIsValid || $neededBy < date('Y-m-d')) {
                 redirect_member('Choose a valid date today or later.', 'error', 'requests');
@@ -698,7 +699,7 @@ try {
             $urgency = $_POST['urgency'] ?? '';
             $details = trim($_POST['details'] ?? '');
             $date = DateTime::createFromFormat('!Y-m-d', $neededBy);
-            if (!$requestId || !in_array($bloodType, $bloodTypes, true) || !$units || $units < 1 || $units > 20 || $hospital === '' || strlen($hospital) > 160 || $location === '' || strlen($location) > 160 || !$date || $date->format('Y-m-d') !== $neededBy || $neededBy < date('Y-m-d') || !in_array($urgency, ['routine', 'urgent', 'emergency'], true) || strlen($details) > 1000) {
+            if (!$requestId || !in_array($bloodType, $bloodTypes, true) || !$units || $units < 1 || $units > 20 || $hospital === '' || strlen($hospital) > 160 || !in_array($location, $philippineProvinces, true) || !$date || $date->format('Y-m-d') !== $neededBy || $neededBy < date('Y-m-d') || !in_array($urgency, ['routine', 'urgent', 'emergency'], true) || strlen($details) > 1000) {
                 redirect_member('Review the blood request fields and try again.', 'error', 'my-requests');
             }
             $hasAcceptedResponse = $pdo->prepare("SELECT COUNT(*) FROM request_responses rr JOIN blood_requests br ON br.id = rr.request_id WHERE br.id = :id AND br.requester_id = :user_id AND rr.status = 'accepted'");
