@@ -1088,7 +1088,7 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                             <div class="section-heading"><div><p class="eyebrow"></p><h2>Need Blood? Request Now</h2></div></div>
                             <p class="form-help"> <a href="dashboard.php?page=donation-offers"> Browse or publish donation offers</a>.</p>
                             <?php if (!$openRequests): ?><div class="empty-state panel"><strong>No open requests right now.</strong></div><?php else: ?>
-                                <?php foreach ($openRequests as $request): ?><?php render_request_card($request, $csrfToken, (int) $request['requester_id'] === $userId); ?><?php endforeach; ?>
+                                <?php foreach ($openRequests as $request): ?><?php render_request_card($request, $csrfToken, (int) $request['requester_id'] === $userId, true, $philippineProvinces); ?><?php endforeach; ?>
                             <?php endif; ?>
                         </section>
                         <!-- <aside class="right-rail">
@@ -1168,7 +1168,7 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                             <section class="my-post-section" id="my-blood-requests" role="tabpanel" aria-labelledby="my-blood-tab" data-my-post-panel="blood" tabindex="0" hidden>
                                 <div class="section-heading"><h2>Blood Request</h2></div>
                                 <?php if (!$myRequests): ?><div class="empty-state panel"><strong>No blood requests yet.</strong><span>Requests you create will appear here.</span></div><?php else: ?>
-                                    <div class="request-list"><?php foreach ($myRequests as $request): ?><?php render_request_card($request, $csrfToken, true, false); ?><?php endforeach; ?></div>
+                                    <div class="request-list"><?php foreach ($myRequests as $request): ?><?php render_request_card($request, $csrfToken, true, false, $philippineProvinces); ?><?php endforeach; ?></div>
                                 <?php endif; ?>
                             </section>
                             <section class="my-post-section" id="my-donation-offers" role="tabpanel" aria-labelledby="my-donation-tab" data-my-post-panel="donation" tabindex="0" hidden>
@@ -1191,7 +1191,7 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                     <?php if (!$requestList): ?><div class="empty-state panel"><strong><?= $activePage === 'my-requests' ? 'You have not posted a blood request.' : "You haven't responded to any requests yet." ?></strong><span>Browse requests to offer help, or post a request when you need one.</span><a class="button button-primary" href="dashboard.php?page=blood-requests">View Blood Requests</a></div><?php else: ?>
                         <section class="request-list">
                             <?php foreach ($requestList as $request): ?>
-                                <?php if ($activePage === 'my-requests'): ?><?php render_request_card($request, $csrfToken, true); ?>
+                                <?php if ($activePage === 'my-requests'): ?><?php render_request_card($request, $csrfToken, true, true, $philippineProvinces); ?>
                                 <?php else: ?>
                                     <article class="request-card panel">
                                         <div class="request-heading"><span class="blood-mark"><?= h($request['blood_type']) ?></span><div><h3><?= (int) $request['units'] ?> unit<?= (int) $request['units'] === 1 ? '' : 's' ?> requested</h3><p>Requested by <?= h($request['requester_name'] ?: 'BLife PH member') ?></p></div><span class="status-badge status-<?= h($request['effective_status'] ?? $request['status']) ?>"><?= h(ucfirst($request['effective_status'] ?? $request['status'])) ?></span></div>
@@ -1380,7 +1380,7 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                         <?php if ($searchQuery === ''): ?><div class="empty-state"><strong>Search the community</strong><span>Enter a name, post topic, blood type, facility, or location in the search bar.</span></div><?php else: ?>
                             <p class="search-caption">Results for <strong><?= h($searchQuery) ?></strong></p>
                             <h2>Blood requests</h2>
-                            <?php if (!$searchRequests): ?><p class="empty-inline">No matching open blood requests.</p><?php else: ?><?php foreach ($searchRequests as $request): ?><?php render_request_card($request, $csrfToken, (int) $request['requester_id'] === $userId); ?><?php endforeach; ?><?php endif; ?>
+                            <?php if (!$searchRequests): ?><p class="empty-inline">No matching open blood requests.</p><?php else: ?><?php foreach ($searchRequests as $request): ?><?php render_request_card($request, $csrfToken, (int) $request['requester_id'] === $userId, true, $philippineProvinces); ?><?php endforeach; ?><?php endif; ?>
                             <h2>Community posts and events</h2>
                             <?php if (!$searchPosts): ?><p class="empty-inline">No matching community posts or events.</p><?php else: ?><?php foreach ($searchPosts as $post): ?><?php render_post_card($post, $commentsByPost[$post['id']] ?? [], $csrfToken, $userId, false, false, $donationStatusAvailable, $donationTimeAvailable); ?><?php endforeach; ?><?php endif; ?>
                         <?php endif; ?>
@@ -1397,7 +1397,7 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
 </html>
 <?php
 
-function render_request_card(array $request, string $csrfToken, bool $isOwn, bool $showResponses = true): void
+function render_request_card(array $request, string $csrfToken, bool $isOwn, bool $showResponses = true, array $philippineProvinces = []): void
 {
     $requesterName = trim(($request['requester_name'] ?? '') . ' ' . ($request['requester_last_name'] ?? ''));
     if ($requesterName === '' && $isOwn) {
