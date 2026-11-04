@@ -359,7 +359,8 @@ $adminName = trim(($firstName ?? '') . ' ' . ($lastName ?? ''));
             <a href="../logout.php" class="admin-logout"><span aria-hidden="true">↪</span>Log Out</a>
         </nav>
         <div class="admin-sidebar-user">
-            <span><?= admin_h($adminName ?: 'Administrator') ?></span><small>Administrator</small></div>
+            <span><?= admin_h($adminName ?: 'Administrator') ?></span><small>Administrator</small>
+        </div>
     </aside>
     <main class="admin-main">
         <header class="admin-page-header">
@@ -373,7 +374,8 @@ $adminName = trim(($firstName ?? '') . ' ' . ($lastName ?? ''));
 
         <?php if (is_array($flash)): ?>
             <div class="admin-alert <?= admin_h($flash['type'] ?? 'success') ?>" role="status">
-                <?= admin_h($flash['message'] ?? '') ?></div>
+                <?= admin_h($flash['message'] ?? '') ?>
+            </div>
         <?php endif; ?>
         <?php if (!$schema['account_status'] || !$schema['activity'] || !$schema['settings']): ?>
             <div class="admin-alert info">
@@ -462,8 +464,8 @@ $adminName = trim(($firstName ?? '') . ' ' . ($lastName ?? ''));
                 <div class="admin-alert info">Blood request tables are not installed. Apply the member panel migration first.
                 </div><?php else: ?>
                 <form class="admin-filter-form" method="get">
-                        <input type="hidden" name="page" value="requests"><input name="q"
-                        value="<?= admin_h($query) ?>" placeholder="Search Requester"><select name="btype">
+                    <input type="hidden" name="page" value="requests"><input name="q" value="<?= admin_h($query) ?>"
+                        placeholder="Search Requester"><select name="btype">
                         <option value="">Any blood type</option>
                         <?php foreach (['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'] as $type): ?>
                             <option <?= $bloodType === $type ? 'selected' : '' ?>><?= $type ?></option><?php endforeach; ?>
@@ -586,7 +588,8 @@ $adminName = trim(($firstName ?? '') . ' ' . ($lastName ?? ''));
                                             type="hidden" name="reporter_id" value="<?= (int) $report['reporter_id'] ?>"><input
                                             name="reason" maxlength="255" placeholder="Review reason" required><button
                                             name="action" value="dismiss" class="admin-button secondary">Dismiss</button><button
-                                            name="action" value="delete" class="admin-button danger">Remove post</button></form>
+                                            name="action" value="delete" class="admin-button danger">Remove post</button>
+                                    </form>
                                 </td>
                             </tr><?php endforeach; ?>
                     </tbody>
@@ -597,7 +600,8 @@ $adminName = trim(($firstName ?? '') . ' ' . ($lastName ?? ''));
                 <h2>Reported private messages</h2>
                 <?php if (!$schema['message_reports']): ?>
                     <p class="admin-alert info">Message reports are unavailable until
-                        <code>database_sql/messages_inbox_migration.sql</code> is applied.</p>
+                        <code>database_sql/messages_inbox_migration.sql</code> is applied.
+                    </p>
                 <?php else: ?>
                     <div class="admin-table-wrapper">
                         <table class="admin-table">
@@ -638,7 +642,9 @@ $adminName = trim(($firstName ?? '') . ' ' . ($lastName ?? ''));
         <?php elseif ($currentPage === 'events'): ?>
             <?php if (!$schema['event_fields']): ?>
                 <div class="admin-alert info">Donation event management needs the updated event columns. Apply
-                    <code>database_sql/blife_admin_modules_migration.sql</code>.</div><?php else: ?>
+                    <code>database_sql/blife_admin_modules_migration.sql</code>.
+                </div>
+            <?php else: ?>
                 <section class="admin-panel">
                     <h2><?= $editingEvent ? 'Edit event announcement' : 'Create donation event announcement' ?></h2>
                     <form class="admin-event-form" method="post" action="action.php"><input type="hidden" name="csrf_token"

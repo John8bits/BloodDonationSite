@@ -94,8 +94,8 @@ try {
             if (strlen($phone) > 20) {
                 $errors[] = 'Phone number must be 20 characters or fewer.';
             }
-            if (strlen($city) > 120) {
-                $errors[] = 'City must be 120 characters or fewer.';
+            if ($city !== '' && !in_array($city, $philippineProvinces, true)) {
+                $errors[] = 'Select a valid province.';
             }
             if ($bloodType !== '' && !in_array($bloodType, $bloodTypes, true)) {
                 $errors[] = 'Select a valid blood type.';
