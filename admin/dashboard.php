@@ -55,7 +55,6 @@ if (!isset($sections[$currentPage])) {
 $schema = [
     'account_status' => admin_column_exists($pdo, 'uinfo', 'account_status'),
     'donor_available' => admin_column_exists($pdo, 'uinfo', 'donor_available'),
-    'donor_verified' => admin_column_exists($pdo, 'uinfo', 'donor_verified'),
     'city' => admin_column_exists($pdo, 'uinfo', 'city'),
     'requests' => admin_table_exists($pdo, 'blood_requests'),
     'responses' => admin_table_exists($pdo, 'request_responses'),
@@ -131,9 +130,8 @@ if ($currentPage === 'members') {
     $citySelect = $schema['city'] ? 'city' : "'' AS city";
     $donorSelect = $schema['donor_available'] ? 'donor_available' : '0 AS donor_available';
     $statusSelect = $schema['account_status'] ? 'account_status' : "'active' AS account_status";
-    $verifiedSelect = $schema['donor_verified'] ? 'donor_verified' : '0 AS donor_verified';
     $stmt = $pdo->prepare(
-        "SELECT id, fname, lname, email, btype, phone, {$citySelect}, {$donorSelect}, {$statusSelect}, {$verifiedSelect}, created_at
+        "SELECT id, fname, lname, email, btype, phone, {$citySelect}, {$donorSelect}, {$statusSelect}, created_at
          FROM uinfo WHERE " . implode(' AND ', $conditions) . ' ORDER BY created_at DESC LIMIT 250'
     );
     $stmt->execute($params);
@@ -344,7 +342,7 @@ $adminName = trim(($firstName ?? '') . ' ' . ($lastName ?? ''));
 </head>
 <body class="admin-layout">
     <aside class="admin-sidebar" id="adminSidebar">
-        <a class="admin-brand" href="dashboard.php"><span class="admin-brand-mark">♥</span><span>BLife PH<small>ADMINISTRATION</small></span></a>
+        <a class="admin-brand" href="dashboard.php"><img src="../images/BlifePH_no_bg.png" alt=""><span>BLife PH<small>ADMINISTRATION</small></span></a>
         <nav aria-label="Admin navigation">
             <?php foreach ($sections as $key => $label): ?>
                 <a href="dashboard.php?page=<?= admin_h($key) ?>" class="<?= $currentPage === $key ? 'active' : '' ?>" <?= $currentPage === $key ? 'aria-current="page"' : '' ?>>
@@ -360,7 +358,7 @@ $adminName = trim(($firstName ?? '') . ' ' . ($lastName ?? ''));
     <main class="admin-main">
         <header class="admin-page-header">
             <button class="admin-menu-toggle" id="adminMenuToggle" aria-label="Toggle admin navigation" aria-expanded="false">☰</button>
-            <div><p class="admin-eyebrow">BLIFE PH CONTROL CENTER</p><h1><?= admin_h($title) ?></h1></div>
+            <div><h1><?= admin_h($title) ?></h1></div>
             <span class="admin-role">ADMIN</span>
         </header>
 
@@ -369,9 +367,9 @@ $adminName = trim(($firstName ?? '') . ' ' . ($lastName ?? ''));
         <?php endif; ?>
         <?php if (!$schema['account_status'] || !$schema['activity'] || !$schema['settings']): ?>
             <div class="admin-alert info">
-                <?php if (!$schema['account_status']): ?> Member suspension is unavailable.<?php endif; ?>
-                <?php if (!$schema['activity']): ?> Activity history is unavailable.<?php endif; ?>
-                <?php if (!$schema['settings']): ?> Settings storage is unavailable.<?php endif; ?>
+                <!-- <?php if (!$schema['account_status']): ?> Member suspension is unavailable.<?php endif; ?> -->
+                <!-- <?php if (!$schema['activity']): ?> Activity history is unavailable.<?php endif; ?> -->
+                <!-- <?php if (!$schema['settings']): ?> Settings storage is unavailable.<?php endif; ?> -->
             </div>
         <?php endif; ?>
 
@@ -398,9 +396,8 @@ $adminName = trim(($firstName ?? '') . ' ' . ($lastName ?? ''));
                 <?php if ($schema['account_status']): ?><select name="status"><option value="">All account statuses</option><option value="active" <?= $status === 'active' ? 'selected' : '' ?>>Active</option><option value="suspended" <?= $status === 'suspended' ? 'selected' : '' ?>>Suspended</option></select><?php endif; ?>
                 <button type="submit">Filter members</button>
             </form>
-            <div class="admin-table-wrapper"><table class="admin-table"><thead><tr><th>Member</th><th>Email</th><th>Blood type</th><th>City</th><th>Donor search</th><th>Verification</th><th>Status</th><th>Joined</th><th>Actions</th></tr></thead><tbody>
-            <?php foreach ($rows as $member): ?><tr><td><?= admin_h(trim($member['fname'] . ' ' . $member['lname']) ?: 'Unnamed member') ?></td><td><?= admin_h($member['email']) ?></td><td><?= admin_h($member['btype'] ?: '—') ?></td><td><?= admin_h($member['city'] ?: '—') ?></td><td><?= $member['donor_available'] ? 'Opted in' : 'No' ?></td><td><?= $member['donor_verified'] ? 'Verified' : 'Not verified' ?></td><td><?= admin_h($member['account_status']) ?></td><td><?= admin_h(date('M j, Y', strtotime($member['created_at']))) ?></td><td><?php if ((int) $member['id'] === (int) current_user_id()): ?>You<?php else: ?>
-                <?php if ($schema['donor_verified']): ?><form class="admin-inline-form" method="post" action="action.php"><input type="hidden" name="csrf_token" value="<?= admin_h($csrfToken) ?>"><input type="hidden" name="action" value="member_verification"><input type="hidden" name="user_id" value="<?= (int) $member['id'] ?>"><input type="hidden" name="verified" value="<?= $member['donor_verified'] ? '0' : '1' ?>"><button class="admin-button secondary"><?= $member['donor_verified'] ? 'Remove verification' : 'Verify donor' ?></button></form><?php endif; ?>
+            <div class="admin-table-wrapper"><table class="admin-table"><thead><tr><th>Member</th><th>Email</th><th>Blood type</th><th>City</th><th>Status</th><th>Joined</th><th>Actions</th></tr></thead><tbody>
+            <?php foreach ($rows as $member): ?><tr><td><?= admin_h(trim($member['fname'] . ' ' . $member['lname']) ?: 'Unnamed member') ?></td><td><?= admin_h($member['email']) ?></td><td><?= admin_h($member['btype'] ?: '—') ?></td><td><?= admin_h($member['city'] ?: '—') ?></td><td><?= admin_h($member['account_status']) ?></td><td><?= admin_h(date('M j, Y', strtotime($member['created_at']))) ?></td><td><?php if ((int) $member['id'] === (int) current_user_id()): ?>You<?php else: ?>
                 <?php if ($schema['account_status']): ?><form class="admin-inline-form" method="post" action="action.php"><input type="hidden" name="csrf_token" value="<?= admin_h($csrfToken) ?>"><input type="hidden" name="action" value="member_status"><input type="hidden" name="user_id" value="<?= (int) $member['id'] ?>"><input type="hidden" name="status" value="<?= $member['account_status'] === 'suspended' ? 'active' : 'suspended' ?>"><button class="admin-button secondary"><?= $member['account_status'] === 'suspended' ? 'Reactivate' : 'Suspend' ?></button></form><?php endif; ?>
                 <form class="admin-inline-form confirm-delete" method="post" action="action.php"><input type="hidden" name="csrf_token" value="<?= admin_h($csrfToken) ?>"><input type="hidden" name="action" value="member_delete"><input type="hidden" name="user_id" value="<?= (int) $member['id'] ?>"><button class="admin-button danger">Remove</button></form>
             <?php endif; ?></td></tr><?php endforeach; ?></tbody></table><?php if (!$rows): ?><p class="empty-state">No members match these filters.</p><?php endif; ?></div>
