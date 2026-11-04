@@ -629,6 +629,30 @@ table.admin-table th {
     vertical-align: middle;
 }
 
+.request-removal-form {
+    display: grid;
+    min-width: 165px;
+    gap: 8px;
+}
+
+.request-removal-form input {
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 38px;
+    padding: 8px 10px;
+    color: #343a43;
+    background: #fff;
+    border: 1px solid #dfe2e7;
+    border-radius: 7px;
+    font: inherit;
+    font-size: 12px;
+}
+
+.request-removal-form .admin-button {
+    width: 100%;
+    margin: 0;
+}
+
 .admin-table .admin-button {
     margin: 2px;
 }

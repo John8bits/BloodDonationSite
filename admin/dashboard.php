@@ -490,8 +490,7 @@ $adminName = trim(($firstName ?? '') . ' ' . ($lastName ?? ''));
                                     <td><?= admin_h($request['blood_type']) ?> · <?= (int) $request['units'] ?>
                                         unit(s)<br><small><?= admin_h($request['details']) ?></small></td>
                                     <td><?= admin_h(trim($request['fname'] . ' ' . $request['lname'])) ?></td>
-                                    <td><?php if (!empty($request['hospital'])): ?><?= admin_h($request['hospital']) ?><br><?php endif; ?><small><?= admin_h($request['location']) ?></small>
-                                    </td>
+                                    <td><?= admin_h($request['location']) ?></td>
                                     <td><?= admin_h($request['needed_by']) ?></td>
                                     <td><?= (int) $request['response_count'] ?></td>
                                     <td><?= $requestExpired ? 'Expired' : admin_h(ucfirst($request['status'])) ?><?php if (!empty($request['status_reason'])): ?><br><small><?= admin_h($request['status_reason']) ?></small><?php endif; ?>
