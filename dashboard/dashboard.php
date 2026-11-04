@@ -403,8 +403,11 @@ try {
             $extraPostColumns[] = 'u.donor_verified';
         }
         $extraPostSelect = $extraPostColumns ? ', ' . implode(', ', $extraPostColumns) : '';
+        $offerContactCountSelect = $offerMessagesAvailable
+            ? ', (SELECT COUNT(DISTINCT offer_message.seeker_id) FROM donation_offer_messages offer_message WHERE offer_message.post_id = cp.id) AS offer_contact_count'
+            : ', 0 AS offer_contact_count';
         $postStmt = $pdo->prepare(
-            "SELECT cp.id, cp.user_id, cp.post_type, cp.content, cp.event_date, cp.created_at{$extraPostSelect},
+            "SELECT cp.id, cp.user_id, cp.post_type, cp.content, cp.event_date, cp.created_at{$extraPostSelect}{$offerContactCountSelect},
                     u.fname AS author_name, u.lname AS author_last_name, u.city AS author_city,
                     (SELECT COUNT(*) FROM post_interactions pi WHERE pi.post_id = cp.id AND pi.interaction = 'like') AS like_count,
                     (SELECT COUNT(*) FROM post_comments pc WHERE pc.post_id = cp.id) AS comment_count,
@@ -729,10 +732,10 @@ $navGroups = [
         'donation-offers' => ['♥', 'Donation Offers'],
         'events' => ['◷', 'Donation Events']
     ],
-    'My Activities' => [
+    'Activities' => [
         'activity' => ['▤', 'My Activity'],
         'my-posts' => ['▧', 'My Post'],
-        'responded' => ['↗', "Requests I've Responded To"],
+        'responded' => ['↗', "My Resposes"],
         'saved' => ['☆', 'Saved Posts']
     ],
     'Communication' => [
@@ -1416,8 +1419,8 @@ function render_request_card(array $request, string $csrfToken, bool $isOwn, boo
             <p><strong>Needed by:</strong> <?= h(date('M j, Y', strtotime($request['needed_by']))) ?></p>
         </div>
         <?php if ($request['details'] !== ''): ?><p class="request-details"><?= nl2br(h($request['details'])) ?></p><?php endif; ?>
+        <p class="request-date"><?= (int) ($request['response_count'] ?? 0) ?> response<?= (int) ($request['response_count'] ?? 0) === 1 ? '' : 's' ?> received</p>
         <?php if ($isOwn): ?>
-            <p class="request-date"><?= (int) $request['response_count'] ?> response<?= (int) $request['response_count'] === 1 ? '' : 's' ?> received</p>
             <?php if ($showResponses && !empty($request['responses'])): ?>
                 <section class="request-responses" aria-label="Offers from people responding to your request">
                     <h4>Offers from potential donors</h4>
@@ -1534,6 +1537,10 @@ function render_post_card(array $post, array $comments, string $csrfToken, int $
         <!-- <?php if ($post['post_type'] === 'donation'): ?><p class="form-help offer-safety-note">Availability is not guaranteed. Avoid sharing private contact details; confirm screening and donation with an authorized facility.</p><?php endif; ?> -->
         <?php if ($donationOfferView && !$isOwnPost && $offerMessagesAvailable): ?>
             <a class="button button-primary message-donor-button" href="dashboard.php?page=messages&amp;offer=<?= (int) $post['id'] ?>">✉ Message donor</a>
+        <?php endif; ?>
+        <?php if ($donationOfferView && !$isOwnPost && $offerMessagesAvailable): ?>
+            <?php $offerContactCount = (int) ($post['offer_contact_count'] ?? 0); ?>
+            <p class="offer-contact-count"><?= $offerContactCount ?> member<?= $offerContactCount === 1 ? '' : 's' ?> contacted the offer owner</p>
         <?php endif; ?>
         <?php if ($hasCommunityActions): ?>
             <div class="post-counts"><span><?= (int) $post['like_count'] ?> likes</span><button type="button" data-disclosure-toggle="comments-<?= (int) $post['id'] ?>" aria-controls="comments-<?= (int) $post['id'] ?>" aria-expanded="false"><?= (int) $post['comment_count'] ?> comments</button></div>

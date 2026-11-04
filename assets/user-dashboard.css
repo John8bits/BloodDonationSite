@@ -451,8 +451,8 @@ input:disabled {
 .request-date,
 .responded-note {
     color: var(--primary) !important;
-    font-size: 13px !important;
-    font-weight: 700;
+    font-size: 11px !important;
+    /* font-weight: 700; */
 }
 
 .request-details {
@@ -3032,6 +3032,13 @@ input:disabled {
 .message-donor-button {
     width: fit-content;
     margin: 8px 0 12px;
+}
+
+.offer-contact-count {
+    margin: -7px 0 12px;
+    color: var(--muted);
+    font-size: 10px;
+    /* font-weight: 600; */
 }
 
 .offer-urgency-label select {
