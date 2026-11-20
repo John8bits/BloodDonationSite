@@ -8,6 +8,22 @@ if (!is_clinic()) { header('Location: ../dashboard/dashboard.php'); exit; }
 if (!isset($_SESSION['csrf_token'])) $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 
 function clinic_h($value): string { return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8'); }
+function clinic_sidebar_navigation(array $groups, string $activePage): void {
+    $icons = ['overview'=>'fa-gauge-high','requests'=>'fa-droplet','responses'=>'fa-handshake','messages'=>'fa-comments','notifications'=>'fa-bell','profile'=>'fa-hospital','settings'=>'fa-gear'];
+    ?>
+    <nav aria-label="Clinic navigation">
+        <?php foreach ($groups as $groupLabel => $links): ?>
+            <div class="clinic-nav-group">
+                <p class="clinic-sidebar-section-label"><?= clinic_h($groupLabel) ?></p>
+                <?php foreach ($links as $key => $label): ?>
+                    <a href="dashboard.php?page=<?= clinic_h($key) ?>" class="<?= $activePage === $key ? 'active' : '' ?>" <?= $activePage === $key ? 'aria-current="page"' : '' ?>><i class="fa-solid <?= clinic_h($icons[$key] ?? 'fa-circle') ?>" aria-hidden="true"></i><span><?= clinic_h($label) ?></span></a>
+                <?php endforeach; ?>
+                <?php if ($groupLabel === 'Account'): ?><a href="../logout.php"><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i><span>Logout</span></a><?php endif; ?>
+            </div>
+        <?php endforeach; ?>
+    </nav>
+    <?php
+}
 $pdo = (new Database())->getConnection();
 $userId = (int)current_user_id();
 $accountStmt = $pdo->prepare("SELECT u.account_status,u.must_change_password,cp.* FROM uinfo u JOIN clinic_profiles cp ON cp.user_id=u.id WHERE u.id=:id AND u.role='clinic' LIMIT 1");
@@ -33,10 +49,11 @@ $selectedThread=filter_var($_GET['thread'] ?? null,FILTER_VALIDATE_INT) ?: 0; $s
 foreach($conversations as $conversation) if((int)$conversation['response_id']===$selectedThread){$selectedConversation=$conversation;break;}
 if($selectedConversation){$history=$pdo->prepare('SELECT m.*,u.fname,u.lname FROM request_response_messages m JOIN uinfo u ON u.id=m.sender_id WHERE m.response_id=:id ORDER BY m.created_at,m.id');$history->execute([':id'=>$selectedThread]);$messages=$history->fetchAll();$pdo->prepare('UPDATE request_response_messages SET read_at=NOW() WHERE response_id=:id AND sender_id<>:viewer AND read_at IS NULL')->execute([':id'=>$selectedThread,':viewer'=>$userId]);}
 $noticeStmt=$pdo->prepare('SELECT n.*,a.fname actor_first,a.lname actor_last FROM member_notifications n LEFT JOIN uinfo a ON a.id=n.actor_id WHERE n.user_id=:id ORDER BY n.created_at DESC LIMIT 100');$noticeStmt->execute([':id'=>$userId]);$notifications=$noticeStmt->fetchAll();
-$nav=['overview'=>'Dashboard','requests'=>'Blood Requests','responses'=>'Request Responses','messages'=>'Messages','notifications'=>'Notifications','profile'=>'Clinic Profile','settings'=>'Account Settings'];
+$nav=['overview'=>'Dashboard','requests'=>'Blood Requests','responses'=>'Request Responses','messages'=>'Messages','notifications'=>'Notifications','profile'=>'Facility Profile','settings'=>'Settings'];
+$sidebarGroups=['Overview'=>['overview'=>'Dashboard'],'Blood Services'=>['requests'=>'Blood Requests','responses'=>'Request Responses'],'Communication'=>['messages'=>'Messages','notifications'=>'Notifications'],'Facility Management'=>['profile'=>'Facility Profile'],'Account'=>['settings'=>'Settings']];
 ?>
 <!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title><?= clinic_h($nav[$page]) ?> | BLife PH</title><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"><link rel="stylesheet" href="../assets/user-dashboard.css"><link rel="stylesheet" href="../assets/clinic-dashboard.css"></head>
-<body><div class="clinic-shell"><aside class="clinic-sidebar"><a class="clinic-brand" href="dashboard.php"><img src="../images/BlifePH_no_bg.png" alt="BLife PH"><span>BLife PH</span></a><div class="clinic-name"><?= clinic_h($clinic['facility_name']) ?><small><?= clinic_h(ucwords(str_replace('_',' ',$clinic['facility_type']))) ?> · <?php if ((int)$clinic['is_verified'] === 1): ?><b>Verified Institution</b><?php else: ?>Not verified<?php endif; ?></small></div><p class="clinic-sidebar-section-label">Main Menu</p><nav><?php foreach($nav as $key=>$label): ?><a href="dashboard.php?page=<?= clinic_h($key) ?>" class="<?= $page===$key?'active':'' ?>" <?= $page===$key?'aria-current="page"':'' ?>><i class="fa-solid <?= clinic_h(['overview'=>'fa-gauge-high','requests'=>'fa-droplet','responses'=>'fa-handshake','messages'=>'fa-comments','notifications'=>'fa-bell','profile'=>'fa-hospital','settings'=>'fa-gear'][$key] ?? 'fa-circle') ?>" aria-hidden="true"></i><span><?= clinic_h($label) ?></span></a><?php endforeach; ?><a href="../logout.php"><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i><span>Sign out</span></a></nav></aside>
+<body><div class="clinic-shell"><aside class="clinic-sidebar"><a class="clinic-brand" href="dashboard.php"><img src="../images/BlifePH_no_bg.png" alt="BLife PH"><span>BLife PH</span></a><div class="clinic-name"><?= clinic_h($clinic['facility_name']) ?><small><?= clinic_h(ucwords(str_replace('_',' ',$clinic['facility_type']))) ?> · <?php if ((int)$clinic['is_verified'] === 1): ?><b>Verified Institution</b><?php else: ?>Not verified<?php endif; ?></small></div><?php clinic_sidebar_navigation($sidebarGroups, $page); ?></aside>
 <main class="clinic-main"><header class="clinic-header"><div><p class="eyebrow">CLINIC / BLOOD BANK PORTAL</p><h1><?= clinic_h($nav[$page]) ?></h1></div><?php if ((int)$clinic['is_verified'] === 1): ?><span class="clinic-verified">Administrator verified</span><?php endif; ?></header>
 <?php if($flash): ?><div class="clinic-flash <?= clinic_h($flash['type']) ?>" role="status"><?= clinic_h($flash['message']) ?></div><?php endif; ?>
 <?php if($mustChange): ?><p class="clinic-flash" role="status">Change your temporary password before using clinic functions.</p><?php endif; ?>

@@ -54,7 +54,7 @@
 .clinic-name small { display: block; margin-top: 5px; color: var(--clinic-muted); font-size: 12px; font-weight: 500; }
 .clinic-name small b { color: #16814d; }
 .clinic-sidebar-section-label {
-    margin: -7px 12px -12px;
+    margin: 0 12px 4px;
     color: #94a3b8;
     font-size: 10px;
     font-weight: 800;
@@ -62,7 +62,8 @@
     line-height: 1.3;
     text-transform: uppercase;
 }
-.clinic-sidebar nav { display: grid; gap: 5px; }
+.clinic-sidebar nav { display: grid; gap: 14px; }
+.clinic-nav-group { display: grid; gap: 4px; }
 .clinic-sidebar nav a {
     min-height: 44px;
     display: flex;
@@ -206,8 +207,9 @@
     .clinic-shell { grid-template-columns: 1fr; }
     .clinic-sidebar { position: static; height: auto; gap: 12px; padding: 14px 16px; border-right: 0; border-bottom: 1px solid var(--clinic-line); }
     .clinic-name { display: none; }
-    .clinic-sidebar nav { display: flex; gap: 5px; overflow-x: auto; padding-bottom: 2px; }
-    .clinic-sidebar nav a { flex: 0 0 auto; white-space: nowrap; }
+    .clinic-sidebar nav { display: flex; align-items: flex-start; gap: 18px; overflow-x: auto; padding-bottom: 4px; }
+    .clinic-nav-group { flex: 0 0 auto; align-content: start; }
+    .clinic-sidebar nav a { white-space: nowrap; }
     .clinic-main { padding: 22px 18px 36px; }
 }
 @media (max-width: 560px) {

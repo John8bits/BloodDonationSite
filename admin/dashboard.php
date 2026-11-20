@@ -49,6 +49,13 @@ $sections = [
     'activity' => 'Admin Activity Log',
     'settings' => 'Settings'
 ];
+$sidebarGroups = [
+    'Overview' => ['overview' => 'Dashboard'],
+    'User Management' => ['members' => 'Members', 'clinics' => 'Clinics & Blood Banks'],
+    'Blood Services' => ['requests' => 'Blood Requests', 'events' => 'Donation Events'],
+    'Content Management' => ['posts' => 'Community Posts', 'reports' => 'Reported Content'],
+    'Reports & Monitoring' => ['analytics' => 'Analytics', 'activity' => 'Activity Logs']
+];
 if (!isset($sections[$currentPage])) {
     $currentPage = 'overview';
 }
@@ -378,22 +385,32 @@ $showEventCreateAction = $currentPage === 'events' && $schema['event_fields'] &&
     <aside class="admin-sidebar" id="adminSidebar">
         <a class="admin-brand" href="dashboard.php"><img src="../images/BlifePH_no_bg.png" alt=""><span>BLife
                 PH</span></a>
-        <p class="admin-sidebar-section-label">Main Menu</p>
         <nav aria-label="Admin navigation">
-            <?php foreach ($sections as $key => $label): ?>
-                <a href="dashboard.php?page=<?= admin_h($key) ?>" class="<?= $currentPage === $key ? 'active' : '' ?>"
-                    <?= $currentPage === $key ? 'aria-current="page"' : '' ?>>
-                    <i class="admin-nav-icon fa-solid <?= admin_h([
-                        'overview' => 'fa-gauge-high', 'members' => 'fa-users', 'clinics' => 'fa-hospital',
-                        'requests' => 'fa-droplet', 'posts' => 'fa-comments', 'reports' => 'fa-flag',
-                        'events' => 'fa-calendar-days', 'analytics' => 'fa-chart-column',
-                        'activity' => 'fa-clock-rotate-left', 'settings' => 'fa-gear'
-                    ][$key] ?? 'fa-circle') ?>" aria-hidden="true"></i>
-                    <span class="admin-nav-label"><?= admin_h($label) ?></span>
-                    <?php if ($key === 'reports' && $stats['reports'] > 0): ?><b><?= (int) $stats['reports'] ?></b><?php endif; ?>
-                </a>
+            <?php foreach ($sidebarGroups as $groupLabel => $links): ?>
+                <div class="admin-nav-group">
+                    <p class="admin-sidebar-section-label"><?= admin_h($groupLabel) ?></p>
+                    <?php foreach ($links as $key => $label): ?>
+                        <a href="dashboard.php?page=<?= admin_h($key) ?>" class="<?= $currentPage === $key ? 'active' : '' ?>"
+                            <?= $currentPage === $key ? 'aria-current="page"' : '' ?>>
+                            <i class="admin-nav-icon fa-solid <?= admin_h([
+                                'overview' => 'fa-gauge-high', 'members' => 'fa-users', 'clinics' => 'fa-hospital',
+                                'requests' => 'fa-droplet', 'posts' => 'fa-comments', 'reports' => 'fa-flag',
+                                'events' => 'fa-calendar-days', 'analytics' => 'fa-chart-column',
+                                'activity' => 'fa-clock-rotate-left', 'settings' => 'fa-gear'
+                            ][$key] ?? 'fa-circle') ?>" aria-hidden="true"></i>
+                            <span class="admin-nav-label"><?= admin_h($label) ?></span>
+                            <?php if ($key === 'reports' && $stats['reports'] > 0): ?><b><?= (int) $stats['reports'] ?></b><?php endif; ?>
+                        </a>
+                    <?php endforeach; ?>
+                </div>
             <?php endforeach; ?>
-            <a href="../logout.php" class="admin-logout"><i class="admin-nav-icon fa-solid fa-right-from-bracket" aria-hidden="true"></i><span class="admin-nav-label">Sign Out</span></a>
+            <div class="admin-nav-group admin-nav-system-group">
+                <p class="admin-sidebar-section-label">System</p>
+                <a href="dashboard.php?page=settings" class="<?= $currentPage === 'settings' ? 'active' : '' ?>" <?= $currentPage === 'settings' ? 'aria-current="page"' : '' ?>>
+                    <i class="admin-nav-icon fa-solid fa-gear" aria-hidden="true"></i><span class="admin-nav-label">Settings</span>
+                </a>
+                <a href="../logout.php" class="admin-logout"><i class="admin-nav-icon fa-solid fa-right-from-bracket" aria-hidden="true"></i><span class="admin-nav-label">Logout</span></a>
+            </div>
         </nav>
         <div class="admin-sidebar-user">
             <span><?= admin_h($adminName ?: 'Administrator') ?></span><small>Administrator</small>

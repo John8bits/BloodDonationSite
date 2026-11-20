@@ -288,7 +288,12 @@ table.admin-table th {
 
 .admin-sidebar nav {
     display: grid;
-    gap: 5px;
+    gap: 14px;
+}
+
+.admin-nav-group {
+    display: grid;
+    gap: 4px;
 }
 
 .admin-sidebar-section-label {
@@ -343,7 +348,7 @@ table.admin-table th {
 }
 
 .admin-sidebar nav .admin-logout {
-    margin-top: 16px;
+    margin-top: 5px;
     color: #b71c2b;
 }
 
