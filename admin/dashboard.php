@@ -378,6 +378,7 @@ $showEventCreateAction = $currentPage === 'events' && $schema['event_fields'] &&
     <aside class="admin-sidebar" id="adminSidebar">
         <a class="admin-brand" href="dashboard.php"><img src="../images/BlifePH_no_bg.png" alt=""><span>BLife
                 PH</span></a>
+        <p class="admin-sidebar-section-label">Main Menu</p>
         <nav aria-label="Admin navigation">
             <?php foreach ($sections as $key => $label): ?>
                 <a href="dashboard.php?page=<?= admin_h($key) ?>" class="<?= $currentPage === $key ? 'active' : '' ?>"
