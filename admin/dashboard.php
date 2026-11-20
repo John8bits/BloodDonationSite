@@ -392,7 +392,7 @@ $showEventCreateAction = $currentPage === 'events' && $schema['event_fields'] &&
                     <?php if ($key === 'reports' && $stats['reports'] > 0): ?><b><?= (int) $stats['reports'] ?></b><?php endif; ?>
                 </a>
             <?php endforeach; ?>
-            <a href="../logout.php" class="admin-logout"><span aria-hidden="true"></span>Sign Out</a>
+            <a href="../logout.php" class="admin-logout"><i class="admin-nav-icon fa-solid fa-right-from-bracket" aria-hidden="true"></i><span class="admin-nav-label">Sign Out</span></a>
         </nav>
         <div class="admin-sidebar-user">
             <span><?= admin_h($adminName ?: 'Administrator') ?></span><small>Administrator</small>

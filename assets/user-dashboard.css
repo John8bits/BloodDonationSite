@@ -1226,7 +1226,7 @@ input:disabled {
 
 .dashboard-layout {
     display: grid;
-    grid-template-columns: 258px minmax(0, 1fr);
+    grid-template-columns: 270px minmax(0, 1fr);
     min-height: calc(100vh - 76px);
 }
 
@@ -1306,7 +1306,7 @@ input:disabled {
     align-items: center;
     justify-content: center;
     color: inherit;
-    font-size: 19px;
+    font-size: 16px;
     line-height: 1;
 }
 

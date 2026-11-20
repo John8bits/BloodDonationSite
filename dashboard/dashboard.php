@@ -883,6 +883,7 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="../assets/user-dashboard.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 </head>
 <body>
     <header class="topbar">
@@ -953,7 +954,12 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                                aria-label="<?= h($item[1]) ?>"
                                title="<?= h($item[1]) ?>"
                                <?= $activePage === $page ? 'aria-current="page"' : '' ?>>
-                               <span class="nav-icon" aria-hidden="true"><?= h($item[0]) ?></span>
+                               <span class="nav-icon" aria-hidden="true"><i class="fa-solid <?= h([
+                                   'home' => 'fa-house', 'blood-requests' => 'fa-droplet', 'donation-offers' => 'fa-hand-holding-droplet',
+                                   'activity' => 'fa-clock-rotate-left', 'messages' => 'fa-comments', 'my-posts' => 'fa-file-lines',
+                                   'responded' => 'fa-reply', 'saved' => 'fa-bookmark', 'profile' => 'fa-user',
+                                   'settings' => 'fa-gear', 'help' => 'fa-circle-question'
+                               ][$page] ?? 'fa-circle') ?>"></i></span>
                                <span class="nav-label"><?= h($item[1]) ?></span>
                             </a>
                         <?php endforeach; ?>

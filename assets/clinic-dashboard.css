@@ -15,7 +15,7 @@
 .clinic-shell {
     min-height: 100vh;
     display: grid;
-    grid-template-columns: 264px minmax(0, 1fr);
+    grid-template-columns: 270px minmax(0, 1fr);
     background: var(--clinic-canvas);
     color: var(--clinic-ink);
     font-family: "Inter", Arial, sans-serif;
@@ -55,12 +55,12 @@
 .clinic-name small b { color: #16814d; }
 .clinic-sidebar nav { display: grid; gap: 5px; }
 .clinic-sidebar nav a {
-    min-height: 42px;
+    min-height: 44px;
     display: flex;
     align-items: center;
-    gap: 11px;
-    padding: 9px 12px;
-    border-radius: 8px;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: 9px;
     color: #525252;
     text-decoration: none;
     font-size: 14px;
@@ -68,9 +68,9 @@
     transition: color .18s ease, background .18s ease;
 }
 .clinic-sidebar nav a:hover,
-.clinic-sidebar nav a.active { background: var(--clinic-soft-red); color: var(--clinic-primary); }
+.clinic-sidebar nav a.active { background: var(--clinic-soft-red); color: var(--clinic-primary-dark); }
 .clinic-sidebar nav a.active { font-weight: 700; }
-.clinic-sidebar nav a i { width: 18px; text-align: center; color: #8a8f98; }
+.clinic-sidebar nav a i { width: 20px; flex: 0 0 20px; text-align: center; color: #777f8b; font-size: 16px; }
 .clinic-sidebar nav a:hover i,
 .clinic-sidebar nav a.active i { color: var(--clinic-primary); }
 .clinic-main { width: 100%; max-width: 1440px; min-width: 0; margin: 0 auto; padding: 30px clamp(18px, 3vw, 42px) 48px; }
