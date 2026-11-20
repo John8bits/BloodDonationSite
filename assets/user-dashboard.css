@@ -2371,8 +2371,8 @@ input:disabled {
 }
 
 .urgency-badge.urgency-routine {
-    color: #475569;
-    background: #e2e8f0;
+    color: #176333;
+    background: #e3f5e9;
 }
 
 .urgency-badge.urgency-emergency {
@@ -2381,9 +2381,12 @@ input:disabled {
 }
 
 .urgency-badge.urgency-urgent {
-    color: #9f1239;
-    background: #ffe4e6;
+    color: #9a4d00;
+    background: #fff0d5;
 }
+
+.urgency-disclaimer { margin: 4px 0 12px; color: #687386; font-size: 11px; line-height: 1.5; }
+.request-urgency-filter { align-items: end; margin: 10px 0; }
 
 .request-heading-badges {
     display: flex;

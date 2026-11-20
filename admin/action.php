@@ -157,6 +157,63 @@ try {
             $pdo->commit();
             admin_action_redirect('The private-message report has been marked reviewed.', 'success', 'reports');
 
+        case 'clinic_create':
+            if (!admin_action_column_exists($pdo, 'uinfo', 'must_change_password') || !admin_action_column_exists($pdo, 'uinfo', 'account_status') || !admin_action_column_exists($pdo, 'clinic_profiles', 'created_by')) throw new RuntimeException('Apply the clinic account and admin enhancement migrations first.');
+            $facilityName = trim($_POST['facility_name'] ?? ''); $facilityType = $_POST['facility_type'] ?? ''; $facilityAddress = trim($_POST['facility_address'] ?? '');
+            $city = trim($_POST['city'] ?? ''); $province = trim($_POST['province'] ?? ''); $contact = trim($_POST['contact_number'] ?? '');
+            $officialEmail = trim($_POST['official_email'] ?? ''); $representative = trim($_POST['authorized_representative'] ?? ''); $description = trim($_POST['description'] ?? '');
+            $loginEmail = trim($_POST['login_email'] ?? ''); $temporaryPassword = $_POST['temporary_password'] ?? ''; $accountStatus = $_POST['account_status'] ?? '';
+            if ($facilityName === '' || strlen($facilityName) > 180 || !in_array($facilityType, ['clinic','blood_bank'], true) || $facilityAddress === '' || strlen($facilityAddress) > 255 || $city === '' || strlen($city) > 120 || $province === '' || strlen($province) > 120 || $contact === '' || strlen($contact) > 30 || !filter_var($officialEmail, FILTER_VALIDATE_EMAIL) || strlen($officialEmail) > 255 || $representative === '' || strlen($representative) > 160 || strlen($description) > 1000 || !filter_var($loginEmail, FILTER_VALIDATE_EMAIL) || strlen($loginEmail) > 255 || strlen($temporaryPassword) < 12 || !in_array($accountStatus, ['active','suspended'], true)) throw new InvalidArgumentException('Review the facility details, account email, password length, and status.');
+            $duplicate = $pdo->prepare('SELECT id FROM uinfo WHERE email=:email LIMIT 1'); $duplicate->execute([':email'=>$loginEmail]);
+            if ($duplicate->fetchColumn()) throw new InvalidArgumentException('That login email is already in use.');
+            $pdo->prepare("INSERT INTO uinfo (fname,lname,email,btype,phone,city,password,role,account_status,must_change_password) VALUES (:fname,'',:email,NULL,:phone,:city,:password,'clinic',:status,1)")->execute([':fname'=>$facilityName, ':email'=>$loginEmail, ':phone'=>$contact, ':city'=>$city, ':password'=>password_hash($temporaryPassword, PASSWORD_DEFAULT), ':status'=>$accountStatus]);
+            $clinicId = (int) $pdo->lastInsertId();
+            $pdo->prepare('INSERT INTO clinic_profiles (user_id,facility_name,facility_type,facility_address,city,province,contact_number,official_email,authorized_representative,description,created_by,is_verified) VALUES (:user_id,:name,:type,:address,:city,:province,:contact,:official_email,:representative,:description,:admin_id,1)')->execute([':user_id'=>$clinicId, ':name'=>$facilityName, ':type'=>$facilityType, ':address'=>$facilityAddress, ':city'=>$city, ':province'=>$province, ':contact'=>$contact, ':official_email'=>$officialEmail, ':representative'=>$representative, ':description'=>$description, ':admin_id'=>$adminId]);
+            $log('create_clinic_account', 'clinic_profiles', $clinicId, 'Administrator created a verified ' . $facilityType . ' account.');
+            $pdo->commit(); admin_action_redirect('Clinic / Blood Bank account created successfully.', 'success', 'clinics');
+
+        case 'clinic_update':
+            $clinicId = filter_var($_POST['clinic_id'] ?? null, FILTER_VALIDATE_INT);
+            $facilityName = trim($_POST['facility_name'] ?? ''); $facilityType = $_POST['facility_type'] ?? ''; $facilityAddress = trim($_POST['facility_address'] ?? '');
+            $city = trim($_POST['city'] ?? ''); $province = trim($_POST['province'] ?? ''); $contact = trim($_POST['contact_number'] ?? '');
+            $officialEmail = trim($_POST['official_email'] ?? ''); $representative = trim($_POST['authorized_representative'] ?? ''); $description = trim($_POST['description'] ?? '');
+            if (!$clinicId || $facilityName === '' || strlen($facilityName) > 180 || !in_array($facilityType, ['clinic','blood_bank'], true) || $facilityAddress === '' || strlen($facilityAddress) > 255 || $city === '' || strlen($city) > 120 || $province === '' || strlen($province) > 120 || $contact === '' || strlen($contact) > 30 || !filter_var($officialEmail, FILTER_VALIDATE_EMAIL) || strlen($officialEmail) > 255 || $representative === '' || strlen($representative) > 160 || strlen($description) > 1000) throw new InvalidArgumentException('Enter valid institutional information.');
+            $update = $pdo->prepare("UPDATE clinic_profiles cp JOIN uinfo u ON u.id=cp.user_id SET cp.facility_name=:name, cp.facility_type=:type, cp.facility_address=:address, cp.city=:city, cp.province=:province, cp.contact_number=:contact, cp.official_email=:official_email, cp.authorized_representative=:representative, cp.description=:description, u.fname=:login_name, u.phone=:login_phone, u.city=:login_city WHERE cp.user_id=:id AND u.role='clinic'");
+            $update->execute([':name'=>$facilityName, ':type'=>$facilityType, ':address'=>$facilityAddress, ':city'=>$city, ':province'=>$province, ':contact'=>$contact, ':official_email'=>$officialEmail, ':representative'=>$representative, ':description'=>$description, ':login_name'=>$facilityName, ':login_phone'=>$contact, ':login_city'=>$city, ':id'=>$clinicId]);
+            $exists = $pdo->prepare("SELECT 1 FROM clinic_profiles cp JOIN uinfo u ON u.id=cp.user_id WHERE cp.user_id=:id AND u.role='clinic'"); $exists->execute([':id'=>$clinicId]);
+            if (!$exists->fetchColumn()) throw new InvalidArgumentException('Clinic account not found.');
+            $log('update_clinic_profile', 'clinic_profiles', $clinicId, 'Administrator updated institutional information.');
+            $pdo->commit(); admin_action_redirect('Institution information updated.', 'success', 'clinics');
+
+        case 'clinic_status':
+            $clinicId = filter_var($_POST['clinic_id'] ?? null, FILTER_VALIDATE_INT); $status = $_POST['status'] ?? '';
+            if (!$clinicId || !in_array($status, ['active','suspended'], true)) throw new InvalidArgumentException('Choose a valid clinic account and status.');
+            $update = $pdo->prepare("UPDATE uinfo SET account_status=:status, suspended_at=IF(:status_time='suspended',NOW(),NULL), suspended_reason=IF(:reason_status='suspended','Changed by administrator',NULL) WHERE id=:id AND role='clinic'");
+            $update->execute([':status'=>$status, ':status_time'=>$status, ':reason_status'=>$status, ':id'=>$clinicId]);
+            $exists = $pdo->prepare("SELECT 1 FROM uinfo WHERE id=:id AND role='clinic'"); $exists->execute([':id'=>$clinicId]); if (!$exists->fetchColumn()) throw new InvalidArgumentException('Clinic account not found.');
+            $log($status === 'active' ? 'activate_clinic_account' : 'suspend_clinic_account', 'uinfo', $clinicId, 'Clinic account status changed to ' . $status . '.');
+            $pdo->commit(); admin_action_redirect('Clinic account status updated.', 'success', 'clinics');
+
+        case 'clinic_verification':
+            $clinicId = filter_var($_POST['clinic_id'] ?? null, FILTER_VALIDATE_INT);
+            $verifiedValue = $_POST['verified'] ?? '';
+            if (!$clinicId || !in_array($verifiedValue, ['0', '1'], true)) throw new InvalidArgumentException('Choose a valid institution and verification status.');
+            $verify = $pdo->prepare("UPDATE clinic_profiles cp JOIN uinfo u ON u.id=cp.user_id SET cp.is_verified=:verified WHERE cp.user_id=:id AND u.role='clinic'");
+            $verify->execute([':verified'=>(int)$verifiedValue, ':id'=>$clinicId]);
+            $exists = $pdo->prepare("SELECT 1 FROM clinic_profiles cp JOIN uinfo u ON u.id=cp.user_id WHERE cp.user_id=:id AND u.role='clinic'");
+            $exists->execute([':id'=>$clinicId]);
+            if (!$exists->fetchColumn()) throw new InvalidArgumentException('Clinic account not found.');
+            $log($verifiedValue === '1' ? 'verify_clinic_account' : 'remove_clinic_verification', 'clinic_profiles', $clinicId, $verifiedValue === '1' ? 'Institution verification granted by administrator.' : 'Institution verification removed by administrator.');
+            $pdo->commit(); admin_action_redirect($verifiedValue === '1' ? 'Institution verified.' : 'Institution verification removed.', 'success', 'clinics');
+
+        case 'clinic_password_reset':
+            $clinicId = filter_var($_POST['clinic_id'] ?? null, FILTER_VALIDATE_INT); $temporaryPassword = $_POST['temporary_password'] ?? '';
+            if (!$clinicId || strlen($temporaryPassword) < 12) throw new InvalidArgumentException('Enter a temporary password of at least 12 characters.');
+            $reset = $pdo->prepare("UPDATE uinfo SET password=:password,must_change_password=1 WHERE id=:id AND role='clinic'"); $reset->execute([':password'=>password_hash($temporaryPassword, PASSWORD_DEFAULT), ':id'=>$clinicId]);
+            $exists = $pdo->prepare("SELECT 1 FROM uinfo WHERE id=:id AND role='clinic'"); $exists->execute([':id'=>$clinicId]); if (!$exists->fetchColumn()) throw new InvalidArgumentException('Clinic account not found.');
+            $log('reset_clinic_password', 'uinfo', $clinicId, 'Administrator set a hashed temporary password; change required at next login.');
+            $pdo->commit(); admin_action_redirect('Temporary password set. Share it directly with the authorized representative.', 'success', 'clinics');
+
         case 'request_status':
             $requestId = filter_var($_POST['request_id'] ?? null, FILTER_VALIDATE_INT);
             $status = $_POST['status'] ?? '';
@@ -333,6 +390,7 @@ try {
     admin_action_redirect($e->getMessage(), 'error', [
         'member_status' => 'members', 'member_verification' => 'members', 'member_delete' => 'members',
         'message_report_review' => 'reports',
+        'clinic_create' => 'clinics', 'clinic_update' => 'clinics', 'clinic_status' => 'clinics', 'clinic_verification' => 'clinics', 'clinic_password_reset' => 'clinics',
         'request_status' => 'requests', 'request_remove' => 'requests',
         'post_remove' => 'posts', 'event_save' => 'events', 'event_status' => 'events',
         'save_settings' => 'settings'
@@ -342,5 +400,5 @@ try {
         $pdo->rollBack();
     }
     error_log($e->getMessage());
-    admin_action_redirect('The admin action failed. Please verify the database migration and try again.', 'error');
+    admin_action_redirect('The admin action failed. Please verify the database migration and try again.', 'error', in_array($action, ['clinic_create','clinic_update','clinic_status','clinic_verification','clinic_password_reset'], true) ? 'clinics' : 'overview');
 }

@@ -707,3 +707,5 @@ table.admin-table th {
         align-items: flex-start;
     }
 }
+
+.urgency-badge{display:inline-flex;padding:4px 9px;border-radius:999px;font-size:.78rem;font-weight:700}.urgency-routine{background:#e6f6eb;color:#277a43}.urgency-urgent{background:#fff0d8;color:#a76100}.urgency-emergency{background:#ffe6e8;color:#b32631}.clinic-verified{display:inline-block;padding:4px 8px;border-radius:999px;background:#e8f7ed;color:#247943;font-size:.78rem;font-weight:700}

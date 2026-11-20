@@ -17,7 +17,8 @@ function redirect_member(string $message, string $type, string $section, ?int $p
     $aliases = ['overview' => 'home', 'community' => 'home', 'donors' => 'find-blood', 'requests' => 'blood-requests'];
     $section = $aliases[$section] ?? $section;
     $_SESSION['member_flash'] = ['message' => $message, 'type' => $type];
-    $location = 'dashboard.php?page=' . rawurlencode($section);
+    $base = is_clinic() ? '../clinic/dashboard.php' : 'dashboard.php';
+    $location = $base . '?page=' . rawurlencode($section);
     if ($postId !== null && $postId > 0) {
         $location .= '#post-' . $postId;
     }
@@ -58,6 +59,15 @@ $userId = (int) current_user_id();
 $bloodTypes = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 $action = $_POST['action'] ?? '';
 
+if (is_clinic() && (int)($_SESSION['must_change_password'] ?? 0) === 1) {
+    header('Location: ../clinic/dashboard.php?page=settings');
+    exit;
+}
+if (is_clinic() && !in_array($action, ['request_message', 'accept_request_response', 'notification_open'], true)) {
+    header('Location: ../clinic/dashboard.php');
+    exit;
+}
+
 try {
     $pdo = (new Database())->getConnection();
     $accountStatusCheck = $pdo->prepare(
@@ -72,6 +82,25 @@ try {
             session_destroy();
             header('Location: ../login.php?suspended=1');
             exit;
+        }
+    }
+
+    if (is_clinic()) {
+        $mustChangeStmt = $pdo->prepare("SELECT must_change_password FROM uinfo WHERE id = :id AND role = 'clinic' LIMIT 1");
+        $mustChangeStmt->execute([':id' => $userId]);
+        if ((int) $mustChangeStmt->fetchColumn() === 1) {
+            $_SESSION['must_change_password'] = 1;
+            header('Location: ../clinic/dashboard.php?page=settings');
+            exit;
+        }
+    }
+
+    if (current_role() === 'user' && $action !== 'profile') {
+        $profileCheck = $pdo->prepare("SELECT fname, lname, phone, btype, city FROM uinfo WHERE id = :id AND role = 'user' LIMIT 1");
+        $profileCheck->execute([':id' => $userId]);
+        $memberDetails = $profileCheck->fetch();
+        if (!$memberDetails || trim((string) $memberDetails['fname']) === '' || trim((string) $memberDetails['lname']) === '' || trim((string) $memberDetails['phone']) === '' || empty($memberDetails['btype']) || trim((string) $memberDetails['city']) === '') {
+            redirect_member('Complete your profile before using the member dashboard.', 'error', 'profile');
         }
     }
 
@@ -91,14 +120,14 @@ try {
             if ($lastName === '' || strlen($lastName) > 100) {
                 $errors[] = 'Enter a last name of up to 100 characters.';
             }
-            if (strlen($phone) > 20) {
-                $errors[] = 'Phone number must be 20 characters or fewer.';
+            if ($phone === '' || strlen($phone) > 20) {
+                $errors[] = 'Enter a phone number of up to 20 characters.';
             }
-            if ($city !== '' && !in_array($city, $philippineProvinces, true)) {
+            if (!in_array($city, $philippineProvinces, true)) {
                 $errors[] = 'Select a valid province.';
             }
-            if ($bloodType !== '' && !in_array($bloodType, $bloodTypes, true)) {
-                $errors[] = 'Select a valid blood type.';
+            if (!in_array($bloodType, $bloodTypes, true)) {
+                $errors[] = 'Select a blood type.';
             }
             if ($available && ($bloodType === '' || $phone === '')) {
                 $errors[] = 'Add your blood type and phone number before appearing in donor search.';
@@ -107,10 +136,13 @@ try {
                 redirect_member(implode(' ', $errors), 'error', 'profile');
             }
 
+            $completionColumn = $pdo->prepare("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'uinfo' AND COLUMN_NAME = 'profile_completed_at'");
+            $completionColumn->execute();
+            $completionAvailable = (int) $completionColumn->fetchColumn() > 0;
             $stmt = $pdo->prepare(
                 'UPDATE uinfo SET fname = :fname, lname = :lname, phone = :phone,
-                    city = :city, btype = :btype, donor_available = :available
-                 WHERE id = :id'
+                    city = :city, btype = :btype, donor_available = :available' . ($completionAvailable ? ', profile_completed_at = COALESCE(profile_completed_at, NOW())' : '') . '
+                 WHERE id = :id AND role = \'user\''
             );
             $stmt->execute([
                 ':fname' => $firstName,
@@ -125,7 +157,7 @@ try {
             $_SESSION['last_name'] = $lastName;
             $_SESSION['phone'] = $phone;
             $_SESSION['blood_type'] = $bloodType;
-            redirect_member('Your member profile has been updated.', 'success', 'profile');
+            redirect_member('Your member profile has been updated.', 'success', 'home');
 
         case 'settings':
             $notifyResponses = ($_POST['notify_request_responses'] ?? '') === '1' ? 1 : 0;
@@ -577,11 +609,12 @@ try {
                 redirect_member('Enter a valid request response of up to 500 characters.', 'error', 'requests');
             }
             $stmt = $pdo->prepare(
-                "SELECT id FROM blood_requests
+                "SELECT id, urgency FROM blood_requests
                  WHERE id = :id AND requester_id <> :user_id AND status = 'open' AND needed_by >= CURDATE()"
             );
             $stmt->execute([':id' => $requestId, ':user_id' => $userId]);
-            if (!$stmt->fetch()) {
+            $request = $stmt->fetch();
+            if (!$request) {
                 redirect_member('That request is closed or is not available to respond to.', 'error', 'requests');
             }
             $stmt = $pdo->prepare(
@@ -610,7 +643,7 @@ try {
             $notifyStmt->execute([
                 ':actor_id' => $userId,
                 ':target_id' => $requestId,
-                ':message' => 'offered to help with your blood request.',
+                ':message' => 'offered to help with your ' . ucfirst((string) $request['urgency']) . ' blood request.',
                 ':request_id' => $requestId
             ]);
             redirect_member('Your offer has been sent to the requester for review.', 'success', 'requests');
@@ -624,7 +657,7 @@ try {
             $pdo->beginTransaction();
             $offerStmt = $pdo->prepare(
                 'SELECT rr.id, rr.status AS approval_status, rr.user_id AS responder_id,
-                        br.id AS request_id, br.status AS request_status, br.needed_by
+                        br.id AS request_id, br.status AS request_status, br.needed_by, br.urgency
                  FROM request_responses rr
                  JOIN blood_requests br ON br.id = rr.request_id
                  WHERE rr.id = :response_id AND br.requester_id = :requester_id
@@ -664,7 +697,7 @@ try {
             $notifyStmt->execute([
                 ':actor_id' => $userId,
                 ':target_id' => (int) $offer['request_id'],
-                ':message' => 'accepted your offer to help with a blood request. You can now message privately.',
+                ':message' => 'accepted your offer to help with a ' . ucfirst((string) $offer['urgency']) . ' blood request. You can now message privately.',
                 ':recipient_id' => (int) $offer['responder_id']
             ]);
             $pdo->commit();
@@ -733,7 +766,7 @@ try {
 
             $threadStmt = $pdo->prepare(
                 'SELECT rr.id, rr.status AS approval_status, rr.user_id AS responder_id, br.id AS request_id,
-                        br.requester_id, br.status, br.needed_by
+                        br.requester_id, br.status, br.needed_by, br.urgency
                  FROM request_responses rr
                  JOIN blood_requests br ON br.id = rr.request_id
                  WHERE rr.id = :response_id
@@ -778,7 +811,7 @@ try {
             $notifyStmt->execute([
                 ':actor_id' => $userId,
                 ':target_id' => (int) $thread['request_id'],
-                ':message' => 'sent you a private message about a blood request.',
+                ':message' => 'sent you a private message about your ' . ucfirst((string) $thread['urgency']) . ' blood request.',
                 ':recipient_id' => $recipientId
             ]);
             $pdo->commit();

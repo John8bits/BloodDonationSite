@@ -6,8 +6,8 @@ require_once __DIR__ . '/../config/database.php';
 
 require_login('../login.php');
 
-if (is_admin()) {
-    header('Location: ../admin/dashboard.php');
+if (is_admin() || is_clinic()) {
+    header('Location: ' . role_home_path('../'));
     exit;
 }
 
@@ -80,11 +80,13 @@ $donorBloodType = isset($_GET['btype']) && is_string($_GET['btype']) ? trim($_GE
 $donorCity = isset($_GET['city']) && is_string($_GET['city']) ? trim($_GET['city']) : '';
 $offerBloodType = isset($_GET['offer_btype']) && is_string($_GET['offer_btype']) ? trim($_GET['offer_btype']) : '';
 $offerCity = isset($_GET['offer_city']) && is_string($_GET['offer_city']) ? trim($_GET['offer_city']) : '';
+$requestUrgencyFilter = isset($_GET['urgency']) && is_string($_GET['urgency']) && in_array($_GET['urgency'], ['routine','urgent','emergency'], true) ? $_GET['urgency'] : '';
 $userId = (int) current_user_id();
 $csrfToken = $_SESSION['csrf_token'];
 $flash = $_SESSION['member_flash'] ?? null;
 unset($_SESSION['member_flash']);
 $loginSuccess = isset($_GET['login']) && is_string($_GET['login']) && $_GET['login'] === 'success';
+$profileWelcome = isset($_GET['welcome']) && $_GET['welcome'] === '1';
 
 $profile = [
     'fname' => $_SESSION['first_name'] ?? '',
@@ -231,6 +233,15 @@ try {
             exit;
         }
         $profile = array_merge($profile, $storedProfile);
+        $memberProfileComplete = trim((string) ($storedProfile['fname'] ?? '')) !== ''
+            && trim((string) ($storedProfile['lname'] ?? '')) !== ''
+            && trim((string) ($storedProfile['phone'] ?? '')) !== ''
+            && !empty($storedProfile['btype'])
+            && trim((string) ($storedProfile['city'] ?? '')) !== '';
+        if (!$memberProfileComplete && $activePage !== 'profile') {
+            header('Location: dashboard.php?page=profile&welcome=1');
+            exit;
+        }
 
         $countStmt = $pdo->prepare(
             "SELECT
@@ -311,6 +322,10 @@ try {
 
         $requestConditions = ["br.status = 'open'", 'br.needed_by >= CURDATE()'];
         $requestParams = [];
+        if ($activePage === 'blood-requests' && $requestUrgencyFilter !== '') {
+            $requestConditions[] = 'br.urgency = :urgency_filter';
+            $requestParams[':urgency_filter'] = $requestUrgencyFilter;
+        }
         if ($activePage === 'search' && $searchQuery !== '') {
             foreach (['hospital', 'location', 'type', 'details'] as $field) {
                 $requestParams[':request_' . $field . '_search'] = '%' . $searchQuery . '%';
@@ -749,11 +764,11 @@ $navGroups = [
         'home' => ['🏠︎', 'Home'],
         'blood-requests' => ['+', 'Blood Requests'],
         'donation-offers' => ['♥', 'Donation Offers'],
-        'events' => ['◷', 'Donation Events']
+        // 'events' => ['◷', 'Donation Events']
     ],
     'Activities' => [
         'activity' => ['▤', 'My Activity'],
-        'messages' => ['✉', 'Messages'],
+        'messages' => ['🗨', 'Messages'],
         'my-posts' => ['▧', 'My Post'],
         'responded' => ['↗', "My Resposes"],
         'saved' => ['☆', 'Saved Posts']
@@ -775,7 +790,7 @@ $pageTitles = [
     'events' => 'Donation Events',
     'activity' => 'My Activity',
     'my-posts' => 'My Post',
-    'responded' => "Requests I've Responded To",
+    'responded' => "My Responses",
     'saved' => 'Saved Posts',
     'messages' => 'Messages',
     'notifications' => 'Notifications',
@@ -832,8 +847,8 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                         <?php endforeach; ?>
                     </select>
                 </label>
-                    <label>Municipality / city, province
-                        <input type="text" name="donation_location" maxlength="120" placeholder="e.g., Libagon, Southern Leytef" <?= $donationOnly ? 'required' : '' ?>>
+                    <label>Province
+                        <input type="text" name="donation_location" maxlength="120" placeholder="e.g., Southern Leyte" <?= $donationOnly ? 'required' : '' ?>>
                 </label>
             </div>
                 <div class="form-row">
@@ -848,7 +863,7 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                 </div>
         </div>
         <?php else: ?>
-            <p class="form-help">Share questions, experiences, or updates related to blood donation and the BLife PH community. Keep posts respectful and protect private medical information.</p>
+            <p class="form-help">Share questions, experiences, or updates related to blood donation and the BLife PH community. Keep posts respectful.</p>
         <?php endif; ?>
         <!-- <p class="form-help">An offer is not confirmed blood availability or medical eligibility. Coordinate screening and donation through an authorized hospital or blood bank.</p> -->
     </form>
@@ -949,6 +964,7 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
         </aside>
 
         <main class="dashboard-main">
+            <?php if ($profileWelcome): ?><div class="notice notice-info" role="status">Welcome to BLife PH! Please complete your profile before continuing.</div><?php endif; ?>
             <?php if ($loginSuccess): ?>
                 <!-- <div class="notice notice-success" role="status">Welcome back to BloodLife.</div> -->
             <?php endif; ?>
@@ -1081,6 +1097,8 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                         <section class="feed-column">
                             <div class="section-heading"><div><p class="eyebrow"></p><h2>Need Blood? Request Now</h2></div></div>
                             <p class="form-help"> <a href="dashboard.php?page=donation-offers"> Browse or publish donation offers</a>.</p>
+                            <form class="filter-form request-urgency-filter" method="get" action="dashboard.php"><input type="hidden" name="page" value="blood-requests"><label>Urgency<select name="urgency"><option value="">All urgency levels</option><option value="emergency" <?= $requestUrgencyFilter === 'emergency' ? 'selected' : '' ?>>Emergency</option><option value="urgent" <?= $requestUrgencyFilter === 'urgent' ? 'selected' : '' ?>>Urgent</option><option value="routine" <?= $requestUrgencyFilter === 'routine' ? 'selected' : '' ?>>Routine</option></select></label><button class="button button-secondary button-small" type="submit">Filter requests</button><?php if ($requestUrgencyFilter !== ''): ?><a class="clear-link" href="dashboard.php?page=blood-requests">Clear</a><?php endif; ?></form>
+                            <p class="urgency-disclaimer">Urgency is reported by the requester and does not replace professional medical assessment. For emergencies, contact emergency services or an authorized hospital.</p>
                             <?php if (!$openRequests): ?><div class="empty-state panel"><strong>No open requests right now.</strong></div><?php else: ?>
                                 <?php foreach ($openRequests as $request): ?><?php render_request_card($request, $csrfToken, (int) $request['requester_id'] === $userId, true, $philippineProvinces); ?><?php endforeach; ?>
                             <?php endif; ?>
@@ -1136,10 +1154,10 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                     <section class="activity-grid">
                         <?php foreach ([
                             ['my-posts', 'My Post', (int) $statistics['posts'] + (int) $statistics['requests'] + (int) $statistics['offers'], 'Your community updates, blood requests, and donation offers.'],
-                            ['responded', "Requests I've Responded To", (int) $statistics['responses'], 'Requests where you offered to help.'],
+                            ['responded', "My Responses", (int) $statistics['responses'], 'Requests where you offered to help.'],
                             ['saved', 'Saved Posts', (int) $statistics['saved'], 'Posts you saved for later.']
                         ] as $activity): ?>
-                            <a class="panel activity-card" href="dashboard.php?page=<?= h($activity[0]) ?>"><span class="activity-number"><?= $activity[2] ?></span><strong><?= h($activity[1]) ?></strong><span><?= h($activity[3]) ?></span><span class="activity-link">View activity →</span></a>
+                            <a class="panel activity-card" href="dashboard.php?page=<?= h($activity[0]) ?>"><span class="activity-number"><?= $activity[2] ?></span><strong><?= h($activity[1]) ?></strong><span><?= h($activity[3]) ?></span><span class="activity-link">View activity </span></a>
                         <?php endforeach; ?>
                     </section>
                 <?php elseif ($activePage === 'my-posts' || $activePage === 'saved'): ?>
@@ -1329,9 +1347,9 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                                         }
                                         echo $newAvailability ? h(implode(' · ', $newAvailability)) : 'Not specified';
                                     ?></p>
-                                    <div class="message-context-note"><strong>Urgency is self-reported</strong><small>Choose the level that best reflects your need. For emergencies, contact a hospital or emergency service immediately.</small></div>
+                                    <!-- <div class="message-context-note"><strong>Urgency is self-reported</strong><small>Choose the level that best reflects your need. For emergencies, contact a hospital or emergency service immediately.</small></div> -->
                                     <?php render_offer_message_form((int) $newMessageOffer['id'], $userId, $csrfToken, false, true, 'messages'); ?>
-                                    <p class="conversation-privacy-note">Your message is private to you and the donor. Do not share sensitive medical information.</p>
+                                    <!-- <p class="conversation-privacy-note">Your message is private to you and the donor. Do not share sensitive medical information.</p> -->
                                 <?php else: ?>
                                     <div class="empty-state message-empty"><strong>Select a conversation</strong><span>Choose a message from your inbox or browse donation offers to contact a donor.</span><a class="button button-primary button-small" href="dashboard.php?page=donation-offers">Browse donation offers</a></div>
                                 <?php endif; ?>
@@ -1345,8 +1363,8 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                             <input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>"><input type="hidden" name="action" value="profile">
                             <div class="form-row"><label>First name<input type="text" name="fname" maxlength="100" value="<?= h($profile['fname']) ?>" required></label><label>Last name<input type="text" name="lname" maxlength="100" value="<?= h($profile['lname']) ?>" required></label></div>
                             <label>Email<input type="email" value="<?= h($profile['email']) ?>" disabled></label>
-                            <div class="form-row"><label>Phone number <span class="optional">(private)</span><input type="tel" name="phone" maxlength="20" value="<?= h($profile['phone']) ?>"></label><label>Blood type<select name="btype"><option value="">Not provided</option><?php foreach ($bloodTypes as $type): ?><option value="<?= h($type) ?>" <?= $profile['btype'] === $type ? 'selected' : '' ?>><?= h($type) ?></option><?php endforeach; ?></select></label></div>
-                            <label>Province<select name="city"><option value="">Select province</option><?php foreach ($philippineProvinces as $province): ?><option value="<?= h($province) ?>" <?= $profile['city'] === $province ? 'selected' : '' ?>><?= h($province) ?></option><?php endforeach; ?></select></label>
+                            <div class="form-row"><label>Phone number <span class="optional">(private)</span><input type="tel" name="phone" maxlength="20" value="<?= h($profile['phone']) ?>" required></label><label>Blood type<select name="btype" required><option value="">Select blood type</option><?php foreach ($bloodTypes as $type): ?><option value="<?= h($type) ?>" <?= $profile['btype'] === $type ? 'selected' : '' ?>><?= h($type) ?></option><?php endforeach; ?></select></label></div>
+                            <label>Province<select name="city" required><option value="">Select province</option><?php foreach ($philippineProvinces as $province): ?><option value="<?= h($province) ?>" <?= $profile['city'] === $province ? 'selected' : '' ?>><?= h($province) ?></option><?php endforeach; ?></select></label>
                             <label class="checkbox-label"><input type="checkbox" name="donor_available" value="1" <?= $profile['donor_available'] ? 'checked' : '' ?>><span>Show my first name, blood type, and province to members searching for potential donors. This is not confirmation of blood availability.</span></label>
                             <button class="button button-primary" type="submit">Save Profile</button>
                         </form>
@@ -1380,7 +1398,7 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                     </section>
                 <?php endif; ?>
 
-                <p class="page-footnote">BLife PH connects people. Actual blood screening, inventory confirmation, and transfusion must be handled by authorized medical providers.</p>
+                <!-- <p class="page-footnote">BLife PH connects people. Actual blood screening, inventory confirmation, and transfusion must be handled by authorized medical providers.</p> -->
             <?php endif; ?>
         </main>
     </div>
@@ -1520,7 +1538,7 @@ function render_offer_message_form(int $postId, int $seekerId, string $csrfToken
                         <option value="emergency">Emergency</option>
                     </select>
                 </label>
-                <p class="offer-conversation-help">Urgency is self-reported, not medically verified. For emergencies, contact a hospital or emergency service immediately.</p>
+                <!-- <p class="offer-conversation-help">Urgency is self-reported, not medically verified. For emergencies, contact a hospital or emergency service immediately.</p> -->
             </div>
         <?php endif; ?>
         <label class="visually-hidden" for="<?= h($formId) ?>"><?= $isReply ? 'Reply to this private conversation' : 'Message the donor privately' ?></label>
@@ -1591,7 +1609,7 @@ function render_post_card(array $post, array $comments, string $csrfToken, int $
                     <button type="submit" style="text-decoration:underline;" class="<?= $post['liked_by_me'] ? 'selected' : '' ?>"><?= $post['liked_by_me'] ? 'Liked' : ' Like' ?></button>
                 </form>
                 <button type="button" data-disclosure-toggle="comments-<?= (int) $post['id'] ?>" aria-controls="comments-<?= (int) $post['id'] ?>" aria-expanded="false" style="text-decoration:underline;">Comment</button>
-                <button type="button" style="text-decoration:underline;" class="share-post-button" data-share-form="sharePost<?= (int) $post['id'] ?>" data-share-url="<?= h('dashboard.php?page=home&post=' . (int) $post['id']) ?>" data-share-title="<?= h($authorName . ' on BLifePH') ?>">Share</button>
+                <!-- <button type="button" style="text-decoration:underline;" class="share-post-button" data-share-form="sharePost<?= (int) $post['id'] ?>" data-share-url="<?= h('dashboard.php?page=home&post=' . (int) $post['id']) ?>" data-share-title="<?= h($authorName . ' on BLifePH') ?>">Share</button> -->
                 <form class="visually-hidden share-record-form" id="sharePost<?= (int) $post['id'] ?>" method="post" action="action.php">
                     <input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>"><input type="hidden" name="action" value="post_share"><input type="hidden" name="async" value="1"><input type="hidden" name="post_id" value="<?= (int) $post['id'] ?>"><input type="hidden" name="return_page" value="<?= $post['post_type'] === 'donation' ? 'donation-offers' : 'home' ?>">
                 </form>

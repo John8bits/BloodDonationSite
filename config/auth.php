@@ -29,14 +29,28 @@ function is_admin(): bool
     return current_role() === 'admin';
 }
 
-/**
- * Path helper so both /index.php (root) and /admin|/dashboard (one
- * level down) can build a correct relative link to "my home page".
- */
+function is_clinic(): bool
+{
+    return current_role() === 'clinic';
+}
+
 function role_home_path(string $fromRoot = ''): string
 {
-    $target = is_admin() ? 'admin/dashboard.php' : 'dashboard/dashboard.php';
-    return $fromRoot . $target;
+    if (is_admin()) return $fromRoot . 'admin/dashboard.php';
+    if (is_clinic()) return $fromRoot . 'clinic/dashboard.php';
+    return $fromRoot . 'dashboard/dashboard.php';
+}
+
+function require_clinic(string $loginPath = '../login.php', string $userHomePath = '../dashboard/dashboard.php'): void
+{
+    if (!is_logged_in()) {
+        header('Location: ' . $loginPath);
+        exit;
+    }
+    if (!is_clinic()) {
+        header('Location: ' . role_home_path('../'));
+        exit;
+    }
 }
 
 /**
@@ -65,7 +79,7 @@ function require_admin(string $loginPath = '../login.php', string $userHomePath 
     }
 
     if (!is_admin()) {
-        header("Location: " . $userHomePath);
+        header("Location: " . role_home_path('../'));
         exit;
     }
 }

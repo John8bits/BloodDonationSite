@@ -40,6 +40,7 @@ $currentPage = isset($_GET['page']) && is_string($_GET['page']) ? $_GET['page'] 
 $sections = [
     'overview' => 'Dashboard Overview',
     'members' => 'Member Management',
+    'clinics' => 'Clinics & Blood Banks',
     'requests' => 'Blood Request Management',
     'posts' => 'Community Posts',
     'reports' => 'Reported Content',
@@ -65,7 +66,8 @@ $schema = [
     'settings' => admin_table_exists($pdo, 'platform_settings'),
     'report_reason' => admin_column_exists($pdo, 'post_interactions', 'report_reason'),
     'message_reports' => admin_table_exists($pdo, 'member_message_reports'),
-    'event_fields' => admin_column_exists($pdo, 'community_posts', 'event_title')
+    'event_fields' => admin_column_exists($pdo, 'community_posts', 'event_title'),
+    'clinics' => admin_table_exists($pdo, 'clinic_profiles')
 ];
 $flash = $_SESSION['admin_flash'] ?? null;
 unset($_SESSION['admin_flash']);
@@ -97,6 +99,7 @@ $statusBreakdown = [];
 $registrationTrend = [];
 $reportTrend = [];
 $editingEvent = null;
+$clinicRows = [];
 $moderationGuidelines = '';
 $platformInfo = '';
 
@@ -129,13 +132,39 @@ if ($currentPage === 'members') {
     }
     $citySelect = $schema['city'] ? 'city' : "'' AS city";
     $donorSelect = $schema['donor_available'] ? 'donor_available' : '0 AS donor_available';
-    $statusSelect = $schema['account_status'] ? 'account_status' : "'active' AS account_status";
+    $statusSelect = $schema['account_status'] ? 'account_status' : "'migration_required' AS account_status";
     $stmt = $pdo->prepare(
         "SELECT id, fname, lname, email, btype, phone, {$citySelect}, {$donorSelect}, {$statusSelect}, created_at
          FROM uinfo WHERE " . implode(' AND ', $conditions) . ' ORDER BY created_at DESC LIMIT 250'
     );
     $stmt->execute($params);
     $rows = $stmt->fetchAll();
+}
+
+if ($currentPage === 'clinics' && $schema['clinics']) {
+    $facilityType = isset($_GET['facility_type']) && is_string($_GET['facility_type']) ? $_GET['facility_type'] : '';
+    $clinicStatus = isset($_GET['clinic_status']) && is_string($_GET['clinic_status']) ? $_GET['clinic_status'] : '';
+    $conditions = ["u.role = 'clinic'"];
+    $params = [];
+    if ($query !== '') {
+        $conditions[] = '(cp.facility_name LIKE :name OR cp.official_email LIKE :email OR cp.city LIKE :city OR cp.province LIKE :province OR u.email LIKE :login_email)';
+        foreach (['name','email','city','province','login_email'] as $key) $params[':' . $key] = '%' . $query . '%';
+    }
+    if (in_array($facilityType, ['clinic','blood_bank'], true)) {
+        $conditions[] = 'cp.facility_type = :facility_type';
+        $params[':facility_type'] = $facilityType;
+    }
+    if ($schema['account_status'] && in_array($clinicStatus, ['active','suspended'], true)) {
+        $conditions[] = 'u.account_status = :clinic_status';
+        $params[':clinic_status'] = $clinicStatus;
+    }
+    $clinicStatusSelect = $schema['account_status'] ? 'u.account_status' : "'migration_required' AS account_status";
+    $clinicStmt = $pdo->prepare("SELECT u.id, u.email AS login_email, {$clinicStatusSelect}, u.created_at AS account_created_at, cp.*,
+        (SELECT COUNT(*) FROM blood_requests br WHERE br.requester_id = u.id) AS request_count,
+        (SELECT COUNT(*) FROM request_responses rr JOIN blood_requests br2 ON br2.id = rr.request_id WHERE br2.requester_id = u.id) AS response_count
+        FROM uinfo u JOIN clinic_profiles cp ON cp.user_id = u.id WHERE " . implode(' AND ', $conditions) . " ORDER BY u.created_at DESC LIMIT 250");
+    $clinicStmt->execute($params);
+    $clinicRows = $clinicStmt->fetchAll();
 }
 
 if ($currentPage === 'requests' && $schema['requests']) {
@@ -175,7 +204,7 @@ if ($currentPage === 'requests' && $schema['requests']) {
     $stmt = $pdo->prepare(
         "SELECT br.*, u.fname, u.lname, {$responseSelect}
          FROM blood_requests br JOIN uinfo u ON u.id = br.requester_id
-         WHERE " . implode(' AND ', $conditions) . ' ORDER BY br.created_at DESC LIMIT 250'
+         WHERE " . implode(' AND ', $conditions) . " ORDER BY FIELD(br.urgency, 'emergency', 'urgent', 'routine'), br.needed_by ASC, br.created_at DESC LIMIT 250"
     );
     $stmt->execute($params);
     $rows = $stmt->fetchAll();
@@ -350,13 +379,12 @@ $adminName = trim(($firstName ?? '') . ' ' . ($lastName ?? ''));
             <?php foreach ($sections as $key => $label): ?>
                 <a href="dashboard.php?page=<?= admin_h($key) ?>" class="<?= $currentPage === $key ? 'active' : '' ?>"
                     <?= $currentPage === $key ? 'aria-current="page"' : '' ?>>
-                    <span
-                        aria-hidden="true"><?= admin_h(['overview' => '▦', 'members' => '♙', 'requests' => '＋', 'posts' => '▤', 'reports' => '⚑', 'events' => '◷', 'analytics' => '▥', 'activity' => '◴', 'settings' => '⚙'][$key]) ?></span>
+                    <span aria-hidden="true"><?= admin_h(["overview"=>"O","members"=>"M","clinics"=>"C","requests"=>"R","posts"=>"P","reports"=>"!","events"=>"E","analytics"=>"A","activity"=>"L","settings"=>"S"][$key] ?? "•") ?></span>
                     <?= admin_h($label) ?>
                     <?php if ($key === 'reports' && $stats['reports'] > 0): ?><b><?= (int) $stats['reports'] ?></b><?php endif; ?>
                 </a>
             <?php endforeach; ?>
-            <a href="../logout.php" class="admin-logout"><span aria-hidden="true">↪</span>Log Out</a>
+            <a href="../logout.php" class="admin-logout"><span aria-hidden="true"></span>Sign Out</a>
         </nav>
         <div class="admin-sidebar-user">
             <span><?= admin_h($adminName ?: 'Administrator') ?></span><small>Administrator</small>
@@ -377,22 +405,16 @@ $adminName = trim(($firstName ?? '') . ' ' . ($lastName ?? ''));
                 <?= admin_h($flash['message'] ?? '') ?>
             </div>
         <?php endif; ?>
-        <?php if (!$schema['account_status'] || !$schema['activity'] || !$schema['settings']): ?>
-            <div class="admin-alert info">
-                <!-- <?php if (!$schema['account_status']): ?> Member suspension is unavailable.<?php endif; ?> -->
-                <!-- <?php if (!$schema['activity']): ?> Activity history is unavailable.<?php endif; ?> -->
-                <!-- <?php if (!$schema['settings']): ?> Settings storage is unavailable.<?php endif; ?> -->
-            </div>
-        <?php endif; ?>
+        <!-- this part remove some code -->
 
         <?php if ($currentPage === 'overview'): ?>
             <section class="admin-stat-grid" aria-label="Platform overview">
                 <?php foreach ([
                     'Registered members' => $stats['members'],
-                    'Donor-search opt-ins' => $stats['donors'],
+                    // 'Donor-search opt-ins' => $stats['donors'],
                     'Blood requests' => $stats['requests'],
                     'Open requests' => $stats['open'],
-                    'Fulfilled requests' => $stats['fulfilled'],
+                    // 'Fulfilled requests' => $stats['fulfilled'],
                     'Cancelled / expired' => $stats['closed'],
                     'Community posts' => $stats['posts'],
                     'Pending reports' => $stats['reports'],
@@ -459,6 +481,19 @@ $adminName = trim(($firstName ?? '') . ' ' . ($lastName ?? ''));
                 </table><?php if (!$rows): ?>
                     <p class="empty-state">No members match these filters.</p><?php endif; ?>
             </div>
+        <?php elseif ($currentPage === 'clinics'): ?>
+            <?php if (!$schema['clinics']): ?><div class="admin-alert info">Apply <code>database_sql/clinic_accounts_migration.sql</code> after the member panel and admin enhancement migrations.</div><?php else: ?>
+                <?php if (!$schema['account_status']): ?><div class="admin-alert info">Clinic profiles exist, but account status is missing. Run <code>database_sql/blife_admin_enhancements.sql</code> before creating clinics or changing their status.</div><?php endif; ?>
+                <button class="admin-button" type="button" data-clinic-dialog-open="createClinicDialog" <?= !$schema['account_status'] ? 'disabled title="Run the admin enhancement migration first."' : '' ?>>Create Clinic / Blood Bank</button>
+                <dialog class="clinic-dialog" id="createClinicDialog"><form method="post" action="action.php" class="clinic-admin-form"><input type="hidden" name="csrf_token" value="<?= admin_h($csrfToken) ?>"><input type="hidden" name="action" value="clinic_create"><header><div><p>NEW INSTITUTION</p><h2>Create Clinic / Blood Bank</h2></div><button type="button" data-clinic-dialog-close aria-label="Close">×</button></header>
+                    <h3>Institution Information</h3><label>Facility Name<input name="facility_name" maxlength="180" required></label><label>Facility Type<select name="facility_type" required><option value="clinic">Clinic</option><option value="blood_bank">Blood Bank</option></select></label><label>Facility Address<input name="facility_address" maxlength="255" required></label><div><label>City / Municipality<input name="city" maxlength="120" required></label><label>Province<input name="province" maxlength="120" required></label></div><label>Contact Number<input name="contact_number" maxlength="30" required></label><label>Official Email Address<input type="email" name="official_email" maxlength="255" required></label><label>Authorized Representative<input name="authorized_representative" maxlength="160" required></label><label>Description<textarea name="description" maxlength="1000" rows="3"></textarea></label>
+                    <h3>Account Information</h3><label>Login Email<input type="email" name="login_email" maxlength="255" required></label><label>Temporary Password<input type="password" name="temporary_password" minlength="12" autocomplete="new-password" required><small>At least 12 characters. The facility will change it after its first login.</small></label><label>Account Status<select name="account_status"><option value="active">Active</option><option value="suspended">Suspended</option></select></label><button class="admin-button" type="submit">Create account</button>
+                </form></dialog>
+                <form class="admin-filter-form" method="get"><input type="hidden" name="page" value="clinics"><input name="q" value="<?= admin_h($query) ?>" placeholder="Search facility, login email, location"><select name="facility_type"><option value="">All facility types</option><option value="clinic" <?= ($_GET['facility_type'] ?? '') === 'clinic' ? 'selected' : '' ?>>Clinic</option><option value="blood_bank" <?= ($_GET['facility_type'] ?? '') === 'blood_bank' ? 'selected' : '' ?>>Blood bank</option></select><select name="clinic_status"><option value="">All statuses</option><option value="active" <?= ($_GET['clinic_status'] ?? '') === 'active' ? 'selected' : '' ?>>Active</option><option value="suspended" <?= ($_GET['clinic_status'] ?? '') === 'suspended' ? 'selected' : '' ?>>Suspended</option></select><button>Search facilities</button></form>
+                <?php foreach ($clinicRows as $clinic): ?><article class="admin-panel clinic-record"><header><div><h2><?= admin_h($clinic['facility_name']) ?> <?php if ((int) $clinic['is_verified']): ?><span class="clinic-verified">✓ Admin verified</span><?php endif; ?></h2><p><?= admin_h(ucwords(str_replace('_',' ',$clinic['facility_type']))) ?> · <?= admin_h($clinic['city'] . ', ' . $clinic['province']) ?></p></div><span class="clinic-status <?= admin_h($clinic['account_status']) ?>"><?= admin_h(ucfirst($clinic['account_status'])) ?></span></header><dl><dt>Address</dt><dd><?= admin_h($clinic['facility_address']) ?></dd><dt>Contact</dt><dd><?= admin_h($clinic['contact_number']) ?></dd><dt>Official email</dt><dd><?= admin_h($clinic['official_email']) ?></dd><dt>Login email</dt><dd><?= admin_h($clinic['login_email']) ?></dd><dt>Representative</dt><dd><?= admin_h($clinic['authorized_representative']) ?></dd><dt>Created</dt><dd><?= admin_h(date('M j, Y', strtotime($clinic['account_created_at']))) ?></dd><dt>Description</dt><dd><?= admin_h($clinic['description'] ?: '—') ?></dd></dl>
+                <details><summary>Edit institution information</summary><form class="clinic-admin-form clinic-edit-form" method="post" action="action.php"><input type="hidden" name="csrf_token" value="<?= admin_h($csrfToken) ?>"><input type="hidden" name="action" value="clinic_update"><input type="hidden" name="clinic_id" value="<?= (int) $clinic['user_id'] ?>"><label>Facility name<input name="facility_name" maxlength="180" value="<?= admin_h($clinic['facility_name']) ?>" required></label><label>Type<select name="facility_type"><option value="clinic" <?= $clinic['facility_type'] === 'clinic' ? 'selected' : '' ?>>Clinic</option><option value="blood_bank" <?= $clinic['facility_type'] === 'blood_bank' ? 'selected' : '' ?>>Blood bank</option></select></label><label>Address<input name="facility_address" maxlength="255" value="<?= admin_h($clinic['facility_address']) ?>" required></label><div><label>City<input name="city" maxlength="120" value="<?= admin_h($clinic['city']) ?>" required></label><label>Province<input name="province" maxlength="120" value="<?= admin_h($clinic['province']) ?>" required></label></div><label>Contact<input name="contact_number" maxlength="30" value="<?= admin_h($clinic['contact_number']) ?>" required></label><label>Official email<input type="email" name="official_email" maxlength="255" value="<?= admin_h($clinic['official_email']) ?>" required></label><label>Representative<input name="authorized_representative" maxlength="160" value="<?= admin_h($clinic['authorized_representative']) ?>" required></label><label>Description<textarea name="description" maxlength="1000" rows="3"><?= admin_h($clinic['description']) ?></textarea></label><button class="admin-button">Save changes</button></form></details>
+                <form class="admin-inline-form" method="post" action="action.php"><input type="hidden" name="csrf_token" value="<?= admin_h($csrfToken) ?>"><input type="hidden" name="action" value="clinic_status"><input type="hidden" name="clinic_id" value="<?= (int) $clinic['user_id'] ?>"><input type="hidden" name="status" value="<?= $clinic['account_status'] === 'active' ? 'suspended' : 'active' ?>"><button class="admin-button secondary" <?= !$schema['account_status'] ? 'disabled title="Run the admin enhancement migration first."' : '' ?>><?= $clinic['account_status'] === 'active' ? 'Suspend' : 'Activate' ?></button></form><form class="admin-inline-form" method="post" action="action.php"><input type="hidden" name="csrf_token" value="<?= admin_h($csrfToken) ?>"><input type="hidden" name="action" value="clinic_verification"><input type="hidden" name="clinic_id" value="<?= (int) $clinic['user_id'] ?>"><input type="hidden" name="verified" value="<?= (int) $clinic['is_verified'] ? '0' : '1' ?>"><button class="admin-button secondary"><?= (int) $clinic['is_verified'] ? 'Remove verification' : 'Verify institution' ?></button></form><form class="admin-inline-form" method="post" action="action.php"><input type="hidden" name="csrf_token" value="<?= admin_h($csrfToken) ?>"><input type="hidden" name="action" value="clinic_password_reset"><input type="hidden" name="clinic_id" value="<?= (int) $clinic['user_id'] ?>"><label>New temporary password<input type="password" name="temporary_password" minlength="12" required autocomplete="new-password"></label><button class="admin-button secondary">Require password change</button></form></article><?php endforeach; ?><?php if (!$clinicRows): ?><p class="empty-state">No facilities match these filters.</p><?php endif; ?>
+            <?php endif; ?>
         <?php elseif ($currentPage === 'requests'): ?>
             <?php if (!$schema['requests']): ?>
                 <div class="admin-alert info">Blood request tables are not installed. Apply the member panel migration first.
@@ -479,6 +514,7 @@ $adminName = trim(($firstName ?? '') . ' ' . ($lastName ?? ''));
                                 <th>Request</th>
                                 <th>Requester</th>
                                 <th>Province</th>
+                                <th>Urgency</th>
                                 <th>Needed by</th>
                                 <th>Responses</th>
                                 <th>Status</th>
@@ -493,6 +529,7 @@ $adminName = trim(($firstName ?? '') . ' ' . ($lastName ?? ''));
                                         unit(s)<br><small><?= admin_h($request['details']) ?></small></td>
                                     <td><?= admin_h(trim($request['fname'] . ' ' . $request['lname'])) ?></td>
                                     <td><?= admin_h($request['location']) ?></td>
+                                    <td><span class="urgency-badge urgency-<?= admin_h($request['urgency'] ?? 'routine') ?>"><?= admin_h(ucfirst($request['urgency'] ?? 'routine')) ?></span></td>
                                     <td><?= admin_h($request['needed_by']) ?></td>
                                     <td><?= (int) $request['response_count'] ?></td>
                                     <td><?= $requestExpired ? 'Expired' : admin_h(ucfirst($request['status'])) ?><?php if (!empty($request['status_reason'])): ?><br><small><?= admin_h($request['status_reason']) ?></small><?php endif; ?>
@@ -759,6 +796,7 @@ $adminName = trim(($firstName ?? '') . ' ' . ($lastName ?? ''));
                 </section><?php endif; ?>
         <?php endif; ?>
     </main>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
         const menuButton = document.getElementById('adminMenuToggle');
         const sidebar = document.getElementById('adminSidebar');
@@ -777,6 +815,11 @@ $adminName = trim(($firstName ?? '') . ' ' . ($lastName ?? ''));
             if (form.elements.status.value === 'cancelled' &&
                 !window.confirm('Cancel this donation event announcement?')) event.preventDefault();
         }));
+        <?php if (is_array($flash) && isset($flash['message'], $flash['type'])): ?>
+        Swal.fire({icon: <?= json_encode($flash['type'] === 'success' ? 'success' : 'error') ?>, text: <?= json_encode($flash['message'], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>});
+        <?php endif; ?>
+        document.querySelectorAll('[data-clinic-dialog-open]').forEach((button) => button.addEventListener('click', () => document.getElementById(button.dataset.clinicDialogOpen)?.showModal()));
+        document.querySelectorAll('[data-clinic-dialog-close]').forEach((button) => button.addEventListener('click', () => button.closest('dialog')?.close()));
     </script>
 </body>
 

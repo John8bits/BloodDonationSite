@@ -101,21 +101,24 @@ try {
     $accountStatusCheck->execute();
     $accountStatusAvailable = (int) $accountStatusCheck->fetchColumn() > 0;
     $accountStatusSelect = $accountStatusAvailable ? ', account_status' : '';
+    $clinicFieldsAvailable = false;
+    $clinicTableCheck = $pdo->prepare("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'clinic_profiles'");
+    $clinicTableCheck->execute();
+    $clinicFieldsAvailable = (int) $clinicTableCheck->fetchColumn() > 0;
+    $clinicSelect = $clinicFieldsAvailable ? ', cp.is_verified AS clinic_verified' : ', 0 AS clinic_verified';
+    $profileCompletionAvailable = false;
+    $profileColumnCheck = $pdo->prepare("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'uinfo' AND COLUMN_NAME IN ('profile_completed_at','must_change_password')");
+    $profileColumnCheck->execute();
+    $profileCompletionAvailable = (int) $profileColumnCheck->fetchColumn() === 2;
+    $extraAccountSelect = $profileCompletionAvailable ? ', u.profile_completed_at, u.must_change_password' : ', NULL AS profile_completed_at, 0 AS must_change_password';
 
 
     $stmt = $pdo->prepare("
-        SELECT
-            id,
-            fname,
-            lname,
-            email,
-            btype,
-            phone,
-            password,
-            role
-            {$accountStatusSelect}
-        FROM uinfo
-        WHERE email = :email
+        SELECT u.id, u.fname, u.lname, u.email, u.btype, u.phone, u.city, u.password, u.role
+            {$accountStatusSelect}{$extraAccountSelect}{$clinicSelect}
+        FROM uinfo u
+        " . ($clinicFieldsAvailable ? 'LEFT JOIN clinic_profiles cp ON cp.user_id = u.id' : '') . "
+        WHERE u.email = :email
         LIMIT 1
     ");
 
@@ -164,6 +167,9 @@ try {
     $_SESSION['blood_type'] = $user['btype'];
     $_SESSION['phone'] = $user['phone'];
     $_SESSION['role'] = $user['role'] ?? 'user';
+    $_SESSION['must_change_password'] = (int) ($user['must_change_password'] ?? 0);
+    $_SESSION['clinic_verified'] = (int) ($user['clinic_verified'] ?? 0);
+    $_SESSION['profile_completed_at'] = $user['profile_completed_at'] ?? null;
 
 
     unset($_SESSION['login_errors']);
@@ -172,7 +178,11 @@ try {
     // Send admins to the admin panel, everyone else to their dashboard.
     $redirect = $_SESSION['role'] === 'admin'
         ? 'admin/dashboard.php?login=success'
-        : 'dashboard/dashboard.php?login=success';
+        : ($_SESSION['role'] === 'clinic'
+            ? 'clinic/dashboard.php?login=success'
+            : ((trim((string) $user['fname']) === '' || trim((string) $user['lname']) === '' || trim((string) $user['phone']) === '' || empty($user['btype']) || trim((string) ($user['city'] ?? '')) === '')
+                ? 'dashboard/dashboard.php?page=profile&welcome=1'
+                : 'dashboard/dashboard.php?login=success'));
 
     echo json_encode([
         'success' => true,
