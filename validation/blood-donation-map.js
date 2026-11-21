@@ -3,6 +3,7 @@
     if (!window.L) return;
 
     const philippinesBounds = L.latLngBounds([4.0, 114.0], [21.7, 127.5]);
+    const philippinesDisplayBounds = L.latLngBounds([4.2, 116.5], [21.4, 127.1]);
     const nearbyRadiusKm = 50;
 
     function textNode(tag, className, text) {
@@ -94,7 +95,7 @@
         nearbyButton.before(nearbyPlaceholder);
         let bodyScrollY = 0;
         let previousBodyOverflow = '';
-        const map = L.map(element, { center: [12.8797, 121.7740], zoom: 5, minZoom: 5, maxZoom: 18, maxBounds: philippinesBounds, maxBoundsViscosity: 1.0 });
+        const map = L.map(element, { center: [12.8797, 121.7740], zoom: 5, minZoom: 4, maxZoom: 18, maxBounds: philippinesBounds, maxBoundsViscosity: 1.0 });
         if (map.zoomControl) map.zoomControl.setPosition('bottomright');
         L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
@@ -106,7 +107,6 @@
         let viewerLocation = null;
         let unmappedCount = 0;
         let nearbyOnly = false;
-        let centeredOnProfile = false;
         let visibleItems = [];
         let refreshing = false;
         const locations = new Map();
@@ -168,13 +168,15 @@
             }, 180);
         }
 
-        function resetMapView() {
-            if (viewerLocation && Number.isFinite(Number(viewerLocation.latitude)) && Number.isFinite(Number(viewerLocation.longitude))) {
-                map.setView([Number(viewerLocation.latitude), Number(viewerLocation.longitude)], viewerLocation.location_level === 'province' ? 8 : 10);
-            } else {
-                map.setView([12.8797, 121.7740], 5);
-            }
+        function fitPhilippines() {
+            map.fitBounds(philippinesDisplayBounds, {
+                paddingTopLeft: [24, 24],
+                paddingBottomRight: [24, 24],
+                maxZoom: 6
+            });
         }
+
+        function resetMapView() { fitPhilippines(); }
 
         fullMapButton.addEventListener('click', () => setFullMapMode(true));
         exitFullMapButton.addEventListener('click', () => setFullMapMode(false));
@@ -375,15 +377,7 @@
                 const result = await fetchMapItems();
                 items = result.items; viewerLocation = result.viewerLocation; unmappedCount = result.unmappedCount;
                 nearbyButton.disabled = !viewerLocation;
-                if (viewerLocation) {
-                    locationStatus.textContent = '';
-                    if (!centeredOnProfile) {
-                        map.setView([Number(viewerLocation.latitude), Number(viewerLocation.longitude)], viewerLocation.location_level === 'province' ? 8 : 10);
-                        centeredOnProfile = true;
-                    }
-                } else {
-                    locationStatus.textContent = '';
-                }
+                locationStatus.textContent = '';
                 populateLocations(); updateUrgencyVisibility(); renderMarkers();
             } catch (error) {
                 status.textContent = error.message || 'Map data could not be loaded. Please try again.';
@@ -428,7 +422,10 @@
             setLocationsPanel(false);
             locationsToggle.focus();
         }
-        refreshButton.addEventListener('click', refreshMapData);
+        refreshButton.addEventListener('click', async () => {
+            await refreshMapData();
+            fitPhilippines();
+        });
         nearbyButton.addEventListener('click', () => {
             if (!viewerLocation) return;
             nearbyOnly = !nearbyOnly;
@@ -442,6 +439,7 @@
         window.addEventListener('focus', refreshMapData);
         document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') refreshMapData(); });
         window.setInterval(refreshMapData, 60000);
+        map.whenReady(fitPhilippines);
         refreshMapData();
         if (window.ResizeObserver) new ResizeObserver(() => map.invalidateSize()).observe(element);
         else if (window.addEventListener) window.addEventListener('resize', () => map.invalidateSize());
