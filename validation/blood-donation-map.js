@@ -94,12 +94,9 @@
         const exitFullMapButton = page.querySelector('[data-map-exit]');
         const resetViewButton = page.querySelector('[data-map-reset-view]');
         const nearbySlot = page.querySelector('[data-map-nearby-slot]');
-        const filterSlot = page.querySelector('[data-map-filter-slot]');
         const filterDisclosure = page.querySelector('[data-map-filter-disclosure]');
         const nearbyPlaceholder = document.createComment('nearby control position');
-        const filterPlaceholder = document.createComment('map filters position');
         nearbyButton.before(nearbyPlaceholder);
-        filterForm.before(filterPlaceholder);
         let bodyScrollY = 0;
         let previousBodyOverflow = '';
         const map = L.map(element, { center: [12.8797, 121.7740], zoom: 5, minZoom: 5, maxZoom: 18, maxBounds: philippinesBounds, maxBoundsViscosity: 1.0 });
@@ -121,6 +118,7 @@
             ? L.markerClusterGroup({ showCoverageOnHover: false, spiderfyOnMaxZoom: true, maxClusterRadius: 55 })
             : L.featureGroup();
         markerLayer.addTo(map);
+        map.on('popupopen', () => { filterDisclosure.open = false; });
 
         function resizeMapAfterLayout() {
             window.requestAnimationFrame(() => {
@@ -136,13 +134,11 @@
                 previousBodyOverflow = document.body.style.overflow;
                 page.classList.add('is-fullscreen');
                 document.body.classList.add('blood-map-fullscreen-open');
-                filterSlot.append(filterForm);
                 nearbySlot.append(nearbyButton);
                 fullMapButton.hidden = true;
                 exitFullMapButton.hidden = false;
                 exitFullMapButton.focus();
             } else {
-                filterPlaceholder.parentNode.insertBefore(filterForm, filterPlaceholder.nextSibling);
                 nearbyPlaceholder.parentNode.insertBefore(nearbyButton, nearbyPlaceholder.nextSibling);
                 page.classList.remove('is-fullscreen');
                 document.body.classList.remove('blood-map-fullscreen-open');
