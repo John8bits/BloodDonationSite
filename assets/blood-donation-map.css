@@ -6,6 +6,8 @@
 .blood-map-reset, .blood-map-location-search button { min-height: 42px; padding: 0 14px; color: #fff; background: #c9252b; border: 0; border-radius: 9px; font: inherit; font-weight: 700; white-space: nowrap; cursor: pointer; }
 .blood-map-reset { display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
 .blood-map-reset:hover, .blood-map-location-search button:hover { background: #a91f24; }
+.blood-map-controls .blood-map-location-search button:hover,
+.blood-map-controls .blood-map-location-search button:focus-visible { color: #fff; background: #a91f24; border-color: #a91f24; }
 .blood-map-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 14px; padding: 0 2px; }
 .blood-map-toolbar > p { margin: 0; color: #64748b; }
 .blood-map-refresh { min-height: 40px; padding: 0 13px; color: #c9252b; background: #fff; border: 1px solid #e3b6b8; border-radius: 9px; font: inherit; font-weight: 700; cursor: pointer; }
