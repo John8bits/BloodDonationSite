@@ -53,8 +53,7 @@ function blife_render_blood_donation_map(string $apiUrl, string $requestHref, st
                             <button class="blood-map-locations-close" type="button" data-locations-close aria-label="Close location tools"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
                         </header>
                         <div class="blood-map-location-search">
-                            <label for="bloodMapLocationSearch">Search a mapped location</label>
-                            <div><input id="bloodMapLocationSearch" type="search" data-location-search list="bloodMapLocations" placeholder="Search city or province" autocomplete="off"><datalist id="bloodMapLocations"></datalist><button type="button" data-location-go>Go</button></div>
+                            <div><input id="bloodMapLocationSearch" type="search" data-location-search list="bloodMapLocations" placeholder="Search city or province" autocomplete="off"><datalist id="bloodMapLocations"></datalist><button type="button" data-location-go>Find</button></div>
                         </div>
                         <div class="blood-map-location-levels">
                             <label>Province<select data-location-province><option value="">Select province</option></select></label>
