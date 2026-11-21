@@ -23,6 +23,7 @@ function blife_render_blood_donation_map(string $apiUrl, string $requestHref, st
                     <button class="blood-map-view-exit" type="button" data-map-exit hidden><i class="fa-solid fa-minimize" aria-hidden="true"></i> Exit Full Screen</button>
                     <button class="blood-map-reset-view" type="button" data-map-reset-view><i class="fa-solid fa-crosshairs" aria-hidden="true"></i> Reset View</button>
                     <span class="blood-map-nearby-slot" data-map-nearby-slot></span>
+                    <button class="blood-map-locations-toggle" type="button" data-locations-toggle aria-expanded="false" aria-controls="bloodMapLocationsPanel"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i> Locations</button>
                     <details class="blood-map-fullscreen-filters" data-map-filter-disclosure>
                         <summary><i class="fa-solid fa-sliders" aria-hidden="true"></i> Filters</summary>
                         <div class="blood-map-filter-panel" data-map-filter-slot>
@@ -44,13 +45,24 @@ function blife_render_blood_donation_map(string $apiUrl, string $requestHref, st
                                 </label>
                                 <button class="blood-map-reset" type="reset"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Reset Filters</button>
                             </form>
-                            <div class="blood-map-location-search">
-                                <label for="bloodMapLocationSearch">Find a mapped location</label>
-                                <div><input id="bloodMapLocationSearch" type="search" data-location-search list="bloodMapLocations" placeholder="Search city or province" autocomplete="off"><datalist id="bloodMapLocations"></datalist><button type="button" data-location-go>Go to Location</button></div>
-                                <p data-location-status role="status" aria-live="polite"></p>
-                            </div>
                         </div>
                     </details>
+                    <aside class="blood-map-locations-panel" id="bloodMapLocationsPanel" data-locations-panel hidden aria-labelledby="bloodMapLocationTitle">
+                        <header class="blood-map-locations-header">
+                            <div><span>MAP TOOLS</span><h2 id="bloodMapLocationTitle">Find a Location</h2></div>
+                            <button class="blood-map-locations-close" type="button" data-locations-close aria-label="Close location tools"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+                        </header>
+                        <div class="blood-map-location-search">
+                            <label for="bloodMapLocationSearch">Search a mapped location</label>
+                            <div><input id="bloodMapLocationSearch" type="search" data-location-search list="bloodMapLocations" placeholder="Search city or province" autocomplete="off"><datalist id="bloodMapLocations"></datalist><button type="button" data-location-go>Go</button></div>
+                        </div>
+                        <div class="blood-map-location-levels">
+                            <label>Province<select data-location-province><option value="">Select province</option></select></label>
+                            <label>City / Municipality<select data-location-city disabled><option value="">Select city / municipality</option></select></label>
+                            <label>Barangay<select data-location-barangay disabled><option value="">No barangay map data available</option></select></label>
+                        </div>
+                        <p class="blood-map-location-status" data-location-status role="status" aria-live="polite"></p>
+                    </aside>
                 </div>
                 <small class="blood-map-attribution">Map data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap contributors</a></small>
             </div>

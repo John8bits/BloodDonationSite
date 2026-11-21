@@ -87,6 +87,12 @@
         const locationInput = page.querySelector('[data-location-search]');
         const locationList = page.querySelector('datalist');
         const locationStatus = page.querySelector('[data-location-status]');
+        const locationProvince = page.querySelector('[data-location-province]');
+        const locationCity = page.querySelector('[data-location-city]');
+        const locationBarangay = page.querySelector('[data-location-barangay]');
+        const locationsToggle = page.querySelector('[data-locations-toggle]');
+        const locationsPanel = page.querySelector('[data-locations-panel]');
+        const locationsClose = page.querySelector('[data-locations-close]');
         const refreshButton = page.querySelector('[data-map-refresh]');
         const nearbyButton = page.querySelector('[data-nearby-toggle]');
         const nearbyCount = page.querySelector('[data-nearby-count]');
@@ -114,11 +120,15 @@
         let visibleItems = [];
         let refreshing = false;
         const locations = new Map();
+        let locationRecords = [];
         const markerLayer = typeof L.markerClusterGroup === 'function'
             ? L.markerClusterGroup({ showCoverageOnHover: false, spiderfyOnMaxZoom: true, maxClusterRadius: 55 })
             : L.featureGroup();
         markerLayer.addTo(map);
-        map.on('popupopen', () => { filterDisclosure.open = false; });
+        map.on('popupopen', () => {
+            filterDisclosure.open = false;
+            setLocationsPanel(false);
+        });
 
         function resizeMapAfterLayout() {
             window.requestAnimationFrame(() => {
@@ -144,12 +154,28 @@
                 document.body.classList.remove('blood-map-fullscreen-open');
                 document.body.style.overflow = previousBodyOverflow;
                 filterDisclosure.open = false;
+                setLocationsPanel(false);
                 fullMapButton.hidden = false;
                 exitFullMapButton.hidden = true;
                 window.scrollTo(0, bodyScrollY);
                 fullMapButton.focus();
             }
             resizeMapAfterLayout();
+        }
+
+        function setLocationsPanel(open) {
+            if (open) {
+                filterDisclosure.open = false;
+                locationsPanel.hidden = false;
+                window.requestAnimationFrame(() => locationsPanel.classList.add('is-open'));
+                locationsToggle.setAttribute('aria-expanded', 'true');
+                return;
+            }
+            locationsPanel.classList.remove('is-open');
+            locationsToggle.setAttribute('aria-expanded', 'false');
+            window.setTimeout(() => {
+                if (!locationsPanel.classList.contains('is-open')) locationsPanel.hidden = true;
+            }, 180);
         }
 
         function resetMapView() {
@@ -164,7 +190,31 @@
         exitFullMapButton.addEventListener('click', () => setFullMapMode(false));
         resetViewButton.addEventListener('click', resetMapView);
         document.addEventListener('keydown', event => {
-            if (event.key === 'Escape' && page.classList.contains('is-fullscreen')) setFullMapMode(false);
+            if (event.key !== 'Escape') return;
+            if (!locationsPanel.hidden) {
+                setLocationsPanel(false);
+                return;
+            }
+            if (page.classList.contains('is-fullscreen')) setFullMapMode(false);
+        });
+        locationsToggle.addEventListener('click', () => setLocationsPanel(locationsPanel.hidden));
+        locationsClose.addEventListener('click', () => setLocationsPanel(false));
+        filterDisclosure.addEventListener('toggle', () => {
+            if (filterDisclosure.open) setLocationsPanel(false);
+        });
+        locationProvince.addEventListener('change', () => {
+            populateLocationCities();
+            const rows = locationRecords.filter(location => normalized(location.province) === normalized(locationProvince.value));
+            if (locationProvince.value && focusLocationRecords(rows, 8)) locationStatus.textContent = `Showing ${locationProvince.value}.`;
+        });
+        locationCity.addEventListener('change', () => {
+            populateLocationBarangays();
+            const rows = locationRecords.filter(location => normalized(location.province) === normalized(locationProvince.value) && normalized(location.city) === normalized(locationCity.value));
+            if (locationCity.value && focusLocationRecords(rows, 11)) locationStatus.textContent = `Showing ${locationCity.value}, ${locationProvince.value}.`;
+        });
+        locationBarangay.addEventListener('change', () => {
+            const location = locationRecords.find(row => normalized(row.province) === normalized(locationProvince.value) && normalized(row.city) === normalized(locationCity.value) && normalized(row.barangay) === normalized(locationBarangay.value));
+            if (location && focusLocationRecords([location], 13)) locationStatus.textContent = `Showing ${locationBarangay.value}, ${locationCity.value}.`;
         });
 
         async function fetchMapItems() {
@@ -206,14 +256,69 @@
 
         function populateLocations() {
             locations.clear(); locationList.replaceChildren();
+            locationRecords = items.map(item => ({
+                label: String(item.location || `${item.city || ''}, ${item.province || ''}`).trim(),
+                province: String(item.province || '').trim(),
+                city: String(item.city || '').trim(),
+                barangay: String(item.barangay || '').trim(),
+                latitude: Number(item.latitude),
+                longitude: Number(item.longitude)
+            })).filter(location => location.province && Number.isFinite(location.latitude) && Number.isFinite(location.longitude));
             items.forEach(item => {
                 const key = normalized(item.location || `${item.city || ''}, ${item.province || ''}`);
                 if (!key || locations.has(key)) return;
-                locations.set(key, { label: item.location || `${item.city || ''}, ${item.province || ''}`, latitude: Number(item.latitude), longitude: Number(item.longitude) });
+                locations.set(key, {
+                    label: item.location || `${item.city || ''}, ${item.province || ''}`,
+                    latitude: Number(item.latitude), longitude: Number(item.longitude),
+                    province: String(item.province || '').trim(), city: String(item.city || '').trim()
+                });
             });
             locations.forEach(location => {
                 const option = document.createElement('option'); option.value = location.label; locationList.append(option);
             });
+            const previousProvince = locationProvince.value;
+            fillLocationSelect(locationProvince, [...new Set(locationRecords.map(location => location.province))].sort((a, b) => a.localeCompare(b)), 'Select province');
+            if ([...locationProvince.options].some(option => option.value === previousProvince)) locationProvince.value = previousProvince;
+            populateLocationCities();
+        }
+
+        function fillLocationSelect(select, values, placeholder) {
+            select.replaceChildren(new Option(placeholder, ''));
+            values.forEach(value => select.append(new Option(value, value)));
+            select.disabled = values.length === 0;
+        }
+
+        function focusLocationRecords(records, zoom) {
+            const points = records.filter(location => philippinesBounds.contains([location.latitude, location.longitude]));
+            if (!points.length) return false;
+            if (points.length > 1) {
+                map.fitBounds(points.map(location => [location.latitude, location.longitude]), { padding: [36, 36], maxZoom: zoom });
+            } else {
+                map.setView([points[0].latitude, points[0].longitude], zoom);
+            }
+            return true;
+        }
+
+        function populateLocationCities() {
+            const province = locationProvince.value;
+            const previousCity = locationCity.value;
+            const rows = locationRecords.filter(location => normalized(location.province) === normalized(province));
+            const cities = [...new Set(rows.map(location => location.city).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+            fillLocationSelect(locationCity, cities, 'Select city / municipality');
+            if (!province) locationCity.disabled = true;
+            if (cities.includes(previousCity)) locationCity.value = previousCity;
+            populateLocationBarangays();
+        }
+
+        function populateLocationBarangays() {
+            const province = locationProvince.value;
+            const city = locationCity.value;
+            const previousBarangay = locationBarangay.value;
+            const rows = locationRecords.filter(location => normalized(location.province) === normalized(province) && normalized(location.city) === normalized(city));
+            const barangays = [...new Set(rows.map(location => location.barangay).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+            fillLocationSelect(locationBarangay, barangays, barangays.length ? 'Select barangay' : 'No barangay map data available');
+            locationBarangay.disabled = !city || barangays.length === 0;
+            if (barangays.includes(previousBarangay)) locationBarangay.value = previousBarangay;
         }
 
         function currentMatches() {
