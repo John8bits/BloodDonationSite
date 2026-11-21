@@ -95,6 +95,7 @@
         let bodyScrollY = 0;
         let previousBodyOverflow = '';
         const map = L.map(element, { center: [12.8797, 121.7740], zoom: 5, minZoom: 5, maxZoom: 18, maxBounds: philippinesBounds, maxBoundsViscosity: 1.0 });
+        if (map.zoomControl) map.zoomControl.setPosition('bottomright');
         L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
