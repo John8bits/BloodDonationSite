@@ -126,6 +126,39 @@ try {
             if (!$statusUpdate->rowCount()) clinic_redirect('Only your open requests can change status.', 'error', 'requests');
             clinic_redirect('Request status updated.', 'success', 'requests');
 
+        case 'clinic_request_delete':
+            $requestId = filter_var($_POST['request_id'] ?? null, FILTER_VALIDATE_INT);
+            if (!$requestId) clinic_redirect('Choose a valid request to delete.', 'error', 'requests');
+            $ownedRequest = $pdo->prepare('SELECT id FROM blood_requests WHERE id=:id AND requester_id=:owner');
+            $ownedRequest->execute([':id'=>$requestId, ':owner'=>$userId]);
+            if (!$ownedRequest->fetchColumn()) clinic_redirect('That request is not managed by your facility.', 'error', 'requests');
+            $responseCount = $pdo->prepare('SELECT COUNT(*) FROM request_responses WHERE request_id=:id');
+            $responseCount->execute([':id'=>$requestId]);
+            if ((int)$responseCount->fetchColumn() > 0) clinic_redirect('This request has responses, so it cannot be deleted. Update its status to close it.', 'error', 'requests');
+            $pdo->prepare('DELETE FROM blood_requests WHERE id=:id AND requester_id=:owner')->execute([':id'=>$requestId, ':owner'=>$userId]);
+            clinic_redirect('Blood request deleted.', 'success', 'requests');
+
+        case 'clinic_offer_delete':
+            $postId = filter_var($_POST['post_id'] ?? null, FILTER_VALIDATE_INT);
+            if (!$postId) clinic_redirect('Choose a valid donation offer to delete.', 'error', 'donation-offers');
+            $offerStatusColumn = $pdo->prepare("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='community_posts' AND COLUMN_NAME='donation_status'");
+            $offerStatusColumn->execute();
+            $statusSelect = (int)$offerStatusColumn->fetchColumn() > 0 ? "COALESCE(donation_status,'available')" : "'available'";
+            $ownedOffer = $pdo->prepare("SELECT id,{$statusSelect} FROM community_posts WHERE id=:id AND user_id=:owner AND post_type='donation'");
+            $ownedOffer->execute([':id'=>$postId, ':owner'=>$userId]);
+            $offerStatus = $ownedOffer->fetch(PDO::FETCH_NUM);
+            if (!$offerStatus) clinic_redirect('That donation offer is not managed by your facility.', 'error', 'donation-offers');
+            if ($offerStatus[1] === 'completed') clinic_redirect('Completed offers are retained as donation records.', 'error', 'donation-offers');
+            $messageTable = $pdo->prepare("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='donation_offer_messages'");
+            $messageTable->execute();
+            if ((int)$messageTable->fetchColumn() > 0) {
+                $messageCount = $pdo->prepare('SELECT COUNT(*) FROM donation_offer_messages WHERE post_id=:id');
+                $messageCount->execute([':id'=>$postId]);
+                if ((int)$messageCount->fetchColumn() > 0) clinic_redirect('This offer has conversation history, so it cannot be deleted. Mark it unavailable instead.', 'error', 'donation-offers');
+            }
+            $pdo->prepare("DELETE FROM community_posts WHERE id=:id AND user_id=:owner AND post_type='donation'")->execute([':id'=>$postId, ':owner'=>$userId]);
+            clinic_redirect('Donation offer deleted.', 'success', 'donation-offers');
+
         case 'clinic_profile_update':
             $contact = trim($_POST['contact_number'] ?? ''); $officialEmail = trim($_POST['official_email'] ?? ''); $representative = trim($_POST['authorized_representative'] ?? ''); $description = trim($_POST['description'] ?? '');
             if ($contact === '' || strlen($contact)>30 || !filter_var($officialEmail,FILTER_VALIDATE_EMAIL) || strlen($officialEmail)>255 || $representative === '' || strlen($representative)>160 || strlen($description)>1000) clinic_redirect('Enter valid contact and representative details.', 'error', 'profile');

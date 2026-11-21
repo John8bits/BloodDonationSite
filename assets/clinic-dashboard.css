@@ -207,6 +207,51 @@
 .clinic-flash { padding: 13px 16px; margin-bottom: 18px; border: 1px solid #ccebd7; border-radius: 10px; background: #e9f7ef; color: #216f3e; }
 .clinic-flash.error { border-color: #f3c9cc; background: #fff0f0; color: #a42d35; }
 
+/* Clinic request and offer feeds inherit the member panel card language. */
+.clinic-feed { display: grid; gap: 18px; }
+.clinic-main .clinic-member-card {
+    position: relative;
+    min-width: 0;
+    padding: 22px 24px;
+    overflow: visible;
+    background: #fff;
+    border: 1px solid #e4eaf1;
+    border-radius: 20px;
+    box-shadow: 0 8px 26px rgba(31, 35, 41, .055);
+}
+.clinic-main .clinic-member-card .post-meta { padding-right: 40px; }
+.clinic-main .clinic-member-card .post-author { min-width: 0; }
+.clinic-main .clinic-member-card .post-author-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; }
+.clinic-main .clinic-member-card .post-author-heading strong { color: #1e293b; font-size: 16px; }
+.clinic-main .clinic-member-card .post-author > span { color: #697b95; }
+.clinic-main .clinic-member-card .avatar { width: 48px; height: 48px; flex: 0 0 48px; border-radius: 50%; background: #fde8e9; color: #b4232e; font-weight: 800; }
+.clinic-main .clinic-member-card .request-heading { align-items: center; padding-right: 48px; }
+.clinic-main .clinic-member-card .blood-mark { width: 52px; height: 52px; flex: 0 0 52px; display: grid; place-items: center; border-radius: 50%; background: #fde8e9; color: #b4232e; font-size: 16px; font-weight: 800; }
+.clinic-main .clinic-member-card .request-heading-badges { margin-left: auto; }
+.clinic-main .clinic-member-card .donation-offer-details { margin: 16px 0; padding: 14px 18px; border-radius: 12px; background: #f8fafc; }
+.clinic-main .clinic-member-card .donation-offer-details p { font-size: 14px; }
+.clinic-main .clinic-member-card .post-content,
+.clinic-main .clinic-member-card .request-details { color: #475569; font-size: 15px; line-height: 1.6; overflow-wrap: anywhere; }
+.clinic-main .clinic-member-card .request-date { margin: 12px 0 0; padding-top: 12px; border-top: 1px solid #edf0f4; color: #738198 !important; font-size: 12px !important; }
+.clinic-main .clinic-member-card .clinic-offer-status-row { margin: 14px 0 0 58px; }
+.clinic-main .clinic-member-card .content-management-menu { top: 18px; right: 18px; }
+.clinic-main .clinic-member-card .content-management-menu > summary { width: 38px; min-height: 34px; padding: 0; border-radius: 9px; color: #b4232e; background: #fff; font-size: 23px; }
+.clinic-main .clinic-member-card .content-management-panel { width: min(220px, calc(100vw - 40px)); }
+.clinic-main .clinic-member-card .content-management-panel .clinic-menu-note { margin: 2px; color: #718096; font-size: 11px; line-height: 1.45; }
+.clinic-main .clinic-member-card .content-management-panel .inline-actions,
+.clinic-main .clinic-member-card .content-management-panel .content-status-form { display: grid; width: 100%; gap: 8px; }
+.clinic-main .clinic-member-card .content-management-panel .text-button { justify-self: start; padding: 4px 2px; color: #64748b; background: transparent; border: 0; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+.clinic-empty { margin-top: 18px; }
+.clinic-main .dashboard-modal { max-width: 800px; }
+@media (max-width: 560px) {
+    .clinic-header > .button { align-self: flex-end; }
+    .clinic-main .clinic-member-card { padding: 18px 16px; border-radius: 16px; }
+    .clinic-main .clinic-member-card .request-heading { align-items: flex-start; flex-wrap: wrap; }
+    .clinic-main .clinic-member-card .request-heading-badges { width: 100%; margin: 0 0 0 64px; justify-content: flex-start; }
+    .clinic-main .clinic-member-card .post-meta time { width: 100%; margin-left: 58px; }
+    .clinic-main .clinic-member-card .clinic-offer-status-row { margin-left: 58px; }
+}
+
 @media (max-width: 1000px) {
     .clinic-shell { grid-template-columns: 230px minmax(0, 1fr); }
     .clinic-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
