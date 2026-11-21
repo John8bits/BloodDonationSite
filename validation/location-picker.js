@@ -2,7 +2,7 @@
     'use strict';
     if (!window.L) return;
 
-    const bounds = L.latLngBounds([4.0, 116.0], [21.7, 127.5]);
+    const bounds = L.latLngBounds([4.0, 114.0], [21.7, 127.5]);
     const initialized = new WeakSet();
     const dialogHooks = new WeakSet();
 

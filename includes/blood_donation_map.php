@@ -24,11 +24,16 @@ function blife_render_blood_donation_map(string $apiUrl, string $requestHref, st
         </form>
         <div class="blood-map-toolbar">
             <p>Active blood requests and available donation offers across the Philippines.</p>
-            <button class="blood-map-refresh" type="button" data-map-refresh>Refresh posts</button>
+            <div class="blood-map-toolbar-actions">
+                <button class="blood-map-nearby" type="button" data-nearby-toggle aria-pressed="false" disabled>Show Nearby (50 km)</button>
+                <button class="blood-map-refresh" type="button" data-map-refresh>Refresh posts</button>
+            </div>
+            <p class="blood-map-nearby-count" data-nearby-count aria-live="polite">Nearby counts will appear when your saved location is available.</p>
             <div class="blood-map-legend" aria-label="Map legend">
                 <span><i class="fa-solid fa-droplet request-map-symbol" aria-hidden="true"></i> Blood request</span>
                 <span><i class="fa-solid fa-hand-holding-heart offer-map-symbol" aria-hidden="true"></i> Donation offer</span>
                 <a href="https://www.openstreetmap.org/fixthemap" target="_blank" rel="noopener noreferrer">Report a map issue</a>
+                <span>Approximate locality boundaries: <a href="https://data.humdata.org/dataset/cod-ab-phl" target="_blank" rel="noopener noreferrer">OCHA COD-AB (NAMRIA / PSA)</a> and <a href="https://psa.gov.ph/classification/psgc" target="_blank" rel="noopener noreferrer">PSA PSGC</a></span>
             </div>
         </div>
         <div class="blood-map-status" data-blood-map-status role="status" aria-live="polite">Loading active posts…</div>

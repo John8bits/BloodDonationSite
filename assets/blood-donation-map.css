@@ -10,6 +10,11 @@
 .blood-map-refresh { min-height: 40px; padding: 0 13px; color: #c9252b; background: #fff; border: 1px solid #e3b6b8; border-radius: 9px; font: inherit; font-weight: 700; cursor: pointer; }
 .blood-map-refresh:hover, .blood-map-refresh:focus-visible { background: #fff5f5; }
 .blood-map-refresh:disabled { opacity: .6; cursor: wait; }
+.blood-map-toolbar-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.blood-map-nearby { min-height: 40px; padding: 0 13px; color: #187348; background: #fff; border: 1px solid #b7dcc8; border-radius: 9px; font: inherit; font-weight: 700; cursor: pointer; }
+.blood-map-nearby:hover, .blood-map-nearby[aria-pressed="true"] { color: #fff; background: #16834a; border-color: #16834a; }
+.blood-map-nearby:disabled { opacity: .55; cursor: not-allowed; }
+.blood-map-toolbar > .blood-map-nearby-count { flex: 1 1 100%; margin: 0; color: #64748b; font-size: .88rem; }
 .blood-map-legend { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; color: #334155; font-size: .92rem; }
 .blood-map-legend span { display: inline-flex; align-items: center; gap: 8px; }
 .request-map-symbol { color: #c9252b; }
@@ -31,6 +36,8 @@
 .blood-map-popup p { margin: 5px 0; font-size: .9rem; }
 .blood-map-popup .map-popup-kind { color: #64748b; font-size: .8rem; text-transform: uppercase; letter-spacing: .05em; }
 .blood-map-popup .map-popup-verified { color: #187348; font-size: .8rem; }
+.blood-map-popup .map-popup-approximate, .blood-map-popup .map-popup-distance { color: #795b15; font-size: .82rem; }
+.blood-map-popup .map-popup-publisher { color: #475569; font-size: .86rem; font-weight: 700; }
 .blood-map-popup-link { display: inline-flex; margin-top: 10px; padding: 8px 12px; color: #fff !important; background: #c9252b; border-radius: 8px; font-weight: 700; text-decoration: none; }
 .blood-map-popup-link:hover, .blood-map-popup-link:focus-visible { background: #a91f24; }
 .marker-cluster-small, .marker-cluster-medium, .marker-cluster-large { background-color: rgba(201, 37, 43, .22); }
@@ -42,6 +49,8 @@
   .blood-map-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 13px; }
   .blood-map-reset { grid-column: 1 / -1; }
   .blood-map-toolbar { align-items: flex-start; flex-direction: column; padding: 14px; }
+  .blood-map-toolbar-actions { width: 100%; }
+  .blood-map-toolbar-actions button { flex: 1; }
   .blood-map-location-search { grid-template-columns: 1fr; }
   .blood-map-location-search p { grid-column: 1; }
   .blood-map-location-search > div { flex-direction: column; }

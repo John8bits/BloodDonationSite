@@ -13,7 +13,7 @@ function blife_validate_post_location(string $province, string $city, string $ba
     $latitudeValue = (float) $latitude;
     $longitudeValue = (float) $longitude;
     // Broad Philippines bounds; map selection is also constrained to this area.
-    if (!is_finite($latitudeValue) || !is_finite($longitudeValue) || $latitudeValue < 4.0 || $latitudeValue > 21.7 || $longitudeValue < 116.0 || $longitudeValue > 127.5) {
+    if (!is_finite($latitudeValue) || !is_finite($longitudeValue) || $latitudeValue < 4.0 || $latitudeValue > 21.7 || $longitudeValue < 114.0 || $longitudeValue > 127.5) {
         return false;
     }
     return [
