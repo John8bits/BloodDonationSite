@@ -95,8 +95,13 @@
         nearbyButton.before(nearbyPlaceholder);
         let bodyScrollY = 0;
         let previousBodyOverflow = '';
+        let isDefaultOverview = true;
+        let applyingOverviewFit = false;
         const map = L.map(element, { center: [12.8797, 121.7740], zoom: 5, minZoom: 4, maxZoom: 18, maxBounds: philippinesBounds, maxBoundsViscosity: 1.0 });
         if (map.zoomControl) map.zoomControl.setPosition('bottomright');
+        map.on('movestart zoomstart', () => {
+            if (!applyingOverviewFit) isDefaultOverview = false;
+        });
         L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -123,7 +128,10 @@
         function resizeMapAfterLayout() {
             window.requestAnimationFrame(() => {
                 map.invalidateSize({ pan: false });
-                window.setTimeout(() => map.invalidateSize({ pan: false }), 120);
+                window.setTimeout(() => {
+                    map.invalidateSize({ pan: false });
+                    if (isDefaultOverview) fitPhilippines();
+                }, 120);
             });
         }
 
@@ -169,11 +177,16 @@
         }
 
         function fitPhilippines() {
+            const leftPadding = Math.min(240, Math.round(map.getSize().x * 0.1 + 24));
+            applyingOverviewFit = true;
             map.fitBounds(philippinesDisplayBounds, {
-                paddingTopLeft: [24, 24],
+                paddingTopLeft: [leftPadding, 24],
                 paddingBottomRight: [24, 24],
-                maxZoom: 6
+                maxZoom: 6,
+                animate: false
             });
+            isDefaultOverview = true;
+            window.setTimeout(() => { applyingOverviewFit = false; }, 0);
         }
 
         function resetMapView() { fitPhilippines(); }
@@ -201,6 +214,7 @@
             populateLocationCities();
             const rows = locationRecords.filter(location => normalized(location.province) === normalized(locationProvince.value));
             if (locationProvince.value && focusLocationRecords(rows, 8)) {
+                isDefaultOverview = false;
                 locationStatus.textContent = `Showing ${locationProvince.value}.`;
                 setLocationsPanel(false);
                 locationsToggle.focus();
@@ -210,6 +224,7 @@
             populateLocationBarangays();
             const rows = locationRecords.filter(location => normalized(location.province) === normalized(locationProvince.value) && normalized(location.city) === normalized(locationCity.value));
             if (locationCity.value && focusLocationRecords(rows, 11)) {
+                isDefaultOverview = false;
                 locationStatus.textContent = `Showing ${locationCity.value}, ${locationProvince.value}.`;
                 setLocationsPanel(false);
                 locationsToggle.focus();
@@ -218,6 +233,7 @@
         locationBarangay.addEventListener('change', () => {
             const location = locationRecords.find(row => normalized(row.province) === normalized(locationProvince.value) && normalized(row.city) === normalized(locationCity.value) && normalized(row.barangay) === normalized(locationBarangay.value));
             if (location && focusLocationRecords([location], 13)) {
+                isDefaultOverview = false;
                 locationStatus.textContent = `Showing ${locationBarangay.value}, ${locationCity.value}.`;
                 setLocationsPanel(false);
                 locationsToggle.focus();
@@ -417,6 +433,7 @@
                 focused = true;
             }
             if (!focused) { locationStatus.textContent = 'No mapped city or province matches that search.'; return; }
+            isDefaultOverview = false;
             nearbyOnly = false; nearbyButton.setAttribute('aria-pressed', 'false'); nearbyButton.textContent = 'Show Nearby (50 km)';
             locationStatus.textContent = `Map centered on ${label}.`;
             setLocationsPanel(false);
@@ -431,7 +448,10 @@
             nearbyOnly = !nearbyOnly;
             nearbyButton.setAttribute('aria-pressed', nearbyOnly ? 'true' : 'false');
             nearbyButton.textContent = nearbyOnly ? 'Show All Posts' : `Show Nearby (${nearbyRadiusKm} km)`;
-            if (nearbyOnly) map.setView([Number(viewerLocation.latitude), Number(viewerLocation.longitude)], viewerLocation.location_level === 'province' ? 8 : 10);
+            if (nearbyOnly) {
+                isDefaultOverview = false;
+                map.setView([Number(viewerLocation.latitude), Number(viewerLocation.longitude)], viewerLocation.location_level === 'province' ? 8 : 10);
+            }
             renderMarkers();
         });
         page.querySelector('[data-location-go]').addEventListener('click', goToLocation);
