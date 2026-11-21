@@ -3,6 +3,8 @@
 session_start();
 require_once __DIR__ . '/../config/auth.php';
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../includes/location_picker.php';
+require_once __DIR__ . '/../includes/blood_donation_map.php';
 
 require_login('../login.php');
 
@@ -61,7 +63,7 @@ function render_notification_items(array $notifications, string $csrfToken): voi
 $bloodTypes = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 $philippineProvinces = require __DIR__ . '/../config/philippine_provinces.php';
 $pages = [
-    'home', 'find-blood', 'blood-requests', 'donation-offers', 'events', 'activity',
+    'home', 'find-blood', 'blood-requests', 'donation-offers', 'blood-map', 'events', 'activity',
     'my-posts', 'my-requests', 'my-community-posts', 'my-blood-requests', 'my-donation-offers',
     'responded', 'saved', 'messages', 'notifications',
     'profile', 'settings', 'help', 'search'
@@ -116,6 +118,7 @@ $messageInboxAvailable = false;
 $donorVerificationAvailable = false;
 $donationTimeAvailable = false;
 $donationStatusAvailable = false;
+$donationLocationFieldsAvailable = false;
 
 try {
     $pdo = (new Database())->getConnection();
@@ -171,6 +174,7 @@ try {
                 $columnInfo['donation_location'],
                 $columnInfo['donation_available_date']
             );
+            $donationLocationFieldsAvailable = isset($columnInfo['donation_province'], $columnInfo['donation_city'], $columnInfo['donation_barangay'], $columnInfo['donation_latitude'], $columnInfo['donation_longitude']);
         }
         if ($table === 'uinfo') {
             $donorVerificationAvailable = array_key_exists('donor_verified', $columnInfo);
@@ -407,8 +411,10 @@ try {
         if ($eventStatusColumnAvailable) {
             $extraPostColumns[] = 'cp.event_title';
             $extraPostColumns[] = 'cp.event_time';
+            $extraPostColumns[] = 'cp.organizer';
             $extraPostColumns[] = 'cp.venue';
             $extraPostColumns[] = 'cp.event_city';
+            $extraPostColumns[] = 'cp.public_contact';
         }
         if ($donationFieldsAvailable) {
             $extraPostColumns[] = 'cp.donation_blood_type';
@@ -416,6 +422,9 @@ try {
             $extraPostColumns[] = 'cp.donation_available_date';
             if ($donationTimeAvailable) {
                 $extraPostColumns[] = 'cp.donation_available_time';
+            }
+            if ($donationLocationFieldsAvailable) {
+                foreach (['donation_province', 'donation_city', 'donation_barangay', 'donation_latitude', 'donation_longitude'] as $locationColumn) $extraPostColumns[] = 'cp.' . $locationColumn;
             }
         }
         if ($donationStatusAvailable) $extraPostColumns[] = 'cp.donation_status';
@@ -775,6 +784,7 @@ $navGroups = [
         'home' => ['🏠︎', 'Home'],
         'blood-requests' => ['+', 'Blood Requests'],
         'donation-offers' => ['♥', 'Donation Offers'],
+        'blood-map' => ['⌖', 'Blood Donation Map'],
         // 'events' => ['◷', 'Donation Events']
     ],
     'Activities' => [
@@ -798,6 +808,7 @@ $pageTitles = [
     'find-blood' => 'Find Blood',
     'blood-requests' => 'Blood Requests',
     'donation-offers' => 'Donation Offers',
+    'blood-map' => 'Blood Donation Map',
     'events' => 'Donation Events',
     'activity' => 'My Activity',
     'my-posts' => 'My Post',
@@ -811,7 +822,7 @@ $pageTitles = [
     'search' => 'Search Results'
 ];
 
-function render_post_composer(string $csrfToken, string $initials, bool $donationOnly = false, bool $asModal = false, bool $donationTimeAvailable = false): void
+function render_post_composer(string $csrfToken, string $initials, bool $donationOnly = false, bool $asModal = false, bool $donationTimeAvailable = false, array $provinces = []): void
 {
     $formId = $donationOnly ? 'donationPostComposer' : 'postComposer';
     $modalId = $donationOnly ? 'donationOfferModal' : 'createPostModal';
@@ -858,10 +869,8 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                         <?php endforeach; ?>
                     </select>
                 </label>
-                    <label>Province
-                        <input type="text" name="donation_location" maxlength="120" placeholder="e.g., Southern Leyte" <?= $donationOnly ? 'required' : '' ?>>
-                </label>
             </div>
+            <?php blife_location_picker($provinces, 'donation', 'donationCreateMap', []); ?>
                 <div class="form-row">
                     <label>Available date <span class="optional">(optional)</span>
                         <input type="date" name="donation_available_date" min="<?= h(date('Y-m-d')) ?>">
@@ -879,9 +888,8 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
         <!-- <p class="form-help">An offer is not confirmed blood availability or medical eligibility. Coordinate screening and donation through an authorized hospital or blood bank.</p> -->
     </form>
     <?php if ($donationOnly || $asModal): ?></dialog><?php endif; ?>
-    <?php
+<?php
 }
-
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -894,6 +902,11 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="../assets/user-dashboard.css">
+    <link rel="stylesheet" href="../assets/location-picker.css">
+    <link rel="stylesheet" href="../assets/blood-donation-map.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 </head>
 <body>
@@ -966,7 +979,7 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                                title="<?= h($item[1]) ?>"
                                <?= $activePage === $page ? 'aria-current="page"' : '' ?>>
                                <span class="nav-icon" aria-hidden="true"><i class="fa-solid <?= h([
-                                   'home' => 'fa-house', 'blood-requests' => 'fa-droplet', 'donation-offers' => 'fa-hand-holding-droplet',
+                                   'home' => 'fa-house', 'blood-requests' => 'fa-droplet', 'donation-offers' => 'fa-hand-holding-droplet', 'blood-map' => 'fa-map-location-dot',
                                    'activity' => 'fa-clock-rotate-left', 'messages' => 'fa-comments', 'my-posts' => 'fa-file-lines',
                                    'responded' => 'fa-reply', 'saved' => 'fa-bookmark', 'profile' => 'fa-user',
                                    'settings' => 'fa-gear', 'help' => 'fa-circle-question'
@@ -1031,7 +1044,7 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                                 </div>
                             <?php else: ?>
                                 <?php foreach ($posts as $post): ?>
-                                    <?php render_post_card($post, $commentsByPost[$post['id']] ?? [], $csrfToken, $userId, false, false, $donationStatusAvailable, $donationTimeAvailable); ?>
+                                    <?php render_post_card($post, $commentsByPost[$post['id']] ?? [], $csrfToken, $userId, false, false, $donationStatusAvailable, $donationTimeAvailable, $philippineProvinces); ?>
                                 <?php endforeach; ?>
                             <?php endif; ?>
 
@@ -1058,10 +1071,12 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                             </section>
                         </aside> -->
                     </div>
+                <?php elseif ($activePage === 'blood-map'): ?>
+                    <?php blife_render_blood_donation_map('../api/map_data.php', 'dashboard.php?page=blood-requests#request-', 'dashboard.php?page=donation-offers#post-'); ?>
                 <?php elseif ($activePage === 'donation-offers'): ?>
 
                     <?php if ($donationFieldsAvailable): ?>
-                        <?php render_post_composer($csrfToken, $initials, true, false, $donationTimeAvailable); ?>
+                        <?php render_post_composer($csrfToken, $initials, true, false, $donationTimeAvailable, $philippineProvinces); ?>
                     <?php else: ?>
                         <div class="notice notice-error" role="alert">Donation offers need the database update in <code>database_sql/donation_offers_migration.sql</code>. Existing member accounts and blood requests remain unchanged.</div>
                     <?php endif; ?>
@@ -1083,7 +1098,7 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                             <div class="empty-state panel"><strong>No donation offers have been published yet.</strong><span>You can still request blood or publish the first offer when the database update is applied.</span></div>
                         <?php else: ?>
                             <?php foreach ($posts as $post): ?>
-                                <?php render_post_card($post, $commentsByPost[$post['id']] ?? [], $csrfToken, $userId, true, $offerMessagesAvailable, $donationStatusAvailable, $donationTimeAvailable); ?>
+                                <?php render_post_card($post, $commentsByPost[$post['id']] ?? [], $csrfToken, $userId, true, $offerMessagesAvailable, $donationStatusAvailable, $donationTimeAvailable, $philippineProvinces); ?>
                             <?php endforeach; ?>
                         <?php endif; ?>
                     </section>
@@ -1141,12 +1156,7 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                                     <label>Blood type<select name="blood_type" required><option value="">Select</option><?php foreach ($bloodTypes as $type): ?><option value="<?= h($type) ?>"><?= h($type) ?></option><?php endforeach; ?></select></label>
                                     <label>Units<input type="number" name="units" min="1" max="20" value="1" required></label>
                                 </div>
-                                <label>Province
-                                    <select name="location" required>
-                                        <option value="" selected disabled>-- Select province --</option>
-                                        <?php foreach ($philippineProvinces as $province): ?><option value="<?= h($province) ?>"><?= h($province) ?></option><?php endforeach; ?>
-                                    </select>
-                                </label>
+                                <?php blife_location_picker($philippineProvinces, 'request', 'requestCreateMap', [], 'location'); ?>
                                 <label>Urgency
                                     <select name="urgency" required>
                                         <option value="routine">Routine</option>
@@ -1164,7 +1174,7 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                     <section class="panel">
                         <p class="form-help">Event details and dates are shared by members and are not independently verified by BLife PH. Contact the organizer or facility before attending.</p>
                         <?php if (!$posts): ?><div class="empty-state"><strong>No upcoming donation event announcements.</strong><span>Members can share an event from Home / Feed.</span><a class="button button-primary" href="dashboard.php?page=home">Go to community feed</a></div><?php else: ?>
-                            <?php foreach ($posts as $post): ?><?php render_post_card($post, $commentsByPost[$post['id']] ?? [], $csrfToken, $userId, false, false, $donationStatusAvailable, $donationTimeAvailable); ?><?php endforeach; ?>
+                            <?php foreach ($posts as $post): ?><?php render_post_card($post, $commentsByPost[$post['id']] ?? [], $csrfToken, $userId, false, false, $donationStatusAvailable, $donationTimeAvailable, $philippineProvinces); ?><?php endforeach; ?>
                         <?php endif; ?>
                     </section>
                 <?php elseif ($activePage === 'activity'): ?>
@@ -1190,7 +1200,7 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                             <section class="my-post-section" id="my-community-posts" role="tabpanel" aria-labelledby="my-community-tab" data-my-post-panel="community" tabindex="0">
                                 <div class="section-heading"><h2>Community Post</h2></div>
                                 <?php if (!$communityPosts): ?><div class="empty-state panel"><strong>No community updates yet.</strong><span>Updates you share will appear here.</span></div><?php else: ?>
-                                    <div class="feed-column"><?php foreach ($communityPosts as $post): ?><?php render_post_card($post, $commentsByPost[$post['id']] ?? [], $csrfToken, $userId, false, false, $donationStatusAvailable, $donationTimeAvailable); ?><?php endforeach; ?></div>
+                                    <div class="feed-column"><?php foreach ($communityPosts as $post): ?><?php render_post_card($post, $commentsByPost[$post['id']] ?? [], $csrfToken, $userId, false, false, $donationStatusAvailable, $donationTimeAvailable, $philippineProvinces); ?><?php endforeach; ?></div>
                                 <?php endif; ?>
                             </section>
                             <section class="my-post-section" id="my-blood-requests" role="tabpanel" aria-labelledby="my-blood-tab" data-my-post-panel="blood" tabindex="0" hidden>
@@ -1203,14 +1213,14 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                                 <div class="section-heading"><h2>Donation Offer</h2></div>
                                 <?php $donationPosts = array_filter($posts, static fn(array $post): bool => $post['post_type'] === 'donation'); ?>
                                 <?php if (!$donationPosts): ?><div class="empty-state panel"><strong>No donation offers yet.</strong><span>Offers you publish will appear here.</span><a class="button button-primary" href="dashboard.php?page=donation-offers">Offer Donation</a></div><?php else: ?>
-                                    <div class="feed-column"><?php foreach ($donationPosts as $post): ?><?php render_post_card($post, $commentsByPost[$post['id']] ?? [], $csrfToken, $userId, true, false, $donationStatusAvailable, $donationTimeAvailable); ?><?php endforeach; ?></div>
+                                    <div class="feed-column"><?php foreach ($donationPosts as $post): ?><?php render_post_card($post, $commentsByPost[$post['id']] ?? [], $csrfToken, $userId, true, false, $donationStatusAvailable, $donationTimeAvailable, $philippineProvinces); ?><?php endforeach; ?></div>
                                 <?php endif; ?>
                             </section>
                         </div>
                     <?php else: ?>
                         <section class="feed-column">
                             <?php if (!$posts): ?><div class="empty-state panel"><strong>No saved posts yet.</strong><span>Save posts from the community feed to find them here.</span></div><?php else: ?>
-                                <?php foreach ($posts as $post): ?><?php render_post_card($post, $commentsByPost[$post['id']] ?? [], $csrfToken, $userId, false, false, $donationStatusAvailable, $donationTimeAvailable); ?><?php endforeach; ?>
+                                <?php foreach ($posts as $post): ?><?php render_post_card($post, $commentsByPost[$post['id']] ?? [], $csrfToken, $userId, false, false, $donationStatusAvailable, $donationTimeAvailable, $philippineProvinces); ?><?php endforeach; ?>
                             <?php endif; ?>
                         </section>
                     <?php endif; ?>
@@ -1410,7 +1420,7 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                             <h2>Blood requests</h2>
                             <?php if (!$searchRequests): ?><p class="empty-inline">No matching open blood requests.</p><?php else: ?><?php foreach ($searchRequests as $request): ?><?php render_request_card($request, $csrfToken, (int) $request['requester_id'] === $userId, true, $philippineProvinces); ?><?php endforeach; ?><?php endif; ?>
                             <h2>Community posts and events</h2>
-                            <?php if (!$searchPosts): ?><p class="empty-inline">No matching community posts or events.</p><?php else: ?><?php foreach ($searchPosts as $post): ?><?php render_post_card($post, $commentsByPost[$post['id']] ?? [], $csrfToken, $userId, false, false, $donationStatusAvailable, $donationTimeAvailable); ?><?php endforeach; ?><?php endif; ?>
+                            <?php if (!$searchPosts): ?><p class="empty-inline">No matching community posts or events.</p><?php else: ?><?php foreach ($searchPosts as $post): ?><?php render_post_card($post, $commentsByPost[$post['id']] ?? [], $csrfToken, $userId, false, false, $donationStatusAvailable, $donationTimeAvailable, $philippineProvinces); ?><?php endforeach; ?><?php endif; ?>
                         <?php endif; ?>
                     </section>
                 <?php endif; ?>
@@ -1420,6 +1430,10 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
         </main>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+    <script src="../validation/location-picker.js"></script>
+    <script src="../validation/blood-donation-map.js"></script>
     <script src="../validation/user-dashboard.js"></script>
 </body>
 </html>
@@ -1436,7 +1450,7 @@ function render_request_card(array $request, string $csrfToken, bool $isOwn, boo
         $requesterName = 'BLife PH member';
     }
     ?>
-    <article class="request-card panel donation-offer-card<?= $isOwn ? ' request-card-own' : '' ?>">
+    <article class="request-card panel donation-offer-card<?= $isOwn ? ' request-card-own' : '' ?>" id="request-<?= (int) $request['id'] ?>">
         <?php if ($isOwn): ?>
             <details class="content-management-menu request-management-menu">
                 <summary aria-label="Manage this blood request">&hellip;</summary>
@@ -1455,12 +1469,7 @@ function render_request_card(array $request, string $csrfToken, bool $isOwn, boo
                     <label>Blood type<select name="blood_type" required><?php foreach (['A+','A-','B+','B-','AB+','AB-','O+','O-'] as $type): ?><option value="<?= h($type) ?>" <?= $request['blood_type'] === $type ? 'selected' : '' ?>><?= h($type) ?></option><?php endforeach; ?></select></label>
                     <label>Units<input type="number" name="units" min="1" max="20" required value="<?= (int) $request['units'] ?>"></label>
                     <label>Province
-                        <select name="location" required>
-                            <option value="" disabled <?= !in_array($request['location'], $philippineProvinces, true) ? 'selected' : '' ?>>Select province</option>
-                            <?php foreach ($philippineProvinces as $province): ?><option value="<?= h($province) ?>" <?= $request['location'] === $province ? 'selected' : '' ?>><?= h($province) ?></option><?php endforeach; ?>
-                        </select>
-                        <?php if (!in_array($request['location'], $philippineProvinces, true)): ?><small class="form-help">Choose a province to replace the current location.</small><?php endif; ?>
-                    </label>
+                    <?php blife_location_picker($philippineProvinces, 'request', 'requestEditMap' . (int) $request['id'], ['province' => $request['location'], 'city' => $request['city'] ?? '', 'barangay' => $request['barangay'] ?? '', 'latitude' => $request['latitude'] ?? '', 'longitude' => $request['longitude'] ?? ''], 'location'); ?>
                     <label>Needed by<input type="date" name="needed_by" min="<?= h(date('Y-m-d')) ?>" required value="<?= h($request['needed_by']) ?>"></label>
                     <label>Urgency<select name="urgency" required><?php foreach (['routine' => 'Routine', 'urgent' => 'Urgent', 'emergency' => 'Emergency'] as $urgencyValue => $urgencyLabel): ?><option value="<?= h($urgencyValue) ?>" <?= $request['urgency'] === $urgencyValue ? 'selected' : '' ?>><?= h($urgencyLabel) ?></option><?php endforeach; ?></select></label>
                     <label>Details<textarea name="details" maxlength="1000" rows="3"><?= h($request['details']) ?></textarea></label>
@@ -1485,7 +1494,7 @@ function render_request_card(array $request, string $csrfToken, bool $isOwn, boo
         <div class="donation-offer-details request-offer-details">
             <p><strong>Blood Type:</strong> <?= h($request['blood_type']) ?></p>
             <p><strong>Unit:</strong> <?= (int) $request['units'] ?></p>
-            <p><strong>Province:</strong> <?= h($request['location']) ?></p>
+            <p><strong>Location:</strong> <?= h(trim(($request['city'] ?? '') . ', ' . $request['location'], ', ')) ?></p>
             <?php if (!empty($request['hospital'])): ?><p><strong>Hospital:</strong> <?= h($request['hospital']) ?></p><?php endif; ?>
             <p><strong>Needed by:</strong> <?= h(date('M j, Y', strtotime($request['needed_by']))) ?></p>
         </div>
@@ -1568,7 +1577,7 @@ function render_offer_message_form(int $postId, int $seekerId, string $csrfToken
     <?php
 }
 
-function render_post_card(array $post, array $comments, string $csrfToken, int $userId, bool $donationOfferView = false, bool $offerMessagesAvailable = false, bool $donationStatusAvailable = false, bool $donationTimeAvailable = false): void
+function render_post_card(array $post, array $comments, string $csrfToken, int $userId, bool $donationOfferView = false, bool $offerMessagesAvailable = false, bool $donationStatusAvailable = false, bool $donationTimeAvailable = false, array $philippineProvinces = []): void
 {
     $authorName = trim((string) ($post['author_facility_name'] ?? ''));
     if ($authorName === '') $authorName = trim(($post['author_name'] ?? '') . ' ' . ($post['author_last_name'] ?? ''));
@@ -1590,6 +1599,8 @@ function render_post_card(array $post, array $comments, string $csrfToken, int $
         <?php if ($post['post_type'] === 'event' && !empty($post['event_title'])): ?><h3 class="event-card-title"><?= h($post['event_title']) ?></h3><?php endif; ?>
         <?php if ($post['post_type'] === 'event' && !empty($post['event_date'])): ?><p class="event-date-label">Event date: <?= h(date('M j, Y', strtotime($post['event_date']))) ?><?php if (!empty($post['event_time'])): ?> · <?= h(substr($post['event_time'], 0, 5)) ?><?php endif; ?></p><?php endif; ?>
         <?php if ($post['post_type'] === 'event' && (!empty($post['venue']) || !empty($post['event_city']))): ?><p class="event-date-label"><?= h(trim(($post['venue'] ?? '') . ' ' . ($post['event_city'] ?? ''))) ?></p><?php endif; ?>
+        <?php if ($post['post_type'] === 'event' && !empty($post['organizer'])): ?><p class="event-date-label">Organizer: <?= h($post['organizer']) ?></p><?php endif; ?>
+        <?php if ($post['post_type'] === 'event' && !empty($post['public_contact'])): ?><p class="event-date-label">Public contact: <?= h($post['public_contact']) ?></p><?php endif; ?>
         <?php if ($post['post_type'] === 'donation' && !empty($post['donation_blood_type'])): ?>
             <?php if ($isOwnPost && $donationStatusAvailable): $offerStatus = $post['donation_status'] ?? 'available'; ?><p><span class="status-badge status-<?= h($offerStatus) ?>"><?= h(ucfirst($offerStatus)) ?></span></p><?php endif; ?>
             <div class="donation-offer-details">
@@ -1672,7 +1683,7 @@ function render_post_card(array $post, array $comments, string $csrfToken, int $
                     <label>Post content<textarea name="content" maxlength="1000" rows="4" required><?= h($post['content']) ?></textarea></label>
                     <?php if ($post['post_type'] === 'donation'): ?>
                         <label>Blood type<select name="donation_blood_type" required><?php foreach (['A+','A-','B+','B-','AB+','AB-','O+','O-'] as $type): ?><option value="<?= h($type) ?>" <?= ($post['donation_blood_type'] ?? '') === $type ? 'selected' : '' ?>><?= h($type) ?></option><?php endforeach; ?></select></label>
-                        <label>Location<input name="donation_location" maxlength="120" required value="<?= h($post['donation_location'] ?? '') ?>"></label>
+                        <?php blife_location_picker($philippineProvinces, 'donation', 'donationEditMap' . (int) $post['id'], ['province' => $post['donation_province'] ?? (in_array($post['donation_location'] ?? '', $philippineProvinces, true) ? $post['donation_location'] : ''), 'city' => $post['donation_city'] ?? (in_array($post['donation_location'] ?? '', $philippineProvinces, true) ? '' : ($post['donation_location'] ?? '')), 'barangay' => $post['donation_barangay'] ?? '', 'latitude' => $post['donation_latitude'] ?? '', 'longitude' => $post['donation_longitude'] ?? '']); ?>
                         <label>Available date<input type="date" name="donation_available_date" value="<?= h($post['donation_available_date'] ?? '') ?>"></label>
                         <?php if ($donationTimeAvailable): ?><label>Available time<input type="time" name="donation_available_time" value="<?= h($post['donation_available_time'] ?? '') ?>"></label><?php endif; ?>
                     <?php elseif ($post['post_type'] === 'event'): ?>
@@ -1710,3 +1721,4 @@ function render_post_card(array $post, array $comments, string $csrfToken, int $
     </article>
     <?php
 }
+

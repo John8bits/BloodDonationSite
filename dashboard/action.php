@@ -3,6 +3,7 @@
 session_start();
 require_once __DIR__ . '/../config/auth.php';
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../includes/post_location_validation.php';
 $philippineProvinces = require __DIR__ . '/../config/philippine_provinces.php';
 
 require_login('../login.php');
@@ -198,14 +199,15 @@ try {
             }
             if ($postType === 'donation') {
                 $donationBloodType = $_POST['donation_blood_type'] ?? '';
-                $donationLocation = trim($_POST['donation_location'] ?? '');
+                $postLocation = blife_validate_post_location($_POST['donation_province'] ?? '', $_POST['donation_city'] ?? '', $_POST['donation_barangay'] ?? '', $_POST['donation_latitude'] ?? '', $_POST['donation_longitude'] ?? '', $philippineProvinces);
+                $donationLocation = $postLocation ? $postLocation['city'] . ', ' . $postLocation['province'] : '';
                 $availableDateValue = $_POST['donation_available_date'] ?? '';
                 $availableTimeValue = $_POST['donation_available_time'] ?? '';
                 if (!in_array($donationBloodType, $bloodTypes, true)) {
                     redirect_member('Select the blood type you are offering to donate.', 'error', 'donation-offers');
                 }
-                if ($donationLocation === '' || strlen($donationLocation) > 120) {
-                    redirect_member('Enter the city or province where you may be available to donate (up to 120 characters).', 'error', 'donation-offers');
+                if (!$postLocation) {
+                    redirect_member('Select a valid province, city or municipality, and map point in the Philippines.', 'error', 'donation-offers');
                 }
 
                 $availableDate = null;
@@ -232,6 +234,8 @@ try {
                 if ((int) $donationColumns->fetchColumn() !== 3) {
                     redirect_member('Donation offers are not enabled yet. Apply database_sql/donation_offers_migration.sql, then try again.', 'error', 'donation-offers');
                 }
+                $locationColumnStmt = $pdo->query("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='community_posts' AND COLUMN_NAME IN ('donation_province','donation_city','donation_barangay','donation_latitude','donation_longitude')");
+                if ((int) $locationColumnStmt->fetchColumn() !== 5) redirect_member('Apply database_sql/post_location_coordinates_migration.sql before publishing map locations.', 'error', 'donation-offers');
 
                 $availabilityTimeColumn = $pdo->prepare(
                     "SELECT COUNT(*) FROM information_schema.COLUMNS
@@ -242,8 +246,8 @@ try {
                 if ((int) $availabilityTimeColumn->fetchColumn() > 0) {
                     $stmt = $pdo->prepare(
                         "INSERT INTO community_posts
-                            (user_id, post_type, content, event_date, donation_blood_type, donation_location, donation_available_date, donation_available_time)
-                         VALUES (:user_id, 'donation', :content, NULL, :blood_type, :location, :available_date, :available_time)"
+                            (user_id, post_type, content, event_date, donation_blood_type, donation_location, donation_available_date, donation_available_time, donation_province, donation_city, donation_barangay, donation_latitude, donation_longitude)
+                         VALUES (:user_id, 'donation', :content, NULL, :blood_type, :location, :available_date, :available_time, :province, :city, :barangay, :latitude, :longitude)"
                     );
                     $offerValues = [
                         ':user_id' => $userId,
@@ -252,12 +256,13 @@ try {
                         ':location' => $donationLocation,
                         ':available_date' => $availableDate ? $availableDate->format('Y-m-d') : null,
                         ':available_time' => $availableTime ? $availableTime->format('H:i:s') : null
+                        ,':province' => $postLocation['province'], ':city' => $postLocation['city'], ':barangay' => $postLocation['barangay'], ':latitude' => $postLocation['latitude'], ':longitude' => $postLocation['longitude']
                     ];
                 } else {
                     $stmt = $pdo->prepare(
                         "INSERT INTO community_posts
-                            (user_id, post_type, content, event_date, donation_blood_type, donation_location, donation_available_date)
-                         VALUES (:user_id, 'donation', :content, NULL, :blood_type, :location, :available_date)"
+                            (user_id, post_type, content, event_date, donation_blood_type, donation_location, donation_available_date, donation_province, donation_city, donation_barangay, donation_latitude, donation_longitude)
+                         VALUES (:user_id, 'donation', :content, NULL, :blood_type, :location, :available_date, :province, :city, :barangay, :latitude, :longitude)"
                     );
                     $offerValues = [
                         ':user_id' => $userId,
@@ -265,6 +270,7 @@ try {
                         ':blood_type' => $donationBloodType,
                         ':location' => $donationLocation,
                         ':available_date' => $availableDate ? $availableDate->format('Y-m-d') : null
+                        ,':province' => $postLocation['province'], ':city' => $postLocation['city'], ':barangay' => $postLocation['barangay'], ':latitude' => $postLocation['latitude'], ':longitude' => $postLocation['longitude']
                     ];
                 }
                 $stmt->execute($offerValues);
@@ -466,23 +472,26 @@ try {
             }
             if ($postType === 'donation') {
                 $bloodType = $_POST['donation_blood_type'] ?? '';
-                $location = trim($_POST['donation_location'] ?? '');
+                $postLocation = blife_validate_post_location($_POST['donation_province'] ?? '', $_POST['donation_city'] ?? '', $_POST['donation_barangay'] ?? '', $_POST['donation_latitude'] ?? '', $_POST['donation_longitude'] ?? '', $philippineProvinces);
+                $location = $postLocation ? $postLocation['city'] . ', ' . $postLocation['province'] : '';
                 $availableDate = $_POST['donation_available_date'] ?? '';
                 $availableTime = $_POST['donation_available_time'] ?? '';
-                if (!in_array($bloodType, $bloodTypes, true) || $location === '' || strlen($location) > 120) {
-                    redirect_member('Enter a valid blood type and offer location.', 'error', 'my-posts');
+                if (!in_array($bloodType, $bloodTypes, true) || !$postLocation) {
+                    redirect_member('Choose a valid blood type, province, city or municipality, and map point.', 'error', 'my-posts');
                 }
+                $locationColumnCount = (int) $pdo->query("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='community_posts' AND COLUMN_NAME IN ('donation_province','donation_city','donation_barangay','donation_latitude','donation_longitude')")->fetchColumn();
+                if ($locationColumnCount !== 5) redirect_member('Apply database_sql/post_location_coordinates_migration.sql before saving map locations.', 'error', 'my-posts');
                 $availableDateObject = $availableDate !== '' ? DateTime::createFromFormat('!Y-m-d', $availableDate) : null;
                 if ($availableDate !== '' && (!$availableDateObject || $availableDateObject->format('Y-m-d') !== $availableDate)) {
                     redirect_member('Choose a valid availability date.', 'error', 'my-posts');
                 }
                 if ($availableTime !== '' && (!DateTime::createFromFormat('!H:i', $availableTime) || DateTime::createFromFormat('!H:i', $availableTime)->format('H:i') !== $availableTime)) redirect_member('Choose a valid availability time.', 'error', 'my-posts');
                 $hasTime = (int) $pdo->query("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'community_posts' AND COLUMN_NAME = 'donation_available_time'")->fetchColumn() > 0;
-                $sql = 'UPDATE community_posts SET content = :content, donation_blood_type = :blood_type, donation_location = :location, donation_available_date = :available_date';
+                $sql = 'UPDATE community_posts SET content = :content, donation_blood_type = :blood_type, donation_location = :location, donation_available_date = :available_date, donation_province=:province, donation_city=:city, donation_barangay=:barangay, donation_latitude=:latitude, donation_longitude=:longitude';
                 if ($hasTime) $sql .= ', donation_available_time = :available_time';
                 $sql .= ' WHERE id = :id AND user_id = :user_id AND post_type = \'donation\'';
                 $editStmt = $pdo->prepare($sql);
-                $values = [':content' => $content, ':blood_type' => $bloodType, ':location' => $location, ':available_date' => $availableDate !== '' ? $availableDate : null, ':id' => $postId, ':user_id' => $userId];
+                $values = [':content' => $content, ':blood_type' => $bloodType, ':location' => $location, ':available_date' => $availableDate !== '' ? $availableDate : null, ':province'=>$postLocation['province'], ':city'=>$postLocation['city'], ':barangay'=>$postLocation['barangay'], ':latitude'=>$postLocation['latitude'], ':longitude'=>$postLocation['longitude'], ':id' => $postId, ':user_id' => $userId];
                 if ($hasTime) $values[':available_time'] = $availableTime !== '' ? $availableTime : null;
                 $editStmt->execute($values);
             } else {
@@ -560,6 +569,7 @@ try {
             // Keep the legacy non-null database column compatible while the form no longer collects a facility.
             $hospital = '';
             $location = trim($_POST['location'] ?? '');
+            $postLocation = blife_validate_post_location($location, $_POST['request_city'] ?? '', $_POST['request_barangay'] ?? '', $_POST['request_latitude'] ?? '', $_POST['request_longitude'] ?? '', $philippineProvinces);
             $urgency = $_POST['urgency'] ?? '';
             $neededBy = $_POST['needed_by'] ?? '';
             $details = trim($_POST['details'] ?? '');
@@ -575,9 +585,11 @@ try {
             if (!$units || $units < 1 || $units > 20) {
                 redirect_member('Requested units must be between 1 and 20.', 'error', 'requests');
             }
-            if (!in_array($location, $philippineProvinces, true)) {
-                redirect_member('Select a valid province.', 'error', 'requests');
+            if (!$postLocation) {
+                redirect_member('Select a valid province, city or municipality, and map point in the Philippines.', 'error', 'requests');
             }
+            $requestLocationColumns = $pdo->query("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='blood_requests' AND COLUMN_NAME IN ('city','barangay','latitude','longitude')");
+            if ((int) $requestLocationColumns->fetchColumn() !== 4) redirect_member('Apply database_sql/post_location_coordinates_migration.sql before publishing map locations.', 'error', 'requests');
             if (!$dateIsValid || $neededBy < date('Y-m-d')) {
                 redirect_member('Choose a valid date today or later.', 'error', 'requests');
             }
@@ -587,8 +599,8 @@ try {
 
             $stmt = $pdo->prepare(
                 'INSERT INTO blood_requests
-                    (requester_id, blood_type, units, hospital, location, needed_by, urgency, details)
-                 VALUES (:requester_id, :blood_type, :units, :hospital, :location, :needed_by, :urgency, :details)'
+                    (requester_id, blood_type, units, hospital, location, city, barangay, latitude, longitude, needed_by, urgency, details)
+                 VALUES (:requester_id, :blood_type, :units, :hospital, :location, :city, :barangay, :latitude, :longitude, :needed_by, :urgency, :details)'
             );
             $stmt->execute([
                 ':requester_id' => $userId,
@@ -596,6 +608,7 @@ try {
                 ':units' => $units,
                 ':hospital' => $hospital,
                 ':location' => $location,
+                ':city' => $postLocation['city'], ':barangay' => $postLocation['barangay'], ':latitude' => $postLocation['latitude'], ':longitude' => $postLocation['longitude'],
                 ':needed_by' => $neededBy,
                 ':urgency' => $urgency,
                 ':details' => $details
@@ -728,21 +741,24 @@ try {
             $bloodType = $_POST['blood_type'] ?? '';
             $units = filter_var($_POST['units'] ?? null, FILTER_VALIDATE_INT);
             $location = trim($_POST['location'] ?? '');
+            $postLocation = blife_validate_post_location($location, $_POST['request_city'] ?? '', $_POST['request_barangay'] ?? '', $_POST['request_latitude'] ?? '', $_POST['request_longitude'] ?? '', $philippineProvinces);
             $neededBy = $_POST['needed_by'] ?? '';
             $urgency = $_POST['urgency'] ?? '';
             $details = trim($_POST['details'] ?? '');
             $date = DateTime::createFromFormat('!Y-m-d', $neededBy);
-            if (!$requestId || !in_array($bloodType, $bloodTypes, true) || !$units || $units < 1 || $units > 20 || !in_array($location, $philippineProvinces, true) || !$date || $date->format('Y-m-d') !== $neededBy || $neededBy < date('Y-m-d') || !in_array($urgency, ['routine', 'urgent', 'emergency'], true) || strlen($details) > 1000) {
+            if (!$requestId || !in_array($bloodType, $bloodTypes, true) || !$units || $units < 1 || $units > 20 || !$postLocation || !$date || $date->format('Y-m-d') !== $neededBy || $neededBy < date('Y-m-d') || !in_array($urgency, ['routine', 'urgent', 'emergency'], true) || strlen($details) > 1000) {
                 redirect_member('Review the blood request fields and try again.', 'error', 'my-requests');
             }
+            $requestLocationColumns = $pdo->query("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='blood_requests' AND COLUMN_NAME IN ('city','barangay','latitude','longitude')");
+            if ((int) $requestLocationColumns->fetchColumn() !== 4) redirect_member('Apply database_sql/post_location_coordinates_migration.sql before saving map locations.', 'error', 'my-requests');
             $hasAcceptedResponse = $pdo->prepare("SELECT COUNT(*) FROM request_responses rr JOIN blood_requests br ON br.id = rr.request_id WHERE br.id = :id AND br.requester_id = :user_id AND rr.status = 'accepted'");
             $hasAcceptedResponse->execute([':id' => $requestId, ':user_id' => $userId]);
             if ((int) $hasAcceptedResponse->fetchColumn() > 0) redirect_member('This request has an accepted donor conversation, so its details are locked to preserve that transaction.', 'error', 'my-requests');
             $editableRequest = $pdo->prepare("SELECT id FROM blood_requests WHERE id = :id AND requester_id = :user_id AND status = 'open'");
             $editableRequest->execute([':id' => $requestId, ':user_id' => $userId]);
             if (!$editableRequest->fetchColumn()) redirect_member('Only your open requests can be edited.', 'error', 'my-requests');
-            $editRequestStmt = $pdo->prepare("UPDATE blood_requests SET blood_type = :blood_type, units = :units, location = :location, needed_by = :needed_by, urgency = :urgency, details = :details WHERE id = :id AND requester_id = :user_id AND status = 'open'");
-            $editRequestStmt->execute([':blood_type' => $bloodType, ':units' => $units, ':location' => $location, ':needed_by' => $neededBy, ':urgency' => $urgency, ':details' => $details, ':id' => $requestId, ':user_id' => $userId]);
+            $editRequestStmt = $pdo->prepare("UPDATE blood_requests SET blood_type = :blood_type, units = :units, location = :location, city=:city, barangay=:barangay, latitude=:latitude, longitude=:longitude, needed_by = :needed_by, urgency = :urgency, details = :details WHERE id = :id AND requester_id = :user_id AND status = 'open'");
+            $editRequestStmt->execute([':blood_type' => $bloodType, ':units' => $units, ':location' => $location, ':city'=>$postLocation['city'], ':barangay'=>$postLocation['barangay'], ':latitude'=>$postLocation['latitude'], ':longitude'=>$postLocation['longitude'], ':needed_by' => $neededBy, ':urgency' => $urgency, ':details' => $details, ':id' => $requestId, ':user_id' => $userId]);
             redirect_member('Your blood request has been updated.', 'success', 'my-requests');
 
         case 'delete_request':

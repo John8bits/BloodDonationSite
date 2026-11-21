@@ -2,6 +2,7 @@
 session_start();
 require_once __DIR__ . '/../config/auth.php';
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../includes/post_location_validation.php';
 require_clinic('../login.php');
 
 function clinic_redirect(string $message, string $type, string $page = 'overview'): void
@@ -34,12 +35,15 @@ try {
             $units = filter_var($_POST['units'] ?? null, FILTER_VALIDATE_INT);
             $hospital = trim($_POST['hospital'] ?? '');
             $location = trim($_POST['location'] ?? '');
+            $provinces = require __DIR__ . '/../config/philippine_provinces.php';
+            $postLocation = blife_validate_post_location($location, $_POST['request_city'] ?? '', $_POST['request_barangay'] ?? '', $_POST['request_latitude'] ?? '', $_POST['request_longitude'] ?? '', $provinces);
             $neededBy = $_POST['needed_by'] ?? '';
             $urgency = $_POST['urgency'] ?? '';
             $details = trim($_POST['details'] ?? '');
-            $provinces = require __DIR__ . '/../config/philippine_provinces.php';
             $date = DateTime::createFromFormat('!Y-m-d', $neededBy);
-            if (!in_array($bloodType,['A+','A-','B+','B-','AB+','AB-','O+','O-'],true) || !$units || $units < 1 || $units > 20 || $hospital === '' || strlen($hospital)>160 || !in_array($location,$provinces,true) || !$date || $date->format('Y-m-d') !== $neededBy || $neededBy < date('Y-m-d') || !in_array($urgency,['routine','urgent','emergency'],true) || strlen($details)>1000) clinic_redirect('Review the blood request details and try again.', 'error', 'requests');
+            if (!in_array($bloodType,['A+','A-','B+','B-','AB+','AB-','O+','O-'],true) || !$units || $units < 1 || $units > 20 || $hospital === '' || strlen($hospital)>160 || !$postLocation || !$date || $date->format('Y-m-d') !== $neededBy || $neededBy < date('Y-m-d') || !in_array($urgency,['routine','urgent','emergency'],true) || strlen($details)>1000) clinic_redirect('Review the request and choose a valid map point in the Philippines.', 'error', 'requests');
+            $requestLocationColumns = $pdo->query("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='blood_requests' AND COLUMN_NAME IN ('city','barangay','latitude','longitude')");
+            if ((int) $requestLocationColumns->fetchColumn() !== 4) clinic_redirect('Apply database_sql/post_location_coordinates_migration.sql before publishing map locations.', 'error', 'requests');
             if (!$requestId && ($_POST['represented_person_permission'] ?? '') !== '1') clinic_redirect('Confirm that the patient or their authorized representative gave permission.', 'error', 'requests');
             if (!$requestId) {
                 $permissionColumn = $pdo->prepare("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='blood_requests' AND COLUMN_NAME='representation_authorized_at'");
@@ -50,12 +54,12 @@ try {
                 $accepted = $pdo->prepare("SELECT COUNT(*) FROM request_responses WHERE request_id=:id AND status='accepted'");
                 $accepted->execute([':id'=>$requestId]);
                 if ((int)$accepted->fetchColumn() > 0) clinic_redirect('Requests with an accepted response cannot be edited. Update the request status instead.', 'error', 'requests');
-                $update = $pdo->prepare("UPDATE blood_requests SET blood_type=:blood_type,units=:units,hospital=:hospital,location=:location,needed_by=:needed_by,urgency=:urgency,details=:details WHERE id=:id AND requester_id=:user_id AND status='open'");
-                $update->execute([':blood_type'=>$bloodType,':units'=>$units,':hospital'=>$hospital,':location'=>$location,':needed_by'=>$neededBy,':urgency'=>$urgency,':details'=>$details,':id'=>$requestId,':user_id'=>$userId]);
+                $update = $pdo->prepare("UPDATE blood_requests SET blood_type=:blood_type,units=:units,hospital=:hospital,location=:location,city=:city,barangay=:barangay,latitude=:latitude,longitude=:longitude,needed_by=:needed_by,urgency=:urgency,details=:details WHERE id=:id AND requester_id=:user_id AND status='open'");
+                $update->execute([':blood_type'=>$bloodType,':units'=>$units,':hospital'=>$hospital,':location'=>$location,':city'=>$postLocation['city'],':barangay'=>$postLocation['barangay'],':latitude'=>$postLocation['latitude'],':longitude'=>$postLocation['longitude'],':needed_by'=>$neededBy,':urgency'=>$urgency,':details'=>$details,':id'=>$requestId,':user_id'=>$userId]);
                 $exists = $pdo->prepare("SELECT 1 FROM blood_requests WHERE id=:id AND requester_id=:user_id"); $exists->execute([':id'=>$requestId,':user_id'=>$userId]); if (!$exists->fetchColumn()) clinic_redirect('Only your open requests can be edited.', 'error', 'requests');
             } else {
-                $insert = $pdo->prepare("INSERT INTO blood_requests (requester_id,blood_type,units,hospital,location,needed_by,urgency,details,representation_authorized_at) VALUES (:requester_id,:blood_type,:units,:hospital,:location,:needed_by,:urgency,:details,NOW())");
-                $insert->execute([':requester_id'=>$userId,':blood_type'=>$bloodType,':units'=>$units,':hospital'=>$hospital,':location'=>$location,':needed_by'=>$neededBy,':urgency'=>$urgency,':details'=>$details]);
+                $insert = $pdo->prepare("INSERT INTO blood_requests (requester_id,blood_type,units,hospital,location,city,barangay,latitude,longitude,needed_by,urgency,details,representation_authorized_at) VALUES (:requester_id,:blood_type,:units,:hospital,:location,:city,:barangay,:latitude,:longitude,:needed_by,:urgency,:details,NOW())");
+                $insert->execute([':requester_id'=>$userId,':blood_type'=>$bloodType,':units'=>$units,':hospital'=>$hospital,':location'=>$location,':city'=>$postLocation['city'],':barangay'=>$postLocation['barangay'],':latitude'=>$postLocation['latitude'],':longitude'=>$postLocation['longitude'],':needed_by'=>$neededBy,':urgency'=>$urgency,':details'=>$details]);
             }
             clinic_redirect($requestId ? 'Blood request updated.' : 'Blood request published.', 'success', 'requests');
 
@@ -65,10 +69,11 @@ try {
             if ($action === 'clinic_offer_edit' && !$postId) clinic_redirect('Choose a valid donation offer to edit.', 'error', 'donation-offers');
             $content = trim($_POST['content'] ?? '');
             $bloodType = $_POST['donation_blood_type'] ?? '';
-            $location = trim($_POST['donation_location'] ?? '');
+            $postLocation = blife_validate_post_location($_POST['donation_province'] ?? '', $_POST['donation_city'] ?? '', $_POST['donation_barangay'] ?? '', $_POST['donation_latitude'] ?? '', $_POST['donation_longitude'] ?? '', require __DIR__ . '/../config/philippine_provinces.php');
+            $location = $postLocation ? $postLocation['city'] . ', ' . $postLocation['province'] : '';
             $availableDateValue = $_POST['donation_available_date'] ?? '';
             $availableTimeValue = $_POST['donation_available_time'] ?? '';
-            if ($content === '' || strlen($content)>1000 || !in_array($bloodType,['A+','A-','B+','B-','AB+','AB-','O+','O-'],true) || $location === '' || strlen($location)>120) clinic_redirect('Review the donation offer details and try again.', 'error', 'donation-offers');
+            if ($content === '' || strlen($content)>1000 || !in_array($bloodType,['A+','A-','B+','B-','AB+','AB-','O+','O-'],true) || !$postLocation) clinic_redirect('Review the offer and choose a valid map point in the Philippines.', 'error', 'donation-offers');
             if (!$postId && ($_POST['represented_person_permission'] ?? '') !== '1') clinic_redirect('Confirm that the potential donor gave permission for this offer.', 'error', 'donation-offers');
             $availableDate = null;
             if ($availableDateValue !== '') { $availableDate = DateTime::createFromFormat('!Y-m-d', $availableDateValue); if (!$availableDate || $availableDate->format('Y-m-d') !== $availableDateValue || $availableDateValue < date('Y-m-d')) clinic_redirect('Choose a valid availability date today or later.', 'error', 'donation-offers'); }
@@ -78,22 +83,23 @@ try {
             $donationColumnStmt->execute();
             $donationColumns = array_fill_keys($donationColumnStmt->fetchAll(PDO::FETCH_COLUMN), true);
             foreach (['donation_blood_type','donation_location','donation_available_date','representation_authorized_at'] as $column) if (empty($donationColumns[$column])) clinic_redirect('Run the donation offer and clinic representation migrations before publishing.', 'error', 'donation-offers');
+            foreach (['donation_province','donation_city','donation_barangay','donation_latitude','donation_longitude'] as $column) if (empty($donationColumns[$column])) clinic_redirect('Apply database_sql/post_location_coordinates_migration.sql before publishing map locations.', 'error', 'donation-offers');
             if ($postId) {
                 $owned = $pdo->prepare("SELECT 1 FROM community_posts WHERE id=:id AND user_id=:user_id AND post_type='donation' AND COALESCE(donation_status,'available')<>'completed'");
                 if (empty($donationColumns['donation_status'])) $owned = $pdo->prepare("SELECT 1 FROM community_posts WHERE id=:id AND user_id=:user_id AND post_type='donation'");
                 $owned->execute([':id'=>$postId,':user_id'=>$userId]);
                 if (!$owned->fetchColumn()) clinic_redirect('Only your non-completed donation offers can be edited.', 'error', 'donation-offers');
                 $timeSql = !empty($donationColumns['donation_available_time']) ? ',donation_available_time=:available_time' : '';
-                $update = $pdo->prepare("UPDATE community_posts SET content=:content,donation_blood_type=:blood_type,donation_location=:location,donation_available_date=:available_date{$timeSql} WHERE id=:id AND user_id=:user_id AND post_type='donation'");
-                $values = [':content'=>$content,':blood_type'=>$bloodType,':location'=>$location,':available_date'=>$availableDate ? $availableDate->format('Y-m-d') : null,':id'=>$postId,':user_id'=>$userId];
+                $update = $pdo->prepare("UPDATE community_posts SET content=:content,donation_blood_type=:blood_type,donation_location=:location,donation_available_date=:available_date,donation_province=:province,donation_city=:city,donation_barangay=:barangay,donation_latitude=:latitude,donation_longitude=:longitude{$timeSql} WHERE id=:id AND user_id=:user_id AND post_type='donation'");
+                $values = [':content'=>$content,':blood_type'=>$bloodType,':location'=>$location,':available_date'=>$availableDate ? $availableDate->format('Y-m-d') : null,':province'=>$postLocation['province'],':city'=>$postLocation['city'],':barangay'=>$postLocation['barangay'],':latitude'=>$postLocation['latitude'],':longitude'=>$postLocation['longitude'],':id'=>$postId,':user_id'=>$userId];
                 if (!empty($donationColumns['donation_available_time'])) $values[':available_time'] = $availableTime ? $availableTime->format('H:i:s') : null;
                 $update->execute($values);
                 clinic_redirect('Donation offer updated.', 'success', 'donation-offers');
             }
             $timeColumn = !empty($donationColumns['donation_available_time']) ? ',donation_available_time' : '';
             $timeValue = !empty($donationColumns['donation_available_time']) ? ',:available_time' : '';
-            $insert = $pdo->prepare("INSERT INTO community_posts (user_id,post_type,content,event_date,donation_blood_type,donation_location,donation_available_date,representation_authorized_at{$timeColumn}) VALUES (:user_id,'donation',:content,NULL,:blood_type,:location,:available_date,NOW(){$timeValue})");
-            $insertValues = [':user_id'=>$userId,':content'=>$content,':blood_type'=>$bloodType,':location'=>$location,':available_date'=>$availableDate ? $availableDate->format('Y-m-d') : null];
+            $insert = $pdo->prepare("INSERT INTO community_posts (user_id,post_type,content,event_date,donation_blood_type,donation_location,donation_available_date,donation_province,donation_city,donation_barangay,donation_latitude,donation_longitude,representation_authorized_at{$timeColumn}) VALUES (:user_id,'donation',:content,NULL,:blood_type,:location,:available_date,:province,:city,:barangay,:latitude,:longitude,NOW(){$timeValue})");
+            $insertValues = [':user_id'=>$userId,':content'=>$content,':blood_type'=>$bloodType,':location'=>$location,':available_date'=>$availableDate ? $availableDate->format('Y-m-d') : null,':province'=>$postLocation['province'],':city'=>$postLocation['city'],':barangay'=>$postLocation['barangay'],':latitude'=>$postLocation['latitude'],':longitude'=>$postLocation['longitude']];
             if (!empty($donationColumns['donation_available_time'])) $insertValues[':available_time'] = $availableTime ? $availableTime->format('H:i:s') : null;
             $insert->execute($insertValues);
             clinic_redirect('Donation offer published.', 'success', 'donation-offers');
@@ -137,6 +143,51 @@ try {
             if ((int)$responseCount->fetchColumn() > 0) clinic_redirect('This request has responses, so it cannot be deleted. Update its status to close it.', 'error', 'requests');
             $pdo->prepare('DELETE FROM blood_requests WHERE id=:id AND requester_id=:owner')->execute([':id'=>$requestId, ':owner'=>$userId]);
             clinic_redirect('Blood request deleted.', 'success', 'requests');
+
+        case 'clinic_event_create':
+        case 'clinic_event_edit':
+            $eventColumns = ['event_date','event_title','event_time','organizer','venue','event_city','public_contact','event_status'];
+            $eventColumnStmt = $pdo->prepare("SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='community_posts' AND COLUMN_NAME IN ('event_date','event_title','event_time','organizer','venue','event_city','public_contact','event_status')");
+            $eventColumnStmt->execute();
+            if (count($eventColumnStmt->fetchAll(PDO::FETCH_COLUMN)) !== count($eventColumns)) clinic_redirect('Apply database_sql/blife_admin_modules_migration.sql before managing donation events.', 'error', 'events');
+            $postId = $action === 'clinic_event_edit' ? filter_var($_POST['post_id'] ?? null, FILTER_VALIDATE_INT) : 0;
+            if ($action === 'clinic_event_edit' && !$postId) clinic_redirect('Choose a valid event to edit.', 'error', 'events');
+            $title = trim($_POST['event_title'] ?? '');
+            $content = trim($_POST['content'] ?? '');
+            $organizer = trim($_POST['organizer'] ?? '');
+            $eventDate = $_POST['event_date'] ?? '';
+            $eventTime = trim($_POST['event_time'] ?? '');
+            $venue = trim($_POST['venue'] ?? '');
+            $city = trim($_POST['event_city'] ?? '');
+            $contact = trim($_POST['public_contact'] ?? '');
+            $status = $_POST['event_status'] ?? '';
+            $validDate = DateTime::createFromFormat('!Y-m-d', $eventDate);
+            if ($title === '' || strlen($title) > 160 || $content === '' || strlen($content) > 1000 || !$validDate || $validDate->format('Y-m-d') !== $eventDate || !in_array($status, ['published','draft','cancelled','completed'], true) || strlen($organizer) > 160 || strlen($venue) > 180 || strlen($city) > 120 || strlen($contact) > 180) clinic_redirect('Review the event title, description, date, status, and field lengths.', 'error', 'events');
+            if ($eventTime !== '' && !preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d$/', $eventTime)) clinic_redirect('Enter a valid event time.', 'error', 'events');
+            if ($postId) {
+                $ownedEvent = $pdo->prepare("SELECT id FROM community_posts WHERE id=:id AND user_id=:owner AND post_type='event'");
+                $ownedEvent->execute([':id'=>$postId, ':owner'=>$userId]);
+                if (!$ownedEvent->fetchColumn()) clinic_redirect('That event is not managed by your facility.', 'error', 'events');
+                $updateEvent = $pdo->prepare("UPDATE community_posts SET event_title=:title,content=:content,event_date=:event_date,event_time=:event_time,organizer=:organizer,venue=:venue,event_city=:city,public_contact=:contact,event_status=:status WHERE id=:id AND user_id=:owner AND post_type='event'");
+                $updateEvent->execute([':title'=>$title,':content'=>$content,':event_date'=>$eventDate,':event_time'=>$eventTime !== '' ? $eventTime : null,':organizer'=>$organizer,':venue'=>$venue,':city'=>$city,':contact'=>$contact,':status'=>$status,':id'=>$postId,':owner'=>$userId]);
+                clinic_redirect('Donation event updated.', 'success', 'events');
+            }
+            $insertEvent = $pdo->prepare("INSERT INTO community_posts (user_id,post_type,content,event_date,event_title,event_time,organizer,venue,event_city,public_contact,event_status) VALUES (:owner,'event',:content,:event_date,:title,:event_time,:organizer,:venue,:city,:contact,:status)");
+            $insertEvent->execute([':owner'=>$userId,':content'=>$content,':event_date'=>$eventDate,':title'=>$title,':event_time'=>$eventTime !== '' ? $eventTime : null,':organizer'=>$organizer,':venue'=>$venue,':city'=>$city,':contact'=>$contact,':status'=>$status]);
+            clinic_redirect('Donation event published.', 'success', 'events');
+
+        case 'clinic_event_status':
+            $postId = filter_var($_POST['post_id'] ?? null, FILTER_VALIDATE_INT);
+            $status = $_POST['status'] ?? '';
+            if (!$postId || !in_array($status, ['published','draft','cancelled','completed'], true)) clinic_redirect('Choose a valid event status.', 'error', 'events');
+            $statusColumn = $pdo->prepare("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='community_posts' AND COLUMN_NAME='event_status'");
+            $statusColumn->execute();
+            if (!(int)$statusColumn->fetchColumn()) clinic_redirect('Apply database_sql/blife_admin_modules_migration.sql before updating events.', 'error', 'events');
+            $ownedEvent = $pdo->prepare("SELECT id FROM community_posts WHERE id=:id AND user_id=:owner AND post_type='event'");
+            $ownedEvent->execute([':id'=>$postId, ':owner'=>$userId]);
+            if (!$ownedEvent->fetchColumn()) clinic_redirect('That event is not managed by your facility.', 'error', 'events');
+            $pdo->prepare("UPDATE community_posts SET event_status=:status WHERE id=:id AND user_id=:owner AND post_type='event'")->execute([':status'=>$status,':id'=>$postId,':owner'=>$userId]);
+            clinic_redirect('Donation event status updated.', 'success', 'events');
 
         case 'clinic_offer_delete':
             $postId = filter_var($_POST['post_id'] ?? null, FILTER_VALIDATE_INT);
