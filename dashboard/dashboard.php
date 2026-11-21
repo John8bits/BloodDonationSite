@@ -325,7 +325,7 @@ try {
         }
         unset($request);
 
-        $requestConditions = ["br.status = 'open'", 'br.needed_by >= CURDATE()'];
+        $requestConditions = ["br.status = 'open'", 'br.needed_by >= CURDATE()', "COALESCE(br.details, '') NOT LIKE '%map-api-test-%'"];
         $requestParams = [];
         if ($activePage === 'blood-requests' && $requestUrgencyFilter !== '') {
             $requestConditions[] = 'br.urgency = :urgency_filter';
@@ -361,7 +361,7 @@ try {
         }
         unset($request);
 
-        $postConditions = [];
+        $postConditions = ["cp.content NOT LIKE '%map-api-test-%'"];
         if ($eventStatusColumnAvailable) {
             $postConditions[] = "(cp.post_type <> 'event' OR cp.event_status = 'published')";
         }

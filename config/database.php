@@ -23,7 +23,12 @@ class Database
         }*/
 
         try {
-            $dsn = "mysql:host={$this->host};dbname={$this->dbname};charset=utf8mb4";
+            $databaseName = getenv('BLIFE_DB_NAME');
+            $databaseName = $databaseName !== false && $databaseName !== '' ? $databaseName : $this->dbname;
+            if (!preg_match('/\A[A-Za-z0-9_]+\z/', $databaseName)) {
+                throw new InvalidArgumentException('BLIFE_DB_NAME contains invalid characters.');
+            }
+            $dsn = "mysql:host={$this->host};dbname={$databaseName};charset=utf8mb4";
             $this->conn = new PDO(
                 $dsn,
                 $this->user,

@@ -104,6 +104,7 @@ try {
                 JOIN uinfo u ON u.id = br.requester_id
                 LEFT JOIN clinic_profiles cp ON cp.user_id = u.id AND u.role = 'clinic'
                 WHERE u.role IN ('user','clinic') AND u.account_status = 'active'
+                  AND COALESCE(br.details, '') NOT LIKE '%map-api-test-%'
                   AND br.status = 'open' AND br.needed_by >= CURDATE()
                   AND br.latitude BETWEEN 4.0 AND 21.7 AND br.longitude BETWEEN 116.0 AND 127.5{$boundsSqlRequest}
                 ORDER BY FIELD(br.urgency,'emergency','urgent','routine'), br.needed_by ASC, br.created_at DESC
@@ -138,6 +139,7 @@ try {
                 JOIN uinfo u ON u.id = cp.user_id
                 LEFT JOIN clinic_profiles clinic ON clinic.user_id = u.id AND u.role = 'clinic'
                 WHERE cp.post_type = 'donation' AND cp.status = 'published' AND cp.donation_status = 'available'
+                  AND cp.content NOT LIKE '%map-api-test-%'
                   AND (cp.donation_available_date IS NULL OR cp.donation_available_date >= CURDATE())
                   AND u.role IN ('user','clinic') AND u.account_status = 'active'
                   AND cp.donation_latitude BETWEEN 4.0 AND 21.7 AND cp.donation_longitude BETWEEN 116.0 AND 127.5{$boundsSqlOffer}
