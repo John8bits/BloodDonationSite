@@ -42,6 +42,16 @@ function blife_render_blood_donation_map(string $apiUrl, string $requestHref, st
                 <span><i class="fa-solid fa-hand-holding-heart offer-map-symbol" aria-hidden="true"></i> Donation offer</span>
             </div>
             <small class="blood-map-attribution">Map data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap contributors</a></small>
+            <div class="blood-map-controls" aria-label="Map controls">
+                <button class="blood-map-view-full" type="button" data-map-fullscreen><i class="fa-solid fa-maximize" aria-hidden="true"></i> View Full Map</button>
+                <button class="blood-map-view-exit" type="button" data-map-exit hidden><i class="fa-solid fa-minimize" aria-hidden="true"></i> Exit Full Screen</button>
+                <button class="blood-map-reset-view" type="button" data-map-reset-view><i class="fa-solid fa-crosshairs" aria-hidden="true"></i> Reset View</button>
+                <span class="blood-map-nearby-slot" data-map-nearby-slot></span>
+                <details class="blood-map-fullscreen-filters" data-map-filter-disclosure>
+                    <summary><i class="fa-solid fa-sliders" aria-hidden="true"></i> Filters</summary>
+                    <div data-map-filter-slot></div>
+                </details>
+            </div>
         </div>
         <div class="blood-map-canvas" data-blood-map data-endpoint="<?= $escape($apiUrl) ?>" data-request-href="<?= $escape($requestHref) ?>" data-offer-href="<?= $escape($offerHref) ?>" data-clinic-panel="<?= $clinicPanel ? '1' : '0' ?>" role="application" aria-label="Interactive map of blood requests and donation offers in the Philippines"></div>
     </section>

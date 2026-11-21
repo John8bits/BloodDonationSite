@@ -90,6 +90,18 @@
         const refreshButton = page.querySelector('[data-map-refresh]');
         const nearbyButton = page.querySelector('[data-nearby-toggle]');
         const nearbyCount = page.querySelector('[data-nearby-count]');
+        const fullMapButton = page.querySelector('[data-map-fullscreen]');
+        const exitFullMapButton = page.querySelector('[data-map-exit]');
+        const resetViewButton = page.querySelector('[data-map-reset-view]');
+        const nearbySlot = page.querySelector('[data-map-nearby-slot]');
+        const filterSlot = page.querySelector('[data-map-filter-slot]');
+        const filterDisclosure = page.querySelector('[data-map-filter-disclosure]');
+        const nearbyPlaceholder = document.createComment('nearby control position');
+        const filterPlaceholder = document.createComment('map filters position');
+        nearbyButton.before(nearbyPlaceholder);
+        filterForm.before(filterPlaceholder);
+        let bodyScrollY = 0;
+        let previousBodyOverflow = '';
         const map = L.map(element, { center: [12.8797, 121.7740], zoom: 5, minZoom: 5, maxZoom: 18, maxBounds: philippinesBounds, maxBoundsViscosity: 1.0 });
         L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
@@ -109,6 +121,55 @@
             ? L.markerClusterGroup({ showCoverageOnHover: false, spiderfyOnMaxZoom: true, maxClusterRadius: 55 })
             : L.featureGroup();
         markerLayer.addTo(map);
+
+        function resizeMapAfterLayout() {
+            window.requestAnimationFrame(() => {
+                map.invalidateSize({ pan: false });
+                window.setTimeout(() => map.invalidateSize({ pan: false }), 120);
+            });
+        }
+
+        function setFullMapMode(active) {
+            if (active === page.classList.contains('is-fullscreen')) return;
+            if (active) {
+                bodyScrollY = window.scrollY;
+                previousBodyOverflow = document.body.style.overflow;
+                page.classList.add('is-fullscreen');
+                document.body.classList.add('blood-map-fullscreen-open');
+                filterSlot.append(filterForm);
+                nearbySlot.append(nearbyButton);
+                fullMapButton.hidden = true;
+                exitFullMapButton.hidden = false;
+                exitFullMapButton.focus();
+            } else {
+                filterPlaceholder.parentNode.insertBefore(filterForm, filterPlaceholder.nextSibling);
+                nearbyPlaceholder.parentNode.insertBefore(nearbyButton, nearbyPlaceholder.nextSibling);
+                page.classList.remove('is-fullscreen');
+                document.body.classList.remove('blood-map-fullscreen-open');
+                document.body.style.overflow = previousBodyOverflow;
+                filterDisclosure.open = false;
+                fullMapButton.hidden = false;
+                exitFullMapButton.hidden = true;
+                window.scrollTo(0, bodyScrollY);
+                fullMapButton.focus();
+            }
+            resizeMapAfterLayout();
+        }
+
+        function resetMapView() {
+            if (viewerLocation && Number.isFinite(Number(viewerLocation.latitude)) && Number.isFinite(Number(viewerLocation.longitude))) {
+                map.setView([Number(viewerLocation.latitude), Number(viewerLocation.longitude)], viewerLocation.location_level === 'province' ? 8 : 10);
+            } else {
+                map.setView([12.8797, 121.7740], 5);
+            }
+        }
+
+        fullMapButton.addEventListener('click', () => setFullMapMode(true));
+        exitFullMapButton.addEventListener('click', () => setFullMapMode(false));
+        resetViewButton.addEventListener('click', resetMapView);
+        document.addEventListener('keydown', event => {
+            if (event.key === 'Escape' && page.classList.contains('is-fullscreen')) setFullMapMode(false);
+        });
 
         async function fetchMapItems() {
             const fetchedItems = [];
