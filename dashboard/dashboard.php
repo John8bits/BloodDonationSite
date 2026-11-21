@@ -120,7 +120,7 @@ $donationStatusAvailable = false;
 try {
     $pdo = (new Database())->getConnection();
     $requiredTables = ['community_posts', 'blood_requests', 'request_responses', 'request_response_messages', 'post_comments', 'post_interactions', 'member_notifications'];
-    $optionalTables = ['donation_offer_messages', 'member_message_reports'];
+    $optionalTables = ['donation_offer_messages', 'member_message_reports', 'clinic_profiles'];
     $tablesToCheck = array_merge($requiredTables, $optionalTables);
     $tableQuery = $pdo->prepare(
         'SELECT TABLE_NAME FROM information_schema.TABLES
@@ -130,6 +130,7 @@ try {
     $availableTables = $tableQuery->fetchAll(PDO::FETCH_COLUMN);
     $offerMessagesAvailable = in_array('donation_offer_messages', $availableTables, true);
     $messageReportsAvailable = in_array('member_message_reports', $availableTables, true);
+    $clinicProfilesAvailable = in_array('clinic_profiles', $availableTables, true);
     $requiredColumns = [
         'uinfo' => ['fname', 'lname', 'email', 'btype', 'phone', 'city', 'donor_available', 'notify_request_responses', 'notify_post_comments'],
         'community_posts' => ['id', 'user_id', 'post_type', 'content', 'event_date', 'created_at'],
@@ -332,13 +333,15 @@ try {
             }
             $requestConditions[] = '(br.hospital LIKE :request_hospital_search OR br.location LIKE :request_location_search OR br.blood_type LIKE :request_type_search OR br.details LIKE :request_details_search)';
         }
+        $clinicRequestSelect = $clinicProfilesAvailable ? ', clinic_requester.facility_name AS requester_facility_name, clinic_requester.is_verified AS requester_facility_verified' : ', NULL AS requester_facility_name, 0 AS requester_facility_verified';
+        $clinicRequestJoin = $clinicProfilesAvailable ? ' LEFT JOIN clinic_profiles clinic_requester ON clinic_requester.user_id = br.requester_id' : '';
         $communityRequestStmt = $pdo->prepare(
             "SELECT br.*, CASE WHEN br.status = 'open' AND br.needed_by < CURDATE() THEN 'expired' ELSE br.status END AS effective_status,
-                u.fname AS requester_name, u.lname AS requester_last_name,
+                u.fname AS requester_name, u.lname AS requester_last_name{$clinicRequestSelect},
                 EXISTS (SELECT 1 FROM request_responses rr WHERE rr.request_id = br.id AND rr.user_id = :responder_id) AS already_responded,
                 (SELECT rr.status FROM request_responses rr WHERE rr.request_id = br.id AND rr.user_id = :response_status_viewer_id) AS viewer_response_status,
                 (SELECT COUNT(*) FROM request_responses rr WHERE rr.request_id = br.id) AS response_count
-             FROM blood_requests br JOIN uinfo u ON u.id = br.requester_id
+             FROM blood_requests br JOIN uinfo u ON u.id = br.requester_id{$clinicRequestJoin}
              WHERE " . implode(' AND ', $requestConditions) . '
              ORDER BY FIELD(br.urgency, \'emergency\', \'urgent\', \'routine\'), br.needed_by ASC, br.created_at DESC'
         );
@@ -416,6 +419,13 @@ try {
             }
         }
         if ($donationStatusAvailable) $extraPostColumns[] = 'cp.donation_status';
+        if ($clinicProfilesAvailable) {
+            $extraPostColumns[] = 'clinic_author.facility_name AS author_facility_name';
+            $extraPostColumns[] = 'clinic_author.is_verified AS author_facility_verified';
+        } else {
+            $extraPostColumns[] = 'NULL AS author_facility_name';
+            $extraPostColumns[] = '0 AS author_facility_verified';
+        }
         if ($donorVerificationAvailable) {
             $extraPostColumns[] = 'u.donor_verified';
         }
@@ -423,6 +433,7 @@ try {
         $offerContactCountSelect = $offerMessagesAvailable
             ? ', (SELECT COUNT(DISTINCT offer_message.seeker_id) FROM donation_offer_messages offer_message WHERE offer_message.post_id = cp.id) AS offer_contact_count'
             : ', 0 AS offer_contact_count';
+        $clinicAuthorJoin = $clinicProfilesAvailable ? ' LEFT JOIN clinic_profiles clinic_author ON clinic_author.user_id = cp.user_id' : '';
         $postStmt = $pdo->prepare(
             "SELECT cp.id, cp.user_id, cp.post_type, cp.content, cp.event_date, cp.created_at{$extraPostSelect}{$offerContactCountSelect},
                     u.fname AS author_name, u.lname AS author_last_name, u.city AS author_city,
@@ -431,7 +442,7 @@ try {
                     EXISTS (SELECT 1 FROM post_interactions mine WHERE mine.post_id = cp.id AND mine.user_id = :like_viewer AND mine.interaction = 'like') AS liked_by_me,
                     EXISTS (SELECT 1 FROM post_interactions mine WHERE mine.post_id = cp.id AND mine.user_id = :save_viewer AND mine.interaction = 'save') AS saved_by_me,
                     EXISTS (SELECT 1 FROM post_interactions mine WHERE mine.post_id = cp.id AND mine.user_id = :report_viewer AND mine.interaction = 'report') AS reported_by_me
-             FROM community_posts cp JOIN uinfo u ON u.id = cp.user_id
+             FROM community_posts cp JOIN uinfo u ON u.id = cp.user_id{$clinicAuthorJoin}
              {$postWhere}
              ORDER BY {$postOrder} LIMIT 40"
         );
@@ -1416,7 +1427,8 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
 
 function render_request_card(array $request, string $csrfToken, bool $isOwn, bool $showResponses = true, array $philippineProvinces = []): void
 {
-    $requesterName = trim(($request['requester_name'] ?? '') . ' ' . ($request['requester_last_name'] ?? ''));
+    $requesterName = trim((string) ($request['requester_facility_name'] ?? ''));
+    if ($requesterName === '') $requesterName = trim(($request['requester_name'] ?? '') . ' ' . ($request['requester_last_name'] ?? ''));
     if ($requesterName === '' && $isOwn) {
         $requesterName = trim(($_SESSION['first_name'] ?? '') . ' ' . ($_SESSION['last_name'] ?? ''));
     }
@@ -1460,7 +1472,7 @@ function render_request_card(array $request, string $csrfToken, bool $isOwn, boo
             <span class="blood-mark"><?= h($request['blood_type']) ?></span>
             <div class="post-author">
                 <div class="post-author-heading">
-                    <strong><?= h($requesterName) ?></strong>
+                    <strong><?= h($requesterName) ?></strong><?php if (!empty($request['requester_facility_verified'])): ?><span class="verified-donor" title="Administrator verified facility">✓ Verified facility</span><?php endif; ?>
                     <?php if ($isOwn): ?><span class="post-author-you">You</span><?php endif; ?>
                 </div>
                 <span>Blood Request</span>
@@ -1558,7 +1570,8 @@ function render_offer_message_form(int $postId, int $seekerId, string $csrfToken
 
 function render_post_card(array $post, array $comments, string $csrfToken, int $userId, bool $donationOfferView = false, bool $offerMessagesAvailable = false, bool $donationStatusAvailable = false, bool $donationTimeAvailable = false): void
 {
-    $authorName = trim(($post['author_name'] ?? '') . ' ' . ($post['author_last_name'] ?? ''));
+    $authorName = trim((string) ($post['author_facility_name'] ?? ''));
+    if ($authorName === '') $authorName = trim(($post['author_name'] ?? '') . ' ' . ($post['author_last_name'] ?? ''));
     if ($authorName === '') {
         $authorName = 'BLife PH member';
     }
@@ -1569,7 +1582,7 @@ function render_post_card(array $post, array $comments, string $csrfToken, int $
         <div class="post-meta">
             <span class="avatar"><?= h(member_initials($authorName)) ?></span>
             <div class="post-author">
-                <div class="post-author-heading"><strong><?= h($authorName) ?></strong><?php if ($donationOfferView && !empty($post['donor_verified'])): ?><span class="verified-donor" title="Verified by a BLife PH administrator">✓ Verified donor</span><?php endif; ?><?php if ($isOwnPost): ?><span class="post-author-you">You</span><?php endif; ?></div>
+                <div class="post-author-heading"><strong><?= h($authorName) ?></strong><?php if (!empty($post['author_facility_verified'])): ?><span class="verified-donor" title="Administrator verified facility">✓ Verified facility</span><?php elseif ($donationOfferView && !empty($post['donor_verified'])): ?><span class="verified-donor" title="Verified by a BLife PH administrator">✓ Verified donor</span><?php endif; ?><?php if ($isOwnPost): ?><span class="post-author-you">You</span><?php endif; ?></div>
                 <span style="font-size: 15px;"><?= h(post_label($post['post_type'])) ?><?php if (!$donationOfferView && !empty($post['author_city'])): ?> · <?= h($post['author_city']) ?><?php endif; ?></span>
             </div>
             <time datetime="<?= h($post['created_at']) ?>"><?= h(date('M j, Y', strtotime($post['created_at']))) ?></time>

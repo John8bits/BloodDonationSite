@@ -63,7 +63,7 @@ if (is_clinic() && (int)($_SESSION['must_change_password'] ?? 0) === 1) {
     header('Location: ../clinic/dashboard.php?page=settings');
     exit;
 }
-if (is_clinic() && !in_array($action, ['request_message', 'accept_request_response', 'notification_open'], true)) {
+if (is_clinic() && !in_array($action, ['request_message', 'accept_request_response', 'notification_open', 'donation_offer_message'], true)) {
     header('Location: ../clinic/dashboard.php');
     exit;
 }
