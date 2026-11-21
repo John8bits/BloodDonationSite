@@ -177,14 +177,13 @@
 
         function updateNearbyCount(matches) {
             if (!viewerLocation) {
-                nearbyCount.textContent = 'A saved profile or facility location is needed for nearby search.';
+                nearbyCount.textContent = 'Nearby counts unavailable';
                 return;
             }
             const nearby = matches.filter(item => distanceKm(viewerLocation, item) <= nearbyRadiusKm);
             const requestCount = nearby.filter(item => item.type === 'request').length;
             const offerCount = nearby.filter(item => item.type === 'donation').length;
-            const locationNote = viewerLocation.approximate ? ' Approximate distances from ' + (viewerLocation.location_level === 'province' ? 'your province center.' : 'your city center.') : '';
-            nearbyCount.textContent = `${requestCount} nearby blood request${requestCount === 1 ? '' : 's'} and ${offerCount} donation offer${offerCount === 1 ? '' : 's'} within ${nearbyRadiusKm} km.${locationNote}`;
+            nearbyCount.textContent = `${requestCount} ${requestCount === 1 ? 'Request' : 'Requests'} · ${offerCount} ${offerCount === 1 ? 'Offer' : 'Offers'} nearby`;
         }
 
         function renderMarkers() {
@@ -207,12 +206,17 @@
                     .addTo(markerLayer);
             });
             const count = visibleItems.length;
-            let message = `${count} matching post${count === 1 ? '' : 's'}.`;
-            if (nearbyOnly && count === 0) message = `No posts are within approximately ${nearbyRadiusKm} km of your saved location. Explore the full map or change filters.`;
-            else if (count === 0) message = '0 matching posts. No posts match these filters. Try changing or resetting your filters.';
-            else if (unmappedCount > 0) message += ` ${unmappedCount} active post${unmappedCount === 1 ? '' : 's'} have locations that could not be resolved.`;
-            status.textContent = message;
-            status.dataset.state = count ? 'ready' : 'empty';
+            if (count === 0) {
+                const icon = textNode('i', 'fa-solid fa-magnifying-glass blood-map-empty-icon', '');
+                icon.setAttribute('aria-hidden', 'true');
+                const copy = textNode('span', 'blood-map-empty-copy', '');
+                copy.append(textNode('strong', '', 'No nearby posts found.'), textNode('span', '', 'Try adjusting your filters or viewing all posts.'));
+                status.replaceChildren(icon, copy);
+                status.dataset.state = 'empty';
+            } else {
+                status.textContent = `${count} ${count === 1 ? 'post' : 'posts'} shown`;
+                status.dataset.state = 'ready';
+            }
         }
 
         function updateUrgencyVisibility() {
@@ -230,13 +234,13 @@
                 items = result.items; viewerLocation = result.viewerLocation; unmappedCount = result.unmappedCount;
                 nearbyButton.disabled = !viewerLocation;
                 if (viewerLocation) {
-                    locationStatus.textContent = `Nearby reference: ${viewerLocation.location || 'saved location'}${viewerLocation.location_level === 'province' ? ' (approximate province location)' : ' (approximate city center)'}.`;
+                    locationStatus.textContent = '';
                     if (!centeredOnProfile) {
                         map.setView([Number(viewerLocation.latitude), Number(viewerLocation.longitude)], viewerLocation.location_level === 'province' ? 8 : 10);
                         centeredOnProfile = true;
                     }
                 } else {
-                    locationStatus.textContent = 'No saved profile or facility location is available; the map remains centered on the Philippines.';
+                    locationStatus.textContent = '';
                 }
                 populateProvinces(); populateCities(); populateLocations(); updateUrgencyVisibility(); renderMarkers();
             } catch (error) {
