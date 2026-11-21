@@ -67,16 +67,6 @@
         });
     }
 
-    function appendOptions(select, values, firstLabel) {
-        select.replaceChildren();
-        const first = document.createElement('option');
-        first.value = 'all'; first.textContent = firstLabel; select.append(first);
-        values.forEach(value => {
-            const option = document.createElement('option');
-            option.value = value; option.textContent = value; select.append(option);
-        });
-    }
-
     function normalized(value) { return String(value || '').trim().toLocaleLowerCase(); }
 
     async function loadMap(element) {
@@ -85,7 +75,6 @@
         const filterForm = page.querySelector('[data-blood-map-filters]');
         const filters = Object.fromEntries(Array.from(filterForm.querySelectorAll('[data-filter]'), input => [input.dataset.filter, input]));
         const locationInput = page.querySelector('[data-location-search]');
-        const locationList = page.querySelector('datalist');
         const locationStatus = page.querySelector('[data-location-status]');
         const locationProvince = page.querySelector('[data-location-province]');
         const locationCity = page.querySelector('[data-location-city]');
@@ -198,23 +187,38 @@
             if (page.classList.contains('is-fullscreen')) setFullMapMode(false);
         });
         locationsToggle.addEventListener('click', () => setLocationsPanel(locationsPanel.hidden));
-        locationsClose.addEventListener('click', () => setLocationsPanel(false));
+        locationsClose.addEventListener('click', () => {
+            setLocationsPanel(false);
+            locationsToggle.focus();
+        });
         filterDisclosure.addEventListener('toggle', () => {
             if (filterDisclosure.open) setLocationsPanel(false);
         });
         locationProvince.addEventListener('change', () => {
             populateLocationCities();
             const rows = locationRecords.filter(location => normalized(location.province) === normalized(locationProvince.value));
-            if (locationProvince.value && focusLocationRecords(rows, 8)) locationStatus.textContent = `Showing ${locationProvince.value}.`;
+            if (locationProvince.value && focusLocationRecords(rows, 8)) {
+                locationStatus.textContent = `Showing ${locationProvince.value}.`;
+                setLocationsPanel(false);
+                locationsToggle.focus();
+            }
         });
         locationCity.addEventListener('change', () => {
             populateLocationBarangays();
             const rows = locationRecords.filter(location => normalized(location.province) === normalized(locationProvince.value) && normalized(location.city) === normalized(locationCity.value));
-            if (locationCity.value && focusLocationRecords(rows, 11)) locationStatus.textContent = `Showing ${locationCity.value}, ${locationProvince.value}.`;
+            if (locationCity.value && focusLocationRecords(rows, 11)) {
+                locationStatus.textContent = `Showing ${locationCity.value}, ${locationProvince.value}.`;
+                setLocationsPanel(false);
+                locationsToggle.focus();
+            }
         });
         locationBarangay.addEventListener('change', () => {
             const location = locationRecords.find(row => normalized(row.province) === normalized(locationProvince.value) && normalized(row.city) === normalized(locationCity.value) && normalized(row.barangay) === normalized(locationBarangay.value));
-            if (location && focusLocationRecords([location], 13)) locationStatus.textContent = `Showing ${locationBarangay.value}, ${locationCity.value}.`;
+            if (location && focusLocationRecords([location], 13)) {
+                locationStatus.textContent = `Showing ${locationBarangay.value}, ${locationCity.value}.`;
+                setLocationsPanel(false);
+                locationsToggle.focus();
+            }
         });
 
         async function fetchMapItems() {
@@ -236,26 +240,8 @@
             return { items: fetchedItems, viewerLocation: pagePayload?.viewer_location || null, unmappedCount: Number(pagePayload?.unmapped_count || 0) };
         }
 
-        function populateProvinces() {
-            const previous = filters.province.value;
-            const values = [...new Set(items.map(item => String(item.province || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
-            appendOptions(filters.province, values, 'All provinces');
-            if (values.includes(previous)) filters.province.value = previous;
-        }
-
-        function populateCities() {
-            const selectedProvince = filters.province.value;
-            const cities = [...new Set(items
-                .filter(item => selectedProvince === 'all' || normalized(item.province) === normalized(selectedProvince))
-                .map(item => String(item.city || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
-            const previous = filters.city.value;
-            appendOptions(filters.city, cities, 'All cities / municipalities');
-            filters.city.disabled = cities.length === 0;
-            if (cities.includes(previous)) filters.city.value = previous;
-        }
-
         function populateLocations() {
-            locations.clear(); locationList.replaceChildren();
+            locations.clear();
             locationRecords = items.map(item => ({
                 label: String(item.location || `${item.city || ''}, ${item.province || ''}`).trim(),
                 province: String(item.province || '').trim(),
@@ -272,9 +258,6 @@
                     latitude: Number(item.latitude), longitude: Number(item.longitude),
                     province: String(item.province || '').trim(), city: String(item.city || '').trim()
                 });
-            });
-            locations.forEach(location => {
-                const option = document.createElement('option'); option.value = location.label; locationList.append(option);
             });
             const previousProvince = locationProvince.value;
             fillLocationSelect(locationProvince, [...new Set(locationRecords.map(location => location.province))].sort((a, b) => a.localeCompare(b)), 'Select province');
@@ -324,14 +307,10 @@
         function currentMatches() {
             const selectedType = filters.type.value;
             const selectedBlood = filters['blood-type'].value;
-            const selectedProvince = filters.province.value;
-            const selectedCity = filters.city.value;
             const selectedUrgency = filters.urgency.value;
             return items.filter(item => {
                 if (selectedType !== 'all' && item.type !== selectedType) return false;
                 if (selectedBlood !== 'all' && normalized(item.blood_type) !== normalized(selectedBlood)) return false;
-                if (selectedProvince !== 'all' && normalized(item.province) !== normalized(selectedProvince)) return false;
-                if (selectedCity !== 'all' && normalized(item.city) !== normalized(selectedCity)) return false;
                 if (selectedUrgency !== 'all' && (item.type !== 'request' || normalized(item.urgency) !== selectedUrgency)) return false;
                 return true;
             });
@@ -404,7 +383,7 @@
                 } else {
                     locationStatus.textContent = '';
                 }
-                populateProvinces(); populateCities(); populateLocations(); updateUrgencyVisibility(); renderMarkers();
+                populateLocations(); updateUrgencyVisibility(); renderMarkers();
             } catch (error) {
                 status.textContent = error.message || 'Map data could not be loaded. Please try again.';
                 status.dataset.state = 'error';
@@ -416,22 +395,37 @@
 
         filterForm.addEventListener('submit', event => event.preventDefault());
         filterForm.addEventListener('change', event => {
-            if (event.target === filters.province) populateCities();
             updateUrgencyVisibility(); renderMarkers();
         });
         filterForm.addEventListener('reset', () => window.setTimeout(() => {
             nearbyOnly = false; nearbyButton.setAttribute('aria-pressed', 'false'); nearbyButton.textContent = 'Show Nearby (50 km)';
-            populateCities(); updateUrgencyVisibility(); renderMarkers();
+            updateUrgencyVisibility(); renderMarkers();
         }, 0));
 
         function goToLocation() {
-            const match = locations.get(normalized(locationInput.value));
-            if (!match || !Number.isFinite(match.latitude) || !Number.isFinite(match.longitude)) {
-                locationStatus.textContent = 'Choose a location from the suggestions.'; return;
+            const query = normalized(locationInput.value);
+            if (!query) { locationStatus.textContent = 'Enter a city or province.'; return; }
+            const cityMatches = locationRecords.filter(location => normalized(location.city) === query);
+            const provinceMatches = locationRecords.filter(location => normalized(location.province) === query);
+            const exactMatch = locations.get(query);
+            let label = '';
+            let focused = false;
+            if (cityMatches.length) {
+                focused = focusLocationRecords(cityMatches, 11);
+                label = `${cityMatches[0].city}, ${cityMatches[0].province}`;
+            } else if (provinceMatches.length) {
+                focused = focusLocationRecords(provinceMatches, 8);
+                label = provinceMatches[0].province;
+            } else if (exactMatch && philippinesBounds.contains([exactMatch.latitude, exactMatch.longitude])) {
+                map.setView([exactMatch.latitude, exactMatch.longitude], Math.max(map.getZoom(), 11));
+                label = exactMatch.label;
+                focused = true;
             }
+            if (!focused) { locationStatus.textContent = 'No mapped city or province matches that search.'; return; }
             nearbyOnly = false; nearbyButton.setAttribute('aria-pressed', 'false'); nearbyButton.textContent = 'Show Nearby (50 km)';
-            map.setView([match.latitude, match.longitude], Math.max(map.getZoom(), 11));
-            locationStatus.textContent = `Map centered on ${match.label}.`;
+            locationStatus.textContent = `Map centered on ${label}.`;
+            setLocationsPanel(false);
+            locationsToggle.focus();
         }
         refreshButton.addEventListener('click', refreshMapData);
         nearbyButton.addEventListener('click', () => {

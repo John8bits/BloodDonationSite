@@ -1,11 +1,12 @@
 .blood-map-page { display: grid; gap: 11px; }
-.blood-map-filters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: end; gap: 9px; padding: 0; background: transparent; border: 0; }
-.blood-map-filters label, .blood-map-location-search > label { display: grid; min-width: 0; gap: 6px; color: #334155; font-size: .85rem; font-weight: 700; }
-.blood-map-filters select, .blood-map-location-search input { box-sizing: border-box; width: 100%; min-width: 0; min-height: 42px; padding: 8px 10px; color: #243247; background: #fff; border: 1px solid #d5dce6; border-radius: 9px; font: inherit; }
+.blood-map-filters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: end; gap: 8px; padding: 0; background: transparent; border: 0; }
+.blood-map-filters label { display: grid; min-width: 0; gap: 4px; color: #334155; font-size: .82rem; font-weight: 700; }
+.blood-map-filters select, .blood-map-location-search input { box-sizing: border-box; width: 100%; min-width: 0; min-height: 40px; padding: 7px 9px; color: #243247; background: #fff; border: 1px solid #d5dce6; border-radius: 9px; font: inherit; }
 .blood-map-filters select:disabled { color: #94a3b8; background: #f8fafc; }
-.blood-map-reset, .blood-map-location-search button { min-height: 42px; padding: 0 14px; color: #fff; background: #c9252b; border: 0; border-radius: 9px; font: inherit; font-weight: 700; white-space: nowrap; cursor: pointer; }
+.blood-map-reset, .blood-map-location-search button { min-height: 40px; padding: 0 12px; color: #fff; background: #c9252b; border: 0; border-radius: 9px; font: inherit; font-weight: 700; white-space: nowrap; cursor: pointer; }
 .blood-map-reset { display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
 .blood-map-reset:hover, .blood-map-location-search button:hover { background: #a91f24; }
+.blood-map-controls .blood-map-reset:hover, .blood-map-controls .blood-map-reset:focus-visible { color: #fff; background: #a91f24; border-color: #a91f24; }
 .blood-map-controls .blood-map-location-search button:hover,
 .blood-map-controls .blood-map-location-search button:focus-visible { color: #fff; background: #a91f24; border-color: #a91f24; }
 .blood-map-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 14px; padding: 0 2px; }
@@ -34,8 +35,7 @@
 .blood-map-empty-copy span { color: #64748b; font-size: .82rem; }
 .blood-map-location-search { display: block; padding: 10px 0 0; background: transparent; border: 0; }
 .blood-map-location-search > div { display: flex; min-width: 0; gap: 8px; }
-.blood-map-location-search input { flex: 1; min-width: 0; }
-.blood-map-location-search p { min-height: 1em; margin: 0; color: #64748b; font-size: .82rem; }
+.blood-map-location-search input { flex: 1; min-width: 0; min-height: 40px; padding: 6px 9px; }
 .blood-map-canvas { width: 100%; height: min(68vh, 680px); min-height: 420px; overflow: hidden; background: #edf2f7; border: 1px solid #dce3ec; border-radius: 14px; z-index: 0; }
 .blood-map-marker { display: grid; place-items: center; width: 38px; height: 42px; border: 2px solid #fff; border-radius: 50% 50% 50% 0; color: #fff; box-shadow: 0 2px 8px rgba(15, 23, 42, .28); transform: rotate(-45deg); }
 .blood-map-marker i { font-size: 17px; transform: rotate(45deg); }
@@ -60,26 +60,26 @@
 .blood-map-controls .blood-map-view-full:hover, .blood-map-controls .blood-map-view-exit:hover { color: #fff; background: #a91f24; }
 .blood-map-controls .blood-map-reset-view { display: none; }
 .blood-map-nearby-slot { display: none; }
-.blood-map-locations-panel { position: absolute; top: calc(100% + 8px); right: 0; z-index: 1200; width: min(360px, calc(100vw - 28px)); max-height: min(62vh, 480px); overflow: auto; padding: 16px; color: #243247; background: #fff; border: 1px solid #e1e7ef; border-radius: 14px; box-shadow: 0 14px 36px rgba(15, 23, 42, .2); opacity: 0; transform: translateX(10px); transition: opacity .18s ease, transform .18s ease; }
+.blood-map-locations-panel { position: absolute; top: calc(100% + 8px); right: 0; z-index: 1200; width: min(340px, calc(100vw - 28px)); max-height: min(56vh, 360px); overflow: auto; padding: 10px; color: #243247; background: #fff; border: 1px solid #e1e7ef; border-radius: 12px; box-shadow: 0 14px 36px rgba(15, 23, 42, .2); opacity: 0; transform: translateX(10px); transition: opacity .18s ease, transform .18s ease; }
 .blood-map-locations-panel.is-open { opacity: 1; transform: translateX(0); }
 .blood-map-locations-panel[hidden] { display: none; }
-.blood-map-locations-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; margin-bottom: 14px; }
-.blood-map-locations-header span { color: #c9252b; font-size: .7rem; font-weight: 800; letter-spacing: .12em; }
-.blood-map-locations-header h2 { margin: 3px 0 0; color: #243247; font-size: 1.12rem; }
-.blood-map-locations-close { display: grid; flex: 0 0 36px; width: 36px; height: 36px; place-items: center; color: #475569; background: #f8fafc; border: 1px solid #dce3ec; border-radius: 9px; cursor: pointer; }
+.blood-map-locations-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 9px; }
+.blood-map-locations-header span { color: #c9252b; font-size: .66rem; font-weight: 800; letter-spacing: .12em; }
+.blood-map-locations-header h2 { margin: 2px 0 0; color: #243247; font-size: 1rem; }
+.blood-map-locations-close { display: grid; flex: 0 0 32px; width: 32px; height: 32px; place-items: center; color: #475569; background: #f8fafc; border: 1px solid #dce3ec; border-radius: 8px; cursor: pointer; }
 .blood-map-locations-close:hover { color: #b4232a; border-color: #e3b6b8; }
-.blood-map-location-levels { display: grid; gap: 10px; margin-top: 14px; }
-.blood-map-location-levels label { display: grid; gap: 6px; color: #334155; font-size: .84rem; font-weight: 700; }
-.blood-map-location-levels select { box-sizing: border-box; width: 100%; min-height: 40px; padding: 7px 10px; color: #243247; background: #fff; border: 1px solid #d5dce6; border-radius: 9px; font: inherit; }
+.blood-map-location-levels { display: grid; gap: 7px; margin-top: 8px; }
+.blood-map-location-levels label { display: grid; gap: 3px; color: #334155; font-size: .76rem; font-weight: 700; }
+.blood-map-location-levels select { box-sizing: border-box; width: 100%; min-height: 38px; padding: 6px 9px; color: #243247; background: #fff; border: 1px solid #d5dce6; border-radius: 8px; font: inherit; font-size: .88rem; }
 .blood-map-location-levels select:disabled { color: #94a3b8; background: #f8fafc; }
-.blood-map-location-status { min-height: 1em; margin: 10px 0 0; color: #64748b; font-size: .82rem; }
+.blood-map-location-status { min-height: 1em; margin: 7px 0 0; color: #64748b; font-size: .78rem; }
 .blood-map-fullscreen-filters { position: relative; }
 .blood-map-fullscreen-filters > summary { list-style: none; }
 .blood-map-fullscreen-filters > summary::-webkit-details-marker { display: none; }
-.blood-map-fullscreen-filters > div { position: absolute; top: calc(100% + 8px); right: 0; width: min(620px, calc(100vw - 28px)); max-height: min(58vh, 480px); overflow: auto; padding: 12px; background: #fff; border: 1px solid #dce3ec; border-radius: 12px; box-shadow: 0 12px 35px rgba(15, 23, 42, .2); }
+.blood-map-fullscreen-filters > div { position: absolute; top: calc(100% + 8px); right: 0; width: min(380px, calc(100vw - 28px)); max-height: min(48vh, 320px); overflow: auto; padding: 9px; background: #fff; border: 1px solid #dce3ec; border-radius: 12px; box-shadow: 0 12px 35px rgba(15, 23, 42, .2); }
 .blood-map-fullscreen-filters[open] > summary { color: #b4232a; border-color: #e3b6b8; }
 .blood-map-filter-panel { display: grid; gap: 10px; }
-.blood-map-fullscreen-filters .blood-map-filters { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.blood-map-fullscreen-filters .blood-map-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .blood-map-fullscreen-filters .blood-map-reset { grid-column: 1 / -1; }
 .blood-map-map-info > .blood-map-legend { position: absolute; left: 12px; bottom: 12px; z-index: 650; padding: 8px 10px; background: rgba(255, 255, 255, .94); border: 1px solid #dce3ec; border-radius: 9px; box-shadow: 0 2px 8px rgba(15, 23, 42, .1); pointer-events: auto; }
 .blood-map-page.is-fullscreen { position: fixed; inset: 0; z-index: 12000; display: block; width: auto; height: 100vh; height: 100dvh; padding: 0; overflow: hidden; background: #f8fafc; }
@@ -114,7 +114,7 @@ body.blood-map-fullscreen-open { overflow: hidden !important; }
   .blood-map-page.is-fullscreen .blood-map-controls { gap: 6px; row-gap: 6px; }
   .blood-map-page.is-fullscreen .blood-map-controls .blood-map-nearby { min-height: 36px; padding: 0 9px; font-size: .76rem; }
   .blood-map-map-info > .blood-map-legend { left: 8px; bottom: 8px; gap: 10px; padding: 7px 8px; font-size: .72rem; }
-  .blood-map-fullscreen-filters > div { width: min(520px, calc(100vw - 24px)); max-height: min(52vh, 360px); }
+  .blood-map-fullscreen-filters > div { width: min(380px, calc(100vw - 24px)); max-height: min(48vh, 320px); }
   .blood-map-fullscreen-filters .blood-map-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .blood-map-locations-panel { width: min(360px, calc(100vw - 24px)); max-height: min(48vh, 340px); }
+  .blood-map-locations-panel { width: min(340px, calc(100vw - 24px)); max-height: min(48vh, 320px); }
 }
