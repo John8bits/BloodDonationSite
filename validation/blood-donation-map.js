@@ -4,6 +4,8 @@
 
     const philippinesBounds = L.latLngBounds([4.0, 114.0], [21.7, 127.5]);
     const philippinesDisplayBounds = L.latLngBounds([4.2, 116.5], [21.4, 127.1]);
+    const defaultMapCenter = [12.5, 121.0];
+    const defaultMapZoom = 5.5;
     const nearbyRadiusKm = 50;
 
     function textNode(tag, className, text) {
@@ -97,7 +99,7 @@
         let previousBodyOverflow = '';
         let isDefaultOverview = true;
         let applyingOverviewFit = false;
-        const map = L.map(element, { center: [12.8797, 121.7740], zoom: 5, minZoom: 4, maxZoom: 18, maxBounds: philippinesBounds, maxBoundsViscosity: 1.0 });
+        const map = L.map(element, { center: defaultMapCenter, zoom: defaultMapZoom, zoomSnap: 0.5, minZoom: 4, maxZoom: 18, maxBounds: philippinesBounds, maxBoundsViscosity: 1.0 });
         if (map.zoomControl) map.zoomControl.setPosition('bottomright');
         map.on('movestart zoomstart', () => {
             if (!applyingOverviewFit) isDefaultOverview = false;
@@ -130,7 +132,7 @@
                 map.invalidateSize({ pan: false });
                 window.setTimeout(() => {
                     map.invalidateSize({ pan: false });
-                    if (isDefaultOverview) fitPhilippines();
+                    if (isDefaultOverview) setDefaultView();
                 }, 120);
             });
         }
@@ -176,20 +178,16 @@
             }, 180);
         }
 
-        function fitPhilippines() {
-            const leftPadding = Math.min(240, Math.round(map.getSize().x * 0.1 + 24));
+        function setDefaultView() {
+            const viewportFitZoom = map.getBoundsZoom(philippinesDisplayBounds, false, L.point(24, 24));
+            const zoom = Math.max(map.getMinZoom(), Math.min(defaultMapZoom, viewportFitZoom));
             applyingOverviewFit = true;
-            map.fitBounds(philippinesDisplayBounds, {
-                paddingTopLeft: [leftPadding, 24],
-                paddingBottomRight: [24, 24],
-                maxZoom: 6,
-                animate: false
-            });
+            map.setView(defaultMapCenter, zoom, { animate: false });
             isDefaultOverview = true;
             window.setTimeout(() => { applyingOverviewFit = false; }, 0);
         }
 
-        function resetMapView() { fitPhilippines(); }
+        function resetMapView() { setDefaultView(); }
 
         fullMapButton.addEventListener('click', () => setFullMapMode(true));
         exitFullMapButton.addEventListener('click', () => setFullMapMode(false));
@@ -441,7 +439,7 @@
         }
         refreshButton.addEventListener('click', async () => {
             await refreshMapData();
-            fitPhilippines();
+            setDefaultView();
         });
         nearbyButton.addEventListener('click', () => {
             if (!viewerLocation) return;
@@ -459,7 +457,7 @@
         window.addEventListener('focus', refreshMapData);
         document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') refreshMapData(); });
         window.setInterval(refreshMapData, 60000);
-        map.whenReady(fitPhilippines);
+        map.whenReady(setDefaultView);
         refreshMapData();
         if (window.ResizeObserver) new ResizeObserver(() => map.invalidateSize()).observe(element);
         else if (window.addEventListener) window.addEventListener('resize', () => map.invalidateSize());
