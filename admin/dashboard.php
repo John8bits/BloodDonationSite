@@ -78,6 +78,8 @@ $schema = [
 ];
 $flash = $_SESSION['admin_flash'] ?? null;
 unset($_SESSION['admin_flash']);
+$clinicEditFailure = $_SESSION['clinic_edit_failure'] ?? null;
+unset($_SESSION['clinic_edit_failure']);
 $query = isset($_GET['q']) && is_string($_GET['q']) ? trim($_GET['q']) : '';
 $bloodType = isset($_GET['btype']) && is_string($_GET['btype']) ? $_GET['btype'] : '';
 $status = isset($_GET['status']) && is_string($_GET['status']) ? $_GET['status'] : '';
@@ -514,9 +516,29 @@ $showEventCreateAction = $currentPage === 'events' && $schema['event_fields'] &&
                     </div></section><section class="admin-form-section"><h3>Account Information</h3><div class="admin-dialog-grid"><label>Login Email<input type="email" name="login_email" maxlength="255" required></label><label>Temporary Password<input type="password" name="temporary_password" minlength="12" autocomplete="new-password" required><small>At least 12 characters. The facility will change it after its first login.</small></label><label>Account Status<select name="account_status"><option value="active">Active</option><option value="suspended">Suspended</option></select></label><div class="admin-dialog-actions"><button class="admin-button secondary" type="button" data-admin-dialog-close>Cancel</button><button class="admin-button" type="submit"><i class="fa-solid fa-plus" aria-hidden="true"></i> Create Account</button></div>
                 </div></section></form></dialog>
                 <form class="admin-filter-form clinic-filter-form" method="get"><input type="hidden" name="page" value="clinics"><input name="q" value="<?= admin_h($query) ?>" placeholder="Search facility, login email, location"><select name="facility_type"><option value="">All facility types</option><option value="clinic" <?= ($_GET['facility_type'] ?? '') === 'clinic' ? 'selected' : '' ?>>Clinic</option><option value="blood_bank" <?= ($_GET['facility_type'] ?? '') === 'blood_bank' ? 'selected' : '' ?>>Blood bank</option></select><select name="clinic_status"><option value="">All statuses</option><option value="active" <?= ($_GET['clinic_status'] ?? '') === 'active' ? 'selected' : '' ?>>Active</option><option value="suspended" <?= ($_GET['clinic_status'] ?? '') === 'suspended' ? 'selected' : '' ?>>Suspended</option></select><button>Search facilities</button></form>
-                <?php foreach ($clinicRows as $clinic): ?><article class="admin-panel clinic-record"><header><div><h2><?= admin_h($clinic['facility_name']) ?> <?php if ((int) $clinic['is_verified']): ?><span class="clinic-verified">✓ Admin verified</span><?php endif; ?></h2><p><?= admin_h(ucwords(str_replace('_',' ',$clinic['facility_type']))) ?> · <?= admin_h($clinic['city'] . ', ' . $clinic['province']) ?></p></div><span class="clinic-status <?= admin_h($clinic['account_status']) ?>"><?= admin_h(ucfirst($clinic['account_status'])) ?></span></header><dl><dt>Address</dt><dd><?= admin_h($clinic['facility_address']) ?></dd><dt>Contact</dt><dd><?= admin_h($clinic['contact_number']) ?></dd><dt>Official email</dt><dd><?= admin_h($clinic['official_email']) ?></dd><dt>Login email</dt><dd><?= admin_h($clinic['login_email']) ?></dd><dt>Representative</dt><dd><?= admin_h($clinic['authorized_representative']) ?></dd><dt>Created</dt><dd><?= admin_h(date('M j, Y', strtotime($clinic['account_created_at']))) ?></dd><dt>Description</dt><dd><?= admin_h($clinic['description'] ?: '—') ?></dd></dl>
-                <details><summary>Edit institution information</summary><form class="clinic-admin-form clinic-edit-form" method="post" action="action.php"><input type="hidden" name="csrf_token" value="<?= admin_h($csrfToken) ?>"><input type="hidden" name="action" value="clinic_update"><input type="hidden" name="clinic_id" value="<?= (int) $clinic['user_id'] ?>"><label>Facility name<input name="facility_name" maxlength="180" value="<?= admin_h($clinic['facility_name']) ?>" required></label><label>Type<select name="facility_type"><option value="clinic" <?= $clinic['facility_type'] === 'clinic' ? 'selected' : '' ?>>Clinic</option><option value="blood_bank" <?= $clinic['facility_type'] === 'blood_bank' ? 'selected' : '' ?>>Blood bank</option></select></label><label>Address<input name="facility_address" maxlength="255" value="<?= admin_h($clinic['facility_address']) ?>" required></label><div><label>City<input name="city" maxlength="120" value="<?= admin_h($clinic['city']) ?>" required></label><label>Province<input name="province" maxlength="120" value="<?= admin_h($clinic['province']) ?>" required></label></div><label>Contact<input name="contact_number" maxlength="30" value="<?= admin_h($clinic['contact_number']) ?>" required></label><label>Official email<input type="email" name="official_email" maxlength="255" value="<?= admin_h($clinic['official_email']) ?>" required></label><label>Representative<input name="authorized_representative" maxlength="160" value="<?= admin_h($clinic['authorized_representative']) ?>" required></label><label>Description<textarea name="description" maxlength="1000" rows="3"><?= admin_h($clinic['description']) ?></textarea></label><button class="admin-button">Save changes</button></form></details>
-                <form class="admin-inline-form" method="post" action="action.php"><input type="hidden" name="csrf_token" value="<?= admin_h($csrfToken) ?>"><input type="hidden" name="action" value="clinic_status"><input type="hidden" name="clinic_id" value="<?= (int) $clinic['user_id'] ?>"><input type="hidden" name="status" value="<?= $clinic['account_status'] === 'active' ? 'suspended' : 'active' ?>"><button class="admin-button secondary" <?= !$schema['account_status'] ? 'disabled title="Run the admin enhancement migration first."' : '' ?>><?= $clinic['account_status'] === 'active' ? 'Suspend' : 'Activate' ?></button></form><form class="admin-inline-form" method="post" action="action.php"><input type="hidden" name="csrf_token" value="<?= admin_h($csrfToken) ?>"><input type="hidden" name="action" value="clinic_verification"><input type="hidden" name="clinic_id" value="<?= (int) $clinic['user_id'] ?>"><input type="hidden" name="verified" value="<?= (int) $clinic['is_verified'] ? '0' : '1' ?>"><button class="admin-button secondary"><?= (int) $clinic['is_verified'] ? 'Remove verification' : 'Verify institution' ?></button></form><form class="admin-inline-form" method="post" action="action.php"><input type="hidden" name="csrf_token" value="<?= admin_h($csrfToken) ?>"><input type="hidden" name="action" value="clinic_password_reset"><input type="hidden" name="clinic_id" value="<?= (int) $clinic['user_id'] ?>"><label>New temporary password<input type="password" name="temporary_password" minlength="12" required autocomplete="new-password"></label><button class="admin-button secondary">Require password change</button></form></article><?php endforeach; ?><?php if (!$clinicRows): ?><div class="clinic-empty-state"><i class="fa-solid fa-hospital" aria-hidden="true"></i><p>No clinics or blood banks found</p></div><?php endif; ?>
+                <?php foreach ($clinicRows as $clinic): $clinicEditValues = is_array($clinicEditFailure) && (int) ($clinicEditFailure['clinic_id'] ?? 0) === (int) $clinic['user_id'] ? $clinicEditFailure['values'] : []; ?><article class="admin-panel clinic-record"><header><div class="clinic-record-title"><h2><?= admin_h($clinic['facility_name']) ?> <?php if ((int) $clinic['is_verified']): ?><span class="clinic-verified">✓ Admin verified</span><?php endif; ?></h2><p><?= admin_h(ucwords(str_replace('_',' ',$clinic['facility_type']))) ?> · <?= admin_h($clinic['city'] . ', ' . $clinic['province']) ?></p></div><span class="clinic-status <?= admin_h($clinic['account_status']) ?>"><?= admin_h(ucfirst($clinic['account_status'])) ?></span><button class="admin-button clinic-edit-trigger" type="button" data-admin-dialog-open="editClinicDialog<?= (int) $clinic['user_id'] ?>"><i class="fa-solid fa-pen" aria-hidden="true"></i> Edit Institution</button></header>
+                <dl class="clinic-details-grid">
+                    <div><dt>Address</dt><dd><?= admin_h($clinic['facility_address']) ?></dd></div><div><dt>City</dt><dd><?= admin_h($clinic['city']) ?></dd></div>
+                    <div><dt>Province</dt><dd><?= admin_h($clinic['province']) ?></dd></div><div><dt>Contact Number</dt><dd><?= admin_h($clinic['contact_number']) ?></dd></div>
+                    <div><dt>Official Email</dt><dd><?= admin_h($clinic['official_email']) ?></dd></div><div><dt>Login Email</dt><dd><?= admin_h($clinic['login_email']) ?></dd></div>
+                    <div><dt>Representative</dt><dd><?= admin_h($clinic['authorized_representative']) ?></dd></div><div><dt>Created</dt><dd><?= admin_h(date('M j, Y', strtotime($clinic['account_created_at']))) ?></dd></div>
+                    <div class="clinic-detail-description"><dt>Description</dt><dd><?= admin_h($clinic['description'] ?: '—') ?></dd></div>
+                </dl>
+                <dialog class="admin-dialog clinic-edit-dialog" id="editClinicDialog<?= (int) $clinic['user_id'] ?>" aria-labelledby="editClinicTitle<?= (int) $clinic['user_id'] ?>" aria-describedby="editClinicDescription<?= (int) $clinic['user_id'] ?>" data-reopen="<?= $clinicEditValues ? 'true' : 'false' ?>"><form class="admin-dialog-form clinic-edit-form" method="post" action="action.php"><input type="hidden" name="csrf_token" value="<?= admin_h($csrfToken) ?>"><input type="hidden" name="action" value="clinic_update"><input type="hidden" name="clinic_id" value="<?= (int) $clinic['user_id'] ?>"><header class="admin-dialog-heading"><div><p>INSTITUTION DETAILS</p><h2 id="editClinicTitle<?= (int) $clinic['user_id'] ?>">Edit Institution Information</h2><span id="editClinicDescription<?= (int) $clinic['user_id'] ?>">Update the clinic or blood bank's information.</span></div><button type="button" class="admin-dialog-close" data-admin-dialog-close aria-label="Close edit institution dialog">×</button></header>
+                    <div class="clinic-edit-body"><div class="clinic-edit-grid">
+                        <label>Facility Name<input name="facility_name" maxlength="180" value="<?= admin_h($clinicEditValues['facility_name'] ?? $clinic['facility_name']) ?>" required></label>
+                        <label>Facility Type<select name="facility_type" required><option value="clinic" <?= ($clinicEditValues['facility_type'] ?? $clinic['facility_type']) === 'clinic' ? 'selected' : '' ?>>Clinic</option><option value="blood_bank" <?= ($clinicEditValues['facility_type'] ?? $clinic['facility_type']) === 'blood_bank' ? 'selected' : '' ?>>Blood Bank</option></select></label>
+                        <label>Address<input name="facility_address" maxlength="255" value="<?= admin_h($clinicEditValues['facility_address'] ?? $clinic['facility_address']) ?>" required></label>
+                        <label>City<input name="city" maxlength="120" value="<?= admin_h($clinicEditValues['city'] ?? $clinic['city']) ?>" required></label>
+                        <label>Province<input name="province" maxlength="120" value="<?= admin_h($clinicEditValues['province'] ?? $clinic['province']) ?>" required></label>
+                        <label>Contact Number<input name="contact_number" maxlength="30" value="<?= admin_h($clinicEditValues['contact_number'] ?? $clinic['contact_number']) ?>" required></label>
+                        <label>Official Email<input type="email" name="official_email" maxlength="255" value="<?= admin_h($clinicEditValues['official_email'] ?? $clinic['official_email']) ?>" required></label>
+                        <label>Representative<input name="authorized_representative" maxlength="160" value="<?= admin_h($clinicEditValues['authorized_representative'] ?? $clinic['authorized_representative']) ?>" required></label>
+                        <label class="clinic-edit-description">Description<textarea name="description" maxlength="1000" rows="4"><?= admin_h($clinicEditValues['description'] ?? $clinic['description']) ?></textarea></label>
+                    </div></div><footer class="admin-dialog-actions clinic-edit-footer"><button class="admin-button secondary" type="button" data-admin-dialog-close>Cancel</button><button class="admin-button" type="submit"><i class="fa-solid fa-floppy-disk" aria-hidden="true"></i> Save Changes</button></footer>
+                </form></dialog>
+                <section class="clinic-admin-actions" aria-label="Administrative institution actions"><h3>Administrative Actions</h3><div class="clinic-admin-actions-row">
+                <form class="admin-inline-form" method="post" action="action.php"><input type="hidden" name="csrf_token" value="<?= admin_h($csrfToken) ?>"><input type="hidden" name="action" value="clinic_status"><input type="hidden" name="clinic_id" value="<?= (int) $clinic['user_id'] ?>"><input type="hidden" name="status" value="<?= $clinic['account_status'] === 'active' ? 'suspended' : 'active' ?>"><button class="admin-button secondary" <?= !$schema['account_status'] ? 'disabled title="Run the admin enhancement migration first."' : '' ?>><?= $clinic['account_status'] === 'active' ? 'Suspend Institution' : 'Activate Institution' ?></button></form><form class="admin-inline-form" method="post" action="action.php"><input type="hidden" name="csrf_token" value="<?= admin_h($csrfToken) ?>"><input type="hidden" name="action" value="clinic_verification"><input type="hidden" name="clinic_id" value="<?= (int) $clinic['user_id'] ?>"><input type="hidden" name="verified" value="<?= (int) $clinic['is_verified'] ? '0' : '1' ?>"><button class="admin-button secondary"><?= (int) $clinic['is_verified'] ? 'Remove Verification' : 'Verify Institution' ?></button></form><form class="admin-inline-form" method="post" action="action.php"><input type="hidden" name="csrf_token" value="<?= admin_h($csrfToken) ?>"><input type="hidden" name="action" value="clinic_password_reset"><input type="hidden" name="clinic_id" value="<?= (int) $clinic['user_id'] ?>"><label>New temporary password<input type="password" name="temporary_password" minlength="12" required autocomplete="new-password"></label><button class="admin-button secondary">Require Password Change</button></form></div></section></article><?php endforeach; ?><?php if (!$clinicRows): ?><div class="clinic-empty-state"><i class="fa-solid fa-hospital" aria-hidden="true"></i><p>No clinics or blood banks found</p></div><?php endif; ?>
             <?php endif; ?>
         <?php elseif ($currentPage === 'requests'): ?>
             <?php if (!$schema['requests']): ?>
@@ -847,11 +869,53 @@ $showEventCreateAction = $currentPage === 'events' && $schema['event_fields'] &&
             window.alert(<?= json_encode($flash['message'], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>);
         }
         <?php endif; ?>
-        document.querySelectorAll('[data-admin-dialog-open]').forEach((button) => button.addEventListener('click', () => document.getElementById(button.dataset.adminDialogOpen)?.showModal()));
-        document.querySelectorAll('[data-admin-dialog-close]').forEach((button) => button.addEventListener('click', () => button.closest('dialog')?.close()));
+        const dialogSnapshot = (dialog) => Array.from(dialog.querySelectorAll('.clinic-edit-form input:not([type="hidden"]), .clinic-edit-form select, .clinic-edit-form textarea')).map((field) => field.value).join('\u001f');
+        const openAdminDialog = (dialog, opener = null) => {
+            if (!dialog || dialog.open) return;
+            dialog.dataset.closing = 'false';
+            dialog.classList.remove('clinic-dialog-closing');
+            dialog._returnFocus = opener || document.activeElement;
+            dialog._baseline = dialogSnapshot(dialog);
+            dialog.showModal();
+            requestAnimationFrame(() => dialog.querySelector('input:not([type="hidden"]), select, textarea')?.focus());
+        };
+        const closeAdminDialog = (dialog) => {
+            if (!dialog?.open) return;
+            if (dialog.dataset.submitting === 'true' || dialog.dataset.closing === 'true') return;
+            if (dialog.classList.contains('clinic-edit-dialog') && dialogSnapshot(dialog) !== dialog._baseline && !window.confirm('Discard your unsaved institution changes?')) return;
+            if (dialog.classList.contains('clinic-edit-dialog')) {
+                dialog.dataset.closing = 'true';
+                dialog.classList.add('clinic-dialog-closing');
+                window.setTimeout(() => { dialog.close(); dialog.classList.remove('clinic-dialog-closing'); dialog.dataset.closing = 'false'; }, 160);
+            } else dialog.close();
+        };
+        document.querySelectorAll('[data-admin-dialog-open]').forEach((button) => button.addEventListener('click', () => openAdminDialog(document.getElementById(button.dataset.adminDialogOpen), button)));
+        document.querySelectorAll('[data-admin-dialog-close]').forEach((button) => button.addEventListener('click', () => closeAdminDialog(button.closest('dialog'))));
         document.querySelectorAll('.admin-dialog').forEach((dialog) => dialog.addEventListener('click', (event) => {
-            if (event.target === dialog) dialog.close();
+            if (event.target === dialog) closeAdminDialog(dialog);
         }));
+        document.querySelectorAll('.clinic-edit-dialog').forEach((dialog) => {
+            dialog.addEventListener('cancel', (event) => {
+                event.preventDefault();
+                closeAdminDialog(dialog);
+            });
+            dialog.addEventListener('close', () => dialog._returnFocus?.focus());
+            dialog.addEventListener('keydown', (event) => {
+                if (event.key !== 'Tab') return;
+                const focusable = Array.from(dialog.querySelectorAll('button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [href], [tabindex]:not([tabindex="-1"])')).filter((item) => item.offsetParent !== null);
+                if (!focusable.length) return;
+                const first = focusable[0], last = focusable[focusable.length - 1];
+                if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+                else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+            });
+            dialog.querySelector('form')?.addEventListener('submit', (event) => {
+                if (!event.currentTarget.reportValidity()) { event.preventDefault(); return; }
+                dialog.dataset.submitting = 'true';
+                const submit = event.currentTarget.querySelector('button[type="submit"]');
+                if (submit) { submit.disabled = true; submit.dataset.originalText = submit.textContent.trim(); submit.innerHTML = '<i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> Saving…'; }
+            });
+            if (dialog.dataset.reopen === 'true') openAdminDialog(dialog, document.querySelector(`[data-admin-dialog-open="${dialog.id}"]`));
+        });
     </script>
 </body>
 

@@ -387,6 +387,12 @@ try {
     if ($pdo->inTransaction()) {
         $pdo->rollBack();
     }
+    if ($action === 'clinic_update') {
+        $_SESSION['clinic_edit_failure'] = [
+            'clinic_id' => filter_var($_POST['clinic_id'] ?? null, FILTER_VALIDATE_INT) ?: 0,
+            'values' => array_intersect_key($_POST, array_flip(['facility_name', 'facility_type', 'facility_address', 'city', 'province', 'contact_number', 'official_email', 'authorized_representative', 'description']))
+        ];
+    }
     admin_action_redirect($e->getMessage(), 'error', [
         'member_status' => 'members', 'member_verification' => 'members', 'member_delete' => 'members',
         'message_report_review' => 'reports',
@@ -400,5 +406,11 @@ try {
         $pdo->rollBack();
     }
     error_log($e->getMessage());
+    if ($action === 'clinic_update') {
+        $_SESSION['clinic_edit_failure'] = [
+            'clinic_id' => filter_var($_POST['clinic_id'] ?? null, FILTER_VALIDATE_INT) ?: 0,
+            'values' => array_intersect_key($_POST, array_flip(['facility_name', 'facility_type', 'facility_address', 'city', 'province', 'contact_number', 'official_email', 'authorized_representative', 'description']))
+        ];
+    }
     admin_action_redirect('The admin action failed. Please verify the database migration and try again.', 'error', in_array($action, ['clinic_create','clinic_update','clinic_status','clinic_verification','clinic_password_reset'], true) ? 'clinics' : 'overview');
 }
