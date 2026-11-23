@@ -76,10 +76,7 @@ $steps = [
 <a class="skip-link" href="#main-content">Skip to content</a>
 <header class="site-header" id="siteHeader">
     <div class="container nav-shell">
-        <a class="brand" href="index.php" aria-label="BLife PH home">
-            <span class="brand-mark"><img src="images/BLifePH_no_bg.png" alt="" width="44" height="44"></span>
-            <span class="brand-copy"><strong>BLife PH</strong><small>Blood Life Philippines</small></span>
-        </a>
+        <a class="brand" href="index.php" aria-label="BLife PH home"><img class="brand-logo" src="images/BlifePH_no_bg.png" alt="BLife PH" width="70" height="70"></a>
         <button class="menu-toggle" id="menuToggle" type="button" aria-label="Open navigation" aria-expanded="false" aria-controls="mainNavigation">
             <span></span><span></span><span></span>
         </button>
@@ -109,9 +106,8 @@ $steps = [
         <div class="hero-glow hero-glow-two" aria-hidden="true"></div>
         <div class="container hero-grid">
             <div class="hero-copy reveal">
-                <!-- <span class="eyebrow"><span class="eyebrow-dot"></span> A community that connects people to help</span> -->
                 <h1 id="hero-title">Connecting Donors.<br><span>Saving Lives.</span></h1>
-                <p class="hero-lead">BLife PH is a community-driven blood donation platform connecting people in need of blood with those willing to help. Together, we can build a stronger and more connected community.</p>
+                <p class="hero-lead">BLife PH connects people requesting blood with community members ready to help.</p>
                 <div class="hero-actions">
                     <?php if ($isAdmin): ?>
                         <a class="btn btn-primary btn-large" href="<?= htmlspecialchars($requestHref, ENT_QUOTES, 'UTF-8') ?>">Manage Blood Requests <?= landing_icon('arrow') ?></a>
@@ -125,24 +121,23 @@ $steps = [
             </div>
 
         </div>
-        <!-- <div class="container hero-proof"><span><?= landing_icon('check') ?> Requests and offers</span><span><?= landing_icon('check') ?> Community messaging</span><span><?= landing_icon('check') ?> Member and facility participation</span></div> -->
     </section>
 
     <section class="section features-section" id="features" aria-labelledby="features-title">
         <div class="container">
-            <div class="section-heading reveal"><span class="section-kicker">One platform, shared purpose</span><h2 id="features-title">Everything You Need to <span>Connect and Help</span></h2><p>Tools that help people share needs, discover opportunities, and coordinate with their community.</p></div>
+            <div class="section-heading reveal"><span class="section-kicker">One platform, shared purpose</span><h2 id="features-title">Connect and Help</h2></div>
             <div class="feature-grid">
                 <?php foreach ($features as [$icon, $title, $description]): ?>
                     <article class="feature-card reveal"><span class="feature-icon"><?= landing_icon($icon) ?></span><h3><?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?></h3><p><?= htmlspecialchars($description, ENT_QUOTES, 'UTF-8') ?></p></article>
                 <?php endforeach; ?>
             </div>
-            <p class="feature-footnote">Features that require an account open in the appropriate member or facility panel. Donation event listings depend on published announcements.</p>
+            <p class="feature-footnote">Some features require sign-in. Events appear when announced by members or participating facilities.</p>
         </div>
     </section>
 
     <section class="section process-section" id="how-it-works" aria-labelledby="process-title">
         <div class="container">
-            <div class="section-heading reveal"><span class="section-kicker">Getting started</span><h2 id="process-title">How BLife PH Works</h2><p>From creating an account to coordinating next steps, participation stays community-led.</p></div>
+            <div class="section-heading reveal"><span class="section-kicker">Getting started</span><h2 id="process-title">How BLife PH Works</h2></div>
             <ol class="steps-grid">
                 <?php foreach ($steps as $index => [$icon, $title, $description]): ?>
                     <li class="step-card reveal"><span class="step-count">0<?= $index + 1 ?></span><span class="step-icon"><?= landing_icon($icon) ?></span><h3><?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?></h3><p><?= htmlspecialchars($description, ENT_QUOTES, 'UTF-8') ?></p></li>
@@ -154,7 +149,7 @@ $steps = [
 
     <section class="section map-section" id="blood-map-preview" aria-labelledby="map-title">
         <div class="container map-grid">
-            <div class="map-copy reveal"><span class="section-kicker">Location-based discovery</span><h2 id="map-title">Find Blood Requests and Donation Offers <span>Near You</span></h2><p>Explore active requests and available donation offers on the authenticated BLife PH map. Use location search and filters to view mapped posts across the Philippines.</p><ul class="check-list"><li><?= landing_icon('check') ?> View request and offer locations</li><li><?= landing_icon('check') ?> Search by province or city</li><li><?= landing_icon('check') ?> Browse with the map's existing filters</li></ul><a class="btn btn-primary" href="<?= htmlspecialchars($mapHref, ENT_QUOTES, 'UTF-8') ?>"><?= $isLoggedIn && !$isAdmin ? 'Explore Blood Map' : ($isAdmin ? 'Open Admin Panel' : 'Sign in to Explore') ?> <?= landing_icon('arrow') ?></a><p class="map-privacy-note">Map locations are approximate public locations. The preview below contains no live posts or member information.</p></div>
+            <div class="map-copy reveal"><span class="section-kicker">Location-based discovery</span><h2 id="map-title">Explore Blood Posts <span>on the Map</span></h2><p>View active requests and available offers by location. Sign in to search and filter mapped posts.</p><a class="btn btn-primary" href="<?= htmlspecialchars($mapHref, ENT_QUOTES, 'UTF-8') ?>"><?= $isLoggedIn && !$isAdmin ? 'Explore Blood Map' : ($isAdmin ? 'Open Admin Panel' : 'Sign in to Explore') ?> <?= landing_icon('arrow') ?></a><p class="map-privacy-note">Map locations are approximate. The preview shows no live posts or personal information.</p></div>
             <div class="map-preview-card reveal" aria-label="Illustrative preview of the BLife PH location map">
                 <div class="map-preview-toolbar"><span class="preview-brand-dot"></span><span>BLife PH <small>Blood Donation Map</small></span><span class="preview-label">Illustration</span></div>
                 <div class="map-art" aria-hidden="true"><div class="map-grid-lines"></div><svg viewBox="0 0 620 360" preserveAspectRatio="xMidYMid slice"><path class="map-waterway" d="M-20 275c85-78 120-45 191-118s118-16 174-72 116 1 168-52 85-36 128-67"/><path class="map-road road-one" d="M-20 70c85 44 128 18 205 82s118 76 184 38 135 25 271 92"/><path class="map-road road-two" d="M92-20c-7 76 24 111 6 167s27 111 87 155 65 48 79 78"/><path class="map-road road-three" d="M414-20c-28 73-14 119 42 162s-6 106 54 153 82 42 117 69"/><path class="map-district" d="M82 36c36-28 68-24 92 6l-4 45c-25 32-62 40-95 21l-19-34 26-38Z"/><path class="map-district" d="M240 146c38-24 73-18 91 14l-7 47c-31 27-68 22-95-7l11-54Z"/><path class="map-district" d="M421 214c35-25 65-18 84 12l-4 42c-29 22-60 19-82-9l2-45Z"/></svg><div class="map-preview-callout"><span><?= landing_icon('map') ?></span><strong>Explore mapped posts</strong><small>Sign in to view current requests and offers</small></div><div class="map-legend-preview"><span><i class="legend-dot request-dot"></i> Blood request</span><span><i class="legend-dot offer-dot"></i> Donation offer</span></div></div>
@@ -166,43 +161,41 @@ $steps = [
     <section class="section about-section" id="about" aria-labelledby="about-title">
         <div class="container about-grid">
             <div class="about-visual reveal"><div class="about-emblem"><div class="emblem-ring"></div><div class="emblem-drop"><?= landing_icon('drop') ?></div><span class="emblem-node node-one"><?= landing_icon('user') ?></span><span class="emblem-node node-two"><?= landing_icon('hospital') ?></span><span class="emblem-node node-three"><?= landing_icon('heart') ?></span><div class="emblem-caption"><strong>Every drop matters</strong><span>Connection begins with community</span></div></div></div>
-            <div class="about-copy reveal"><span class="section-kicker">About BLife PH</span><h2 id="about-title">Building a Community Where <span>Every Drop Matters</span></h2><p>BLife PH supports community participation by helping individuals share blood requests, offer donations, and connect with other members and participating healthcare institutions.</p><p>The platform is designed to make relevant information easier to discover while keeping coordination in the hands of the people and facilities involved.</p><blockquote>Our mission is to make it easier for a community to find one another when blood is needed.</blockquote><a class="text-link" href="#how-it-works">See how the platform works <?= landing_icon('arrow') ?></a></div>
+            <div class="about-copy reveal"><span class="section-kicker">About BLife PH</span><h2 id="about-title">A Community Where <span>Every Drop Matters</span></h2><p>BLife PH helps people and authorized healthcare facilities share blood requests, offer donations, and coordinate with their communities.</p></div>
         </div>
     </section>
 
     <section class="section clinic-section" id="healthcare-partners" aria-labelledby="clinic-title">
-        <div class="container clinic-panel reveal"><div class="clinic-icon"><?= landing_icon('hospital') ?></div><div class="clinic-copy"><span class="section-kicker">For clinics and blood banks</span><h2 id="clinic-title">A connected workspace for participating facilities</h2><p>Authorized clinic and blood bank accounts can manage facility requests, donation offers, event announcements, member responses, messages, and related donation records through the facility panel.</p><p class="clinic-access-note"><?= landing_icon('shield') ?> Facility accounts are created and managed by administrators. Public clinic self-registration is not available.</p></div><div class="clinic-actions"><?php if ($isLoggedIn && $isClinic): ?><a class="btn btn-primary" href="<?= htmlspecialchars($homeLink, ENT_QUOTES, 'UTF-8') ?>">Open Facility Panel <?= landing_icon('arrow') ?></a><?php else: ?><a class="btn btn-secondary" href="login.php">Facility Sign In</a><small>Access is provided to authorized facilities.</small><?php endif; ?></div></div>
+        <div class="container clinic-panel reveal"><div class="clinic-icon"><?= landing_icon('hospital') ?></div><div class="clinic-copy"><span class="section-kicker">For clinics and blood banks</span><h2 id="clinic-title">Tools for Participating Facilities</h2><p>Authorized facilities can manage requests, offers, events, responses, and related records in their facility panel.</p><p class="clinic-access-note"><?= landing_icon('shield') ?> Facility accounts are created by administrators; public registration is not available.</p></div><div class="clinic-actions"><?php if ($isLoggedIn && $isClinic): ?><a class="btn btn-primary" href="<?= htmlspecialchars($homeLink, ENT_QUOTES, 'UTF-8') ?>">Open Facility Panel <?= landing_icon('arrow') ?></a><?php else: ?><a class="btn btn-secondary" href="login.php">Facility Sign In</a><?php endif; ?></div></div>
     </section>
 
     <section class="section why-section" id="why-donate" aria-labelledby="why-title">
-        <div class="container why-grid"><div class="why-copy reveal"><span class="section-kicker">Responsible participation</span><h2 id="why-title">Why Blood Donation Matters</h2><p>Voluntary blood donation helps support the supply that healthcare teams may need for patient care. Community awareness can help people learn how to participate responsibly and where to find current information.</p><p>Blood groups are described using the ABO system and Rh factor. A person's type alone does not determine whether a donation is suitable for a particular patient.</p><a class="text-link" href="#faq">Read common questions <?= landing_icon('arrow') ?></a></div><div class="blood-type-panel reveal"><div class="blood-type-panel-head"><span class="type-icon"><?= landing_icon('drop') ?></span><div><strong>Blood groups</strong><small>ABO and Rh notation</small></div></div><div class="blood-types-list" aria-label="Common blood type labels"><span>A+</span><span>A−</span><span>B+</span><span>B−</span><span>AB+</span><span>AB−</span><span>O+</span><span>O−</span></div><p>Eligibility and compatibility must be assessed by qualified healthcare professionals.</p></div></div>
+        <div class="container why-grid"><div class="why-copy reveal"><span class="section-kicker">Responsible participation</span><h2 id="why-title">Why Blood Donation Matters</h2><p>Voluntary donation supports the blood supply healthcare teams may need. Blood type labels use the ABO system and Rh factor, but medical professionals must assess eligibility and compatibility.</p></div><div class="blood-type-panel reveal"><div class="blood-type-panel-head"><span class="type-icon"><?= landing_icon('drop') ?></span><div><strong>Blood types</strong><small>ABO and Rh</small></div></div><div class="blood-types-list" aria-label="Common blood type labels"><span>A+</span><span>A−</span><span>B+</span><span>B−</span><span>AB+</span><span>AB−</span><span>O+</span><span>O−</span></div><p>Eligibility and compatibility are assessed by healthcare professionals.</p></div></div>
     </section>
 
     <section class="section faq-section" id="faq" aria-labelledby="faq-title">
-        <div class="container faq-layout"><div class="faq-intro reveal"><span class="section-kicker">Need to know</span><h2 id="faq-title">Frequently Asked Questions</h2><p>Learn what BLife PH can help you do and where professional care is essential.</p><a class="text-link" href="#contact">Contact information <?= landing_icon('arrow') ?></a></div><div class="faq-list reveal">
-            <details><summary>What is BLife PH?</summary><p>BLife PH is a community platform where members can publish blood requests, share donation offers, explore mapped posts, and communicate through supported conversations. Participating facilities can use their authorized clinic panel.</p></details>
-            <details><summary>How do I request blood?</summary><p>Create a member account, sign in, complete the required profile details, then open Blood Requests in your dashboard to publish a request with the available details.</p></details>
-            <details><summary>How can I offer to donate?</summary><p>Sign in and create a donation offer from the member dashboard. You can also browse requests and respond where the platform makes that action available. A healthcare professional determines donation eligibility.</p></details>
-            <details><summary>Can I search for blood requests near me?</summary><p>Yes. After signing in, open Blood Donation Map to search by location and filter active mapped requests and available offers. The map uses saved or selected public locations; GPS permission is not required.</p></details>
-            <details><summary>Is BLife PH free to use?</summary><p>The platform does not provide a payment or fee-handling feature. Do not send payments through BLife PH; confirm any facility-related costs directly with the healthcare provider.</p></details>
-            <details><summary>How do I contact another member?</summary><p>Messaging is available for conversations supported by the request or offer workflow. Sign in and use the Messages area or the relevant conversation link.</p></details>
-            <details><summary>Does BLife PH collect or distribute blood?</summary><p>No. BLife PH facilitates connections and communication. It does not collect, test, store, transport, or distribute blood and is not an emergency healthcare service.</p></details>
+        <div class="container faq-layout"><div class="faq-intro reveal"><span class="section-kicker">Need to know</span><h2 id="faq-title">Frequently Asked Questions</h2></div><div class="faq-list reveal">
+            <details><summary>What is BLife PH?</summary><p>A community platform for blood requests, donation offers, mapped posts, and supported member conversations. Authorized facilities also have a dedicated panel.</p></details>
+            <details><summary>How do I request or offer blood?</summary><p>Register, sign in, and complete the required profile details. Then publish a request or donation offer from your dashboard. Healthcare professionals assess donation eligibility.</p></details>
+            <details><summary>Can I find posts near me?</summary><p>Yes. The Blood Donation Map lets signed-in users search locations and filter active mapped requests and available offers.</p></details>
+            <details><summary>How do I contact another member?</summary><p>Use Messages or the conversation link for a supported request or offer.</p></details>
+            <details><summary>Does BLife PH collect or distribute blood?</summary><p>No. BLife PH helps people connect; it does not collect or distribute blood and does not replace medical evaluation or emergency care.</p></details>
         </div></div>
     </section>
 
     <section class="final-cta" aria-labelledby="cta-title"><div class="container cta-inner reveal"><div><span class="section-kicker section-kicker-light">A community ready to connect</span><h2 id="cta-title">Be Part of a Community That Saves Lives</h2><p>Whether you need blood or want to help someone in need, BLife PH makes it easier to connect with your community.</p></div><div class="cta-actions"><?php if ($isLoggedIn): ?><a class="btn btn-white" href="<?= htmlspecialchars($homeLink, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($dashboardLabel, ENT_QUOTES, 'UTF-8') ?> <?= landing_icon('arrow') ?></a><?php else: ?><a class="btn btn-white" href="register.php">Join BLife PH <?= landing_icon('arrow') ?></a><a class="cta-signin" href="login.php">Sign In</a><?php endif; ?></div></div></section>
 
-    <section class="contact-strip" id="contact" aria-labelledby="contact-title"><div class="container contact-inner"><div><span class="section-kicker">Contact and support</span><h2 id="contact-title">Need help using BLife PH?</h2><p>Contact your participating healthcare facility for clinical questions. A central public support email or phone number has not been published yet.</p></div><a class="btn btn-secondary" href="<?= htmlspecialchars($isLoggedIn ? $homeLink : 'login.php', ENT_QUOTES, 'UTF-8') ?>"><?= $isLoggedIn ? 'Open your panel' : 'Sign In' ?> <?= landing_icon('arrow') ?></a></div></section>
+    <section class="contact-strip" id="contact" aria-labelledby="contact-title"><div class="container contact-inner"><div><span class="section-kicker">Contact</span><h2 id="contact-title">Need help?</h2><p>For clinical questions, contact your healthcare facility. A public BLife PH support contact is not currently listed.</p></div></div></section>
 </main>
 
 <footer class="site-footer">
     <div class="container footer-grid">
-        <div class="footer-brand"><a class="brand" href="index.php" aria-label="BLife PH home"><span class="brand-mark"><img src="images/BLifePH_no_bg.png" alt="" width="44" height="44"></span><span class="brand-copy"><strong>BLife PH</strong><small>Blood Life Philippines</small></span></a><p>A community platform connecting people who need blood with people and facilities willing to help.</p><small class="footer-disclaimer">BLife PH does not replace medical evaluation or emergency care.</small></div>
+        <div class="footer-brand"><a class="brand" href="index.php" aria-label="BLife PH home"><img class="brand-logo" src="images/BlifePH_no_bg.png" alt="BLife PH" width="70" height="70"></a><p>A community platform for blood requests, donation offers, and connection.</p><small class="footer-disclaimer">Not a substitute for medical evaluation or emergency care.</small></div>
         <div class="footer-column"><h2>Explore</h2><a href="#features">Features</a><a href="#how-it-works">How It Works</a><a href="#about">About Us</a><a href="#healthcare-partners">For Facilities</a><a href="#contact">Contact</a></div>
         <div class="footer-column"><h2>Platform</h2><a href="<?= htmlspecialchars($requestHref, ENT_QUOTES, 'UTF-8') ?>">Blood Requests</a><a href="<?= htmlspecialchars($offerHref, ENT_QUOTES, 'UTF-8') ?>">Donation Offers</a><a href="<?= htmlspecialchars($mapHref, ENT_QUOTES, 'UTF-8') ?>">Blood Donation Map</a><a href="#faq">FAQs</a></div>
         <div class="footer-column footer-legal"><h2>Policies</h2><span>Privacy Policy <small>Not published yet</small></span><span>Terms &amp; Conditions <small>Not published yet</small></span><a href="login.php">Account Sign In</a></div>
     </div>
-    <div class="container footer-bottom"><span>© <?= date('Y') ?> BLife PH. All rights reserved.</span><span>Made for a more connected community.</span></div>
+    <div class="container footer-bottom"><span>© <?= date('Y') ?> BLife PH. All rights reserved.</span></div>
 </footer>
 <script src="assets/landing.js" defer></script>
 </body>
