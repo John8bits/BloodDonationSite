@@ -109,7 +109,7 @@ $steps = [
         <div class="hero-glow hero-glow-two" aria-hidden="true"></div>
         <div class="container hero-grid">
             <div class="hero-copy reveal">
-                <span class="eyebrow"><span class="eyebrow-dot"></span> A community that connects people to help</span>
+                <!-- <span class="eyebrow"><span class="eyebrow-dot"></span> A community that connects people to help</span> -->
                 <h1 id="hero-title">Connecting Donors.<br><span>Saving Lives.</span></h1>
                 <p class="hero-lead">BLife PH is a community-driven blood donation platform connecting people in need of blood with those willing to help. Together, we can build a stronger and more connected community.</p>
                 <div class="hero-actions">
@@ -124,32 +124,8 @@ $steps = [
                 <p class="hero-note"><?= landing_icon('shield') ?> BLife PH helps people connect; care decisions remain with qualified healthcare professionals.</p>
             </div>
 
-            <div class="hero-art reveal" aria-label="Illustration of blood donation and community connection">
-                <div class="art-orbit orbit-one"></div><div class="art-orbit orbit-two"></div>
-                <div class="art-card art-card-main">
-                    <div class="art-card-top"><span class="art-mini-brand"><?= landing_icon('heart') ?></span><span class="art-status"><i></i> Community connected</span></div>
-                    <svg class="donation-illustration" viewBox="0 0 520 400" role="img" aria-labelledby="donationArtTitle donationArtDesc">
-                        <title id="donationArtTitle">A community supporting blood donation</title>
-                        <desc id="donationArtDesc">A stylized blood bag and two people connected by a heart.</desc>
-                        <defs><linearGradient id="bagFill" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#ffe1e3"/></linearGradient><linearGradient id="dropFill" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="#ef4444"/><stop offset="1" stop-color="#b91c1c"/></linearGradient></defs>
-                        <circle cx="265" cy="198" r="160" fill="#fff1f2"/><circle cx="265" cy="198" r="128" fill="#fff" opacity=".7"/>
-                        <path d="M115 277c27-36 54-50 83-47 23 2 38 20 62 20 24 0 42-21 67-21 31 0 55 16 80 48" fill="none" stroke="#fecdd3" stroke-width="5" stroke-linecap="round"/>
-                        <path d="M132 139c0-18 15-33 33-33h38v-18h72v18h38c18 0 33 15 33 33v174c0 21-17 38-38 38H170c-21 0-38-17-38-38V139Z" fill="url(#bagFill)" stroke="#d8dee8" stroke-width="5"/>
-                        <path d="M202 88V68h72v20" fill="none" stroke="#d8dee8" stroke-width="8" stroke-linecap="round"/>
-                        <path d="M153 236h172v76c0 14-11 25-25 25H178c-14 0-25-11-25-25v-76Z" fill="#fee2e2"/>
-                        <path d="M239 148c-19-23-54 5-35 27l38 39 38-39c20-22-15-50-34-27l-4 5-3-5Z" fill="url(#dropFill)"/>
-                        <path d="M239 270v41m-16-16 16 16 16-16" fill="none" stroke="#dc2626" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
-                        <circle cx="83" cy="235" r="31" fill="#dbeafe"/><path d="M48 320c4-38 17-57 35-57s31 19 35 57" fill="#2563eb"/><circle cx="412" cy="225" r="31" fill="#fed7aa"/><path d="M375 320c4-39 18-59 37-59s33 20 37 59" fill="#1e293b"/>
-                        <path d="M94 192c18-21 40-29 67-24m262 10c-19-20-41-27-65-22" fill="none" stroke="#dc2626" stroke-width="3" stroke-dasharray="4 9" stroke-linecap="round"/>
-                        <circle cx="95" cy="187" r="8" fill="#dc2626"/><circle cx="356" cy="155" r="8" fill="#dc2626"/>
-                    </svg>
-                    <div class="art-caption"><span class="caption-icon"><?= landing_icon('drop') ?></span><span><strong>One community</strong><small>Many ways to help</small></span><span class="caption-arrow"><?= landing_icon('arrow') ?></span></div>
-                </div>
-                <div class="art-float art-float-top"><span class="float-icon red"><?= landing_icon('drop') ?></span><span><strong>Blood requests</strong><small>Find ways to respond</small></span></div>
-                <div class="art-float art-float-bottom"><span class="float-icon green"><?= landing_icon('offer') ?></span><span><strong>Donation offers</strong><small>Share your availability</small></span></div>
-            </div>
         </div>
-        <div class="container hero-proof"><span><?= landing_icon('check') ?> Requests and offers</span><span><?= landing_icon('check') ?> Community messaging</span><span><?= landing_icon('check') ?> Member and facility participation</span></div>
+        <!-- <div class="container hero-proof"><span><?= landing_icon('check') ?> Requests and offers</span><span><?= landing_icon('check') ?> Community messaging</span><span><?= landing_icon('check') ?> Member and facility participation</span></div> -->
     </section>
 
     <section class="section features-section" id="features" aria-labelledby="features-title">
