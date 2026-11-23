@@ -113,7 +113,7 @@ $steps = [
                         <a class="btn btn-primary btn-large" href="<?= htmlspecialchars($requestHref, ENT_QUOTES, 'UTF-8') ?>">Manage Blood Requests <?= landing_icon('arrow') ?></a>
                         <a class="btn btn-secondary btn-large" href="<?= htmlspecialchars($homeLink, ENT_QUOTES, 'UTF-8') ?>">Open Admin Panel</a>
                     <?php else: ?>
-                        <a class="btn btn-primary btn-large" href="<?= htmlspecialchars($requestHref, ENT_QUOTES, 'UTF-8') ?>">Request Blood <?= landing_icon('arrow') ?></a>
+                        <a class="btn btn-primary btn-large" href="<?= htmlspecialchars($requestHref, ENT_QUOTES, 'UTF-8') ?>">Request Blood</a>
                         <a class="btn btn-secondary btn-large" href="<?= htmlspecialchars($offerHref, ENT_QUOTES, 'UTF-8') ?>">Offer to Donate</a>
                     <?php endif; ?>
                 </div>

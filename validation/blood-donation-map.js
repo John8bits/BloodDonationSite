@@ -25,31 +25,23 @@
         return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
 
-    function createPopup(item, config, viewerLocation) {
+    function createPopup(item, config) {
         const popup = document.createElement('div');
         popup.className = 'blood-map-popup';
         const isRequest = item.type === 'request';
         const heading = isRequest ? `Blood request - ${item.blood_type || 'Blood type not specified'}` : `Donation offer - ${item.blood_type || 'Blood type not specified'}`;
-        popup.append(textNode('p', 'map-popup-kind', isRequest ? 'Blood request' : 'Donation offer'));
         popup.append(textNode('h3', '', heading));
-        popup.append(textNode('p', '', item.location || 'Location not specified'));
-        if (item.location_level === 'province') popup.append(textNode('p', 'map-popup-approximate', 'Approximate province location'));
-        else if (item.coordinate_source === 'municipality_centroid') popup.append(textNode('p', 'map-popup-approximate', 'Approximate city center'));
-        else if (item.approximate) popup.append(textNode('p', 'map-popup-approximate', 'Approximate public location'));
+        const locationLabel = item.location || 'Location not specified';
+        const approximate = item.location_level === 'province' || item.coordinate_source === 'municipality_centroid' || item.approximate;
+        popup.append(textNode('p', approximate ? 'map-popup-location map-popup-approximate' : 'map-popup-location', locationLabel + (approximate ? ' · Approximate' : '')));
         if (isRequest) {
-            popup.append(textNode('p', '', `Units needed: ${item.units}`));
-            popup.append(textNode('p', '', `Urgency: ${String(item.urgency || 'routine').replace(/^./, c => c.toUpperCase())}`));
-            if (item.facility) popup.append(textNode('p', '', `Facility: ${item.facility}`));
-            if (item.needed_by) popup.append(textNode('p', '', `Needed by ${item.needed_by}`));
+            popup.append(textNode('p', 'map-popup-detail', `${item.units} ${Number(item.units) === 1 ? 'unit' : 'units'} needed · ${String(item.urgency || 'routine').replace(/^./, c => c.toUpperCase())}`));
+            if (item.facility) popup.append(textNode('p', 'map-popup-detail', `Facility · ${item.facility}`));
+            if (item.needed_by) popup.append(textNode('p', 'map-popup-detail', `Needed by · ${item.needed_by}`));
         } else {
-            popup.append(textNode('p', '', 'Availability: Available'));
-            if (item.available_date) popup.append(textNode('p', '', `Available ${item.available_date}`));
+            popup.append(textNode('p', 'map-popup-availability', item.available_date ? `Available · ${item.available_date}` : 'Available'));
         }
         if (item.publisher_name) popup.append(textNode('p', item.facility_verified ? 'map-popup-verified' : 'map-popup-publisher', item.publisher_name + (item.facility_verified ? ' - Verified facility' : '')));
-        if (viewerLocation) {
-            const distance = Math.round(distanceKm(viewerLocation, item));
-            popup.append(textNode('p', 'map-popup-distance', `Approx. ${distance} km from your saved location`));
-        }
         const canNavigate = !config.clinicPanel || item.is_owner;
         if (canNavigate) {
             const link = document.createElement('a');
@@ -360,7 +352,7 @@
                         requestHref: element.dataset.requestHref,
                         offerHref: element.dataset.offerHref,
                         clinicPanel: element.dataset.clinicPanel === '1'
-                    }, viewerLocation))
+                    }))
                     .addTo(markerLayer);
             });
             const count = visibleItems.length;
