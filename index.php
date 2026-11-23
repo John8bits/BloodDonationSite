@@ -165,10 +165,6 @@ $steps = [
         </div>
     </section>
 
-    <section class="section clinic-section" id="healthcare-partners" aria-labelledby="clinic-title">
-        <div class="container clinic-panel reveal"><div class="clinic-icon"><?= landing_icon('hospital') ?></div><div class="clinic-copy"><span class="section-kicker">For clinics and blood banks</span><h2 id="clinic-title">Tools for Participating Facilities</h2><p>Authorized facilities can manage requests, offers, events, responses, and related records in their facility panel.</p><p class="clinic-access-note"><?= landing_icon('shield') ?> Facility accounts are created by administrators; public registration is not available.</p></div><div class="clinic-actions"><?php if ($isLoggedIn && $isClinic): ?><a class="btn btn-primary" href="<?= htmlspecialchars($homeLink, ENT_QUOTES, 'UTF-8') ?>">Open Facility Panel <?= landing_icon('arrow') ?></a><?php else: ?><a class="btn btn-secondary" href="login.php">Facility Sign In</a><?php endif; ?></div></div>
-    </section>
-
     <section class="section why-section" id="why-donate" aria-labelledby="why-title">
         <div class="container why-grid"><div class="why-copy reveal"><span class="section-kicker">Responsible participation</span><h2 id="why-title">Why Blood Donation Matters</h2><p>Voluntary donation supports the blood supply healthcare teams may need. Blood type labels use the ABO system and Rh factor, but medical professionals must assess eligibility and compatibility.</p></div><div class="blood-type-panel reveal"><div class="blood-type-panel-head"><span class="type-icon"><?= landing_icon('drop') ?></span><div><strong>Blood types</strong><small>ABO and Rh</small></div></div><div class="blood-types-list" aria-label="Common blood type labels"><span>A+</span><span>A−</span><span>B+</span><span>B−</span><span>AB+</span><span>AB−</span><span>O+</span><span>O−</span></div><p>Eligibility and compatibility are assessed by healthcare professionals.</p></div></div>
     </section>
@@ -182,8 +178,6 @@ $steps = [
             <details><summary>Does BLife PH collect or distribute blood?</summary><p>No. BLife PH helps people connect; it does not collect or distribute blood and does not replace medical evaluation or emergency care.</p></details>
         </div></div>
     </section>
-
-    <section class="final-cta" aria-labelledby="cta-title"><div class="container cta-inner reveal"><div><span class="section-kicker section-kicker-light">A community ready to connect</span><h2 id="cta-title">Be Part of a Community That Saves Lives</h2><p>Whether you need blood or want to help someone in need, BLife PH makes it easier to connect with your community.</p></div><div class="cta-actions"><?php if ($isLoggedIn): ?><a class="btn btn-white" href="<?= htmlspecialchars($homeLink, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($dashboardLabel, ENT_QUOTES, 'UTF-8') ?> <?= landing_icon('arrow') ?></a><?php else: ?><a class="btn btn-white" href="register.php">Join BLife PH <?= landing_icon('arrow') ?></a><a class="cta-signin" href="login.php">Sign In</a><?php endif; ?></div></div></section>
 
     <section class="contact-strip" id="contact" aria-labelledby="contact-title"><div class="container contact-inner"><div><span class="section-kicker">Contact</span><h2 id="contact-title">Need help?</h2><p>For clinical questions, contact your healthcare facility. A public BLife PH support contact is not currently listed.</p></div></div></section>
 </main>

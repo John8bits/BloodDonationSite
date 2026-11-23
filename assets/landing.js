@@ -68,6 +68,7 @@
     const observedSections = navLinks
         .map(function (link) { return document.querySelector(link.getAttribute('href')); })
         .filter(Boolean);
+    let pendingSectionId = null;
 
     function setActiveLink(sectionId) {
         navLinks.forEach(function (link) {
@@ -78,13 +79,37 @@
         });
     }
 
-    if ('IntersectionObserver' in window && observedSections.length) {
-        const sectionObserver = new IntersectionObserver(function (entries) {
-            const visible = entries
-                .filter(function (entry) { return entry.isIntersecting; })
-                .sort(function (a, b) { return b.intersectionRatio - a.intersectionRatio; });
-            if (visible.length) setActiveLink(visible[0].target.id);
-        }, { rootMargin: '-22% 0px -65% 0px', threshold: [0, .15, .35, .6] });
-        observedSections.forEach(function (section) { sectionObserver.observe(section); });
+    navLinks.forEach(function (link) {
+        link.addEventListener('click', function () {
+            const target = document.querySelector(link.getAttribute('href'));
+            if (target) {
+                pendingSectionId = target.id;
+                setActiveLink(target.id);
+            }
+        });
+    });
+
+    function updateActiveSection() {
+        if (!observedSections.length) return;
+        const activationLine = (header ? header.getBoundingClientRect().height : 0) + 80;
+        if (pendingSectionId) {
+            const pendingSection = document.getElementById(pendingSectionId);
+            if (pendingSection && pendingSection.getBoundingClientRect().top > activationLine) {
+                setActiveLink(pendingSectionId);
+                return;
+            }
+            pendingSectionId = null;
+        }
+        let current = observedSections[0];
+        observedSections.forEach(function (section) {
+            if (section.getBoundingClientRect().top <= activationLine) current = section;
+        });
+        if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2) {
+            current = observedSections[observedSections.length - 1];
+        }
+        setActiveLink(current.id);
     }
+
+    updateActiveSection();
+    window.addEventListener('scroll', updateActiveSection, { passive: true });
 })();
