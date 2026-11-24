@@ -3537,16 +3537,10 @@ input:disabled {
 }
 
 .settings-card { max-width: 1000px; margin: 0 auto; padding: 22px 26px; }
-.settings-intro { display: flex; align-items: center; gap: 14px; margin: 0 0 4px; padding: 15px 0 18px; background: transparent; border: 0; border-bottom: 1px solid #e8edf3; border-radius: 0; }
-.settings-intro-icon { display: grid; width: 42px; height: 42px; flex: 0 0 42px; place-items: center; color: #c9232b; background: #ffeded; border-radius: 12px; }
-.settings-intro strong { color: var(--ink); font-size: 14px; }
-.settings-intro p { margin: 3px 0 0; color: var(--muted); font-size: 12px; }
-.settings-private-badge { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; padding: 7px 10px; color: #166534; background: #edf8f0; border-radius: 999px; font-size: 11px; font-weight: 700; white-space: nowrap; }
 .settings-section { padding: 19px 0; min-width: 0; border: 0; border-bottom: 1px solid #e8edf3; border-radius: 0; box-shadow: none; }
 .settings-section:last-of-type { padding-bottom: 4px; border-bottom: 0; }
 .settings-section > header { display: flex; align-items: center; gap: 12px; min-height: 48px; margin: 0 0 8px; padding: 0 0 7px; border: 0; }
 .settings-label { margin: 0 0 3px !important; color: #c9232b !important; font-size: 10px !important; font-weight: 800; letter-spacing: .1em; }
-.settings-icon { width: 40px; height: 40px; display: inline-grid; place-items: center; flex: 0 0 40px; color: #c9232b; background: #fff1f2; border-radius: 12px; font-size: 16px; }
 .settings-section > header h2 { margin: 0; color: var(--ink); font-size: 16px; }
 .settings-section > header p { margin: 3px 0 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
 .settings-section h3 { margin: 17px 0 8px; font-size: 14px; }
@@ -3584,8 +3578,6 @@ input:disabled {
 @media (max-width: 760px) {
     .settings-card { padding: 16px; }
     .settings-section { padding: 16px 0; }
-    .settings-intro { align-items: flex-start; flex-wrap: wrap; padding: 12px 0 16px; }
-    .settings-private-badge { margin-left: 56px; }
     .settings-action-row, .settings-link-row { align-items: flex-start; flex-direction: column; }
     .settings-action-row > .button, .settings-link-row > .button { width: 100%; justify-content: center; }
     .modal-actions { flex-direction: column-reverse; }

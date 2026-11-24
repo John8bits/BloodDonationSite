@@ -64,3 +64,4 @@ CREATE TABLE member_account_deletion_requests (
   CONSTRAINT fk_member_deletion_reviewer
     FOREIGN KEY (reviewed_by) REFERENCES uinfo (id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    
