@@ -88,6 +88,38 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     });
 
+    document.querySelectorAll("form[data-confirm-action]").forEach(function (form) {
+        form.addEventListener("submit", function (event) {
+            if (form.dataset.confirmed === "true") {
+                delete form.dataset.confirmed;
+                const submitButton = event.submitter;
+                if (submitButton) submitButton.disabled = true;
+                return;
+            }
+            event.preventDefault();
+            const message = form.dataset.confirmAction || "Continue with this action?";
+            const confirm = function () {
+                form.dataset.confirmed = "true";
+                form.requestSubmit();
+            };
+            if (window.Swal && typeof window.Swal.fire === "function") {
+                window.Swal.fire({
+                    title: message,
+                    text: "Please confirm that you want to continue.",
+                    icon: "warning",
+                    showCancelButton: true,
+                    confirmButtonText: "Continue",
+                    cancelButtonText: "Cancel",
+                    confirmButtonColor: "#b42332",
+                    reverseButtons: true,
+                    focusCancel: true
+                }).then(function (result) { if (result.isConfirmed) confirm(); });
+            } else if (window.confirm(message)) {
+                confirm();
+            }
+        });
+    });
+
     document.querySelectorAll("[data-disclosure-toggle]").forEach(function (button) {
         button.addEventListener("click", function () {
             const target = document.getElementById(button.dataset.disclosureToggle);

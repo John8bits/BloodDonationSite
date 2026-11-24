@@ -3,6 +3,7 @@
 session_start();
 require_once __DIR__ . '/../config/auth.php';
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../includes/member_session_security.php';
 require_once __DIR__ . '/../includes/location_picker.php';
 require_once __DIR__ . '/../includes/blood_donation_map.php';
 
@@ -99,8 +100,17 @@ $profile = [
     'city' => '',
     'donor_available' => 0,
     'notify_request_responses' => 1,
-    'notify_post_comments' => 1
+    'notify_post_comments' => 1,
+    'show_first_name' => 0,
+    'show_blood_type' => 0,
+    'show_province' => 0,
+    'location_discovery_enabled' => 0,
+    'optional_privacy_consent' => 0
 ];
+$activeSessions = [];
+$pendingEmailChange = null;
+$pendingDeletionRequest = null;
+$privacySecurityAvailable = false;
 $posts = $openRequests = $myRequests = $respondedRequests = $donors = $commentsByPost = [];
 $notificationRows = $searchPosts = $searchRequests = [];
 $messageConversations = $selectedThreadMessages = [];
@@ -122,8 +132,14 @@ $donationLocationFieldsAvailable = false;
 
 try {
     $pdo = (new Database())->getConnection();
+    if (current_role() === 'user' && !member_session_is_active($pdo, $userId)) {
+        $_SESSION = [];
+        session_destroy();
+        header('Location: ../login.php?session_revoked=1');
+        exit;
+    }
     $requiredTables = ['community_posts', 'blood_requests', 'request_responses', 'request_response_messages', 'post_comments', 'post_interactions', 'member_notifications'];
-    $optionalTables = ['donation_offer_messages', 'member_message_reports', 'clinic_profiles'];
+    $optionalTables = ['donation_offer_messages', 'member_message_reports', 'clinic_profiles', 'member_privacy_preferences', 'member_sessions', 'member_email_change_tokens', 'member_account_deletion_requests'];
     $tablesToCheck = array_merge($requiredTables, $optionalTables);
     $tableQuery = $pdo->prepare(
         'SELECT TABLE_NAME FROM information_schema.TABLES
@@ -134,6 +150,10 @@ try {
     $offerMessagesAvailable = in_array('donation_offer_messages', $availableTables, true);
     $messageReportsAvailable = in_array('member_message_reports', $availableTables, true);
     $clinicProfilesAvailable = in_array('clinic_profiles', $availableTables, true);
+    $privacySecurityAvailable = in_array('member_privacy_preferences', $availableTables, true)
+        && in_array('member_sessions', $availableTables, true)
+        && in_array('member_email_change_tokens', $availableTables, true)
+        && in_array('member_account_deletion_requests', $availableTables, true);
     $requiredColumns = [
         'uinfo' => ['fname', 'lname', 'email', 'btype', 'phone', 'city', 'donor_available', 'notify_request_responses', 'notify_post_comments'],
         'community_posts' => ['id', 'user_id', 'post_type', 'content', 'event_date', 'created_at'],
@@ -238,6 +258,27 @@ try {
             exit;
         }
         $profile = array_merge($profile, $storedProfile);
+        if (in_array('member_privacy_preferences', $availableTables, true)) {
+            $pdo->prepare('INSERT IGNORE INTO member_privacy_preferences (user_id) VALUES (:user_id)')->execute([':user_id' => $userId]);
+            $privacyStmt = $pdo->prepare('SELECT show_first_name, show_blood_type, show_province, location_discovery_enabled, optional_privacy_consent FROM member_privacy_preferences WHERE user_id = :user_id');
+            $privacyStmt->execute([':user_id' => $userId]);
+            $profile = array_merge($profile, $privacyStmt->fetch() ?: []);
+        }
+        if ($activePage === 'settings' && in_array('member_sessions', $availableTables, true)) {
+            $sessionList = $pdo->prepare('SELECT id, user_agent, created_at, last_seen_at, session_hash = :current_hash AS is_current FROM member_sessions WHERE user_id = :user_id AND revoked_at IS NULL AND last_seen_at >= DATE_SUB(NOW(), INTERVAL 30 DAY) ORDER BY is_current DESC, last_seen_at DESC');
+            $sessionList->execute([':current_hash' => hash('sha256', session_id()), ':user_id' => $userId]);
+            $activeSessions = $sessionList->fetchAll();
+        }
+        if ($activePage === 'settings' && in_array('member_email_change_tokens', $availableTables, true)) {
+            $emailStmt = $pdo->prepare('SELECT new_email, expires_at FROM member_email_change_tokens WHERE user_id = :user_id AND expires_at > NOW() ORDER BY created_at DESC LIMIT 1');
+            $emailStmt->execute([':user_id' => $userId]);
+            $pendingEmailChange = $emailStmt->fetch() ?: null;
+        }
+        if ($activePage === 'settings' && in_array('member_account_deletion_requests', $availableTables, true)) {
+            $deletionStmt = $pdo->prepare("SELECT id, requested_at FROM member_account_deletion_requests WHERE user_id = :user_id AND status = 'pending' ORDER BY requested_at DESC LIMIT 1");
+            $deletionStmt->execute([':user_id' => $userId]);
+            $pendingDeletionRequest = $deletionStmt->fetch() ?: null;
+        }
         $memberProfileComplete = trim((string) ($storedProfile['fname'] ?? '')) !== ''
             && trim((string) ($storedProfile['lname'] ?? '')) !== ''
             && trim((string) ($storedProfile['phone'] ?? '')) !== ''
@@ -269,20 +310,29 @@ try {
         $unreadStmt->execute([':user_id' => $userId]);
         $unreadNotifications = (int) $unreadStmt->fetchColumn();
 
-        $donorConditions = ['donor_available = 1', 'id <> :member_id'];
+        $privacyJoin = in_array('member_privacy_preferences', $availableTables, true)
+            ? ' LEFT JOIN member_privacy_preferences mp ON mp.user_id = u.id '
+            : ' ';
+        $donorConditions = ['u.donor_available = 1', 'u.id <> :member_id'];
+        if (in_array('member_privacy_preferences', $availableTables, true)) {
+            $donorConditions[] = 'mp.location_discovery_enabled = 1';
+        }
         if ($accountStatusAvailable) {
-            $donorConditions[] = "account_status = 'active'";
+            $donorConditions[] = "u.account_status = 'active'";
         }
         $donorParams = [':member_id' => $userId];
         if ($donorBloodType !== '' && in_array($donorBloodType, $bloodTypes, true)) {
-            $donorConditions[] = 'btype = :blood_type';
+            $donorConditions[] = 'u.btype = :blood_type';
             $donorParams[':blood_type'] = $donorBloodType;
         }
         if ($donorCity !== '') {
-            $donorConditions[] = 'city LIKE :city';
+            $donorConditions[] = 'u.city LIKE :city';
             $donorParams[':city'] = '%' . $donorCity . '%';
         }
-        $donorStmt = $pdo->prepare('SELECT fname, btype, city FROM uinfo WHERE ' . implode(' AND ', $donorConditions) . ' ORDER BY city, fname LIMIT 50');
+        $donorDisplayFields = in_array('member_privacy_preferences', $availableTables, true)
+            ? "CASE WHEN COALESCE(mp.show_first_name, 0) = 1 THEN u.fname ELSE 'BLife PH member' END AS fname, CASE WHEN COALESCE(mp.show_blood_type, 0) = 1 THEN u.btype ELSE 'Not shared' END AS btype, CASE WHEN COALESCE(mp.show_province, 0) = 1 THEN u.city ELSE 'Location private' END AS city"
+            : 'u.fname, u.btype, u.city';
+        $donorStmt = $pdo->prepare('SELECT ' . $donorDisplayFields . ' FROM uinfo u' . $privacyJoin . 'WHERE ' . implode(' AND ', $donorConditions) . ' ORDER BY u.city, u.fname LIMIT 50');
         $donorStmt->execute($donorParams);
         $donors = $donorStmt->fetchAll();
 
@@ -1252,6 +1302,13 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                         <div class="section-heading"><div><p class="eyebrow">ACCOUNT UPDATES</p><h2>Your notifications</h2></div>
                             <?php if ($unreadNotifications): ?><form method="post" action="action.php"><input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>"><input type="hidden" name="action" value="notifications_read_all"><button class="text-button" type="submit">Mark all as read</button></form><?php endif; ?>
                         </div>
+                        <details class="notification-preferences"><summary><i class="fa-solid fa-sliders" aria-hidden="true"></i> Notification preferences</summary>
+                            <form class="stacked-form" method="post" action="action.php"><input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>"><input type="hidden" name="action" value="settings">
+                                <label class="checkbox-label"><input type="checkbox" name="notify_request_responses" value="1" <?= $profile['notify_request_responses'] ? 'checked' : '' ?>><span>Notify me about responses and messages related to my blood requests.</span></label>
+                                <label class="checkbox-label"><input type="checkbox" name="notify_post_comments" value="1" <?= $profile['notify_post_comments'] ? 'checked' : '' ?>><span>Notify me about comments on my posts and messages about my donation offers.</span></label>
+                                <button class="button button-secondary button-small" type="submit">Save notification preferences</button>
+                            </form>
+                        </details>
                         <?php if (!$notificationRows): ?><div class="empty-state"><strong>You're all caught up.</strong><span>Replies to your requests and comments on your posts will appear here.</span></div><?php else: ?>
                             <div class="notification-list"><?php render_notification_items($notificationRows, $csrfToken); ?></div>
                         <?php endif; ?>
@@ -1394,21 +1451,40 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                             <label>Email<input type="email" value="<?= h($profile['email']) ?>" disabled></label>
                             <div class="form-row"><label>Phone number <span class="optional">(private)</span><input type="tel" name="phone" maxlength="20" value="<?= h($profile['phone']) ?>" required></label><label>Blood type<select name="btype" required><option value="">Select blood type</option><?php foreach ($bloodTypes as $type): ?><option value="<?= h($type) ?>" <?= $profile['btype'] === $type ? 'selected' : '' ?>><?= h($type) ?></option><?php endforeach; ?></select></label></div>
                             <label>Province<select name="city" required><option value="">Select province</option><?php foreach ($philippineProvinces as $province): ?><option value="<?= h($province) ?>" <?= $profile['city'] === $province ? 'selected' : '' ?>><?= h($province) ?></option><?php endforeach; ?></select></label>
-                            <label class="checkbox-label"><input type="checkbox" name="donor_available" value="1" <?= $profile['donor_available'] ? 'checked' : '' ?>><span>Show my first name, blood type, and province to members searching for potential donors. This is not confirmation of blood availability.</span></label>
                             <button class="button button-primary" type="submit">Save Profile</button>
                         </form>
                     </section>
                 <?php elseif ($activePage === 'settings'): ?>
-                    <section class="panel profile-panel">
-                        <p class="form-help">Choose which community updates can appear in your notifications. You can turn off donor-directory visibility from <a href="dashboard.php?page=profile">My Profile</a>.</p>
-                        <form class="stacked-form profile-form" method="post" action="action.php">
-                            <input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>"><input type="hidden" name="action" value="settings">
-                            <label class="checkbox-label"><input type="checkbox" name="notify_request_responses" value="1" <?= $profile['notify_request_responses'] ? 'checked' : '' ?>><span>Notify me when another member responds to or messages me about a blood request.</span></label>
-                            <label class="checkbox-label"><input type="checkbox" name="notify_post_comments" value="1" <?= $profile['notify_post_comments'] ? 'checked' : '' ?>><span>Notify me about activity on my posts and private messages about my donation offers.</span></label>
-                            <button class="button button-primary" type="submit">Save Preferences</button>
-                        </form>
-                        <div class="privacy-callout"><strong>Your privacy matters</strong><p>Donor search only shows your first name, blood type, and city after you opt in. Phone, email, precise addresses, and medical records are not displayed to other members.</p></div>
-                    </section>
+                    <?php if (!$privacySecurityAvailable): ?><div class="notice notice-info" role="status">Account security and privacy controls need <code>database_sql/member_privacy_security_migration.sql</code> before they can be used.</div><?php endif; ?>
+                    <div class="settings-grid">
+                        <section class="panel settings-section"><header><span class="settings-icon"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i></span><div><h2>Account &amp; Security</h2><p>Manage credentials and signed-in devices.</p></div></header>
+                            <div class="settings-action-row"><div><strong>Password</strong><small>Update your password using your current password.</small></div><button class="button button-secondary button-small" type="button" data-modal-open="changePasswordModal">Change password</button></div>
+                            <div class="settings-action-row"><div><strong>Email address</strong><small>Current: <?= h($profile['email']) ?><?php if ($pendingEmailChange): ?> · Verification sent to <?= h($pendingEmailChange['new_email']) ?><?php endif; ?></small></div><button class="button button-secondary button-small" type="button" data-modal-open="changeEmailModal">Update email</button></div>
+                            <h3>Active login sessions</h3>
+                            <?php if (!$activeSessions): ?><p class="form-help">No active session records are available.</p><?php else: ?><ul class="session-list"><?php foreach ($activeSessions as $session): ?><li><div><strong><?= !empty($session['is_current']) ? 'This device' : 'Other device' ?></strong><small><?= h(substr((string)$session['user_agent'], 0, 180) ?: 'Browser session') ?> · Last active <?= h(date('M j, Y g:i a', strtotime($session['last_seen_at']))) ?></small></div><?php if (empty($session['is_current'])): ?><form method="post" action="action.php" data-confirm-action="Sign out this session?"><input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>"><input type="hidden" name="action" value="revoke_session"><input type="hidden" name="session_record_id" value="<?= (int)$session['id'] ?>"><button class="text-button" type="submit">Sign out</button></form><?php else: ?><span class="current-session-badge">Current</span><?php endif; ?></li><?php endforeach; ?></ul><?php endif; ?>
+                        </section>
+                        <section class="panel settings-section"><header><span class="settings-icon"><i class="fa-solid fa-user-shield" aria-hidden="true"></i></span><div><h2>Profile &amp; Location Privacy</h2><p>Public directory sharing is off unless you choose to enable it.</p></div></header>
+                            <form class="settings-privacy-form" method="post" action="action.php"><input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>"><input type="hidden" name="action" value="privacy_settings">
+                                <label class="settings-toggle"><span><strong>Show me in donor search</strong><small>Let members find you as a potential donor. This does not confirm availability.</small></span><input type="checkbox" name="donor_available" value="1" <?= !empty($profile['donor_available']) ? 'checked' : '' ?>></label>
+                                <div class="settings-suboptions"><span class="form-help">Visible profile details</span><label class="checkbox-label"><input type="checkbox" name="show_first_name" value="1" <?= !empty($profile['show_first_name']) ? 'checked' : '' ?>><span>First name</span></label><label class="checkbox-label"><input type="checkbox" name="show_blood_type" value="1" <?= !empty($profile['show_blood_type']) ? 'checked' : '' ?>><span>Blood type</span></label><label class="checkbox-label"><input type="checkbox" name="show_province" value="1" <?= !empty($profile['show_province']) ? 'checked' : '' ?>><span>Province (approximate only)</span></label></div>
+                                <label class="settings-toggle"><span><strong>Include me in location-based discovery</strong><small>Only your province-level location can be used. Exact home coordinates are not shown.</small></span><input type="checkbox" name="location_discovery_enabled" value="1" <?= !empty($profile['location_discovery_enabled']) ? 'checked' : '' ?>></label>
+                                <label class="checkbox-label"><input type="checkbox" name="optional_privacy_consent" value="1" <?= !empty($profile['optional_privacy_consent']) ? 'checked' : '' ?>><span>I agree to optional privacy-related processing described in the Privacy Policy.</span></label><button class="button button-primary button-small" type="submit">Save privacy choices</button>
+                            </form>
+                        </section>
+                        <section class="panel settings-section"><header><span class="settings-icon"><i class="fa-solid fa-file-shield" aria-hidden="true"></i></span><div><h2>Data &amp; Privacy</h2><p>Review your information and privacy choices.</p></div></header>
+                            <div class="settings-link-row"><div><strong>Download your account data</strong><small>Get a JSON copy of your profile, posts, requests, responses, and notifications.</small></div><a class="button button-secondary button-small" href="data_export.php">Download data</a></div>
+                            <div class="settings-link-row"><div><strong>Privacy Policy</strong><small>Learn what profile information is shared and how to manage your choices.</small></div><a class="button button-secondary button-small" href="../privacy.php">View policy</a></div>
+                            <p class="privacy-callout"><i class="fa-solid fa-location-dot" aria-hidden="true"></i> Published blood requests and donation offers remain unchanged.</p>
+                        </section>
+                        <section class="panel settings-section settings-danger"><header><span class="settings-icon"><i class="fa-solid fa-user-lock" aria-hidden="true"></i></span><div><h2>Account Management</h2><p>These actions affect access to your member account.</p></div></header>
+                            <div class="settings-action-row"><div><strong>Deactivate account</strong><small>Sign out and hide your donor listing. Contact support to restore access.</small></div><button class="button button-secondary button-small" type="button" data-modal-open="deactivateAccountModal">Deactivate</button></div>
+                            <div class="settings-action-row"><div><strong>Request account deletion</strong><small>Requests are reviewed before records are removed.</small></div><?php if ($pendingDeletionRequest): ?><span class="current-session-badge">Request pending</span><?php else: ?><button class="button button-danger-outline button-small" type="button" data-modal-open="deleteAccountModal">Request deletion</button><?php endif; ?></div>
+                        </section>
+                    </div>
+                    <dialog class="dashboard-modal settings-modal" id="changePasswordModal" aria-labelledby="changePasswordTitle"><div class="modal-heading"><div><h2 id="changePasswordTitle">Change password</h2><p>Verify your current password to continue.</p></div><button class="modal-close" type="button" data-modal-close aria-label="Close">×</button></div><form class="modal-form stacked-form" method="post" action="action.php"><input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>"><input type="hidden" name="action" value="change_password"><label>Current password<input type="password" name="current_password" autocomplete="current-password" required></label><label>New password<input type="password" name="new_password" minlength="12" autocomplete="new-password" required><small>Use at least 12 characters.</small></label><label>Confirm new password<input type="password" name="confirm_password" minlength="12" autocomplete="new-password" required></label><div class="modal-actions"><button class="button button-secondary" type="button" data-modal-close>Cancel</button><button class="button button-primary" type="submit">Update password</button></div></form></dialog>
+                    <dialog class="dashboard-modal settings-modal" id="changeEmailModal" aria-labelledby="changeEmailTitle"><div class="modal-heading"><div><h2 id="changeEmailTitle">Update email</h2><p>We will send a one-time verification link to the new address.</p></div><button class="modal-close" type="button" data-modal-close aria-label="Close">×</button></div><form class="modal-form stacked-form" method="post" action="action.php"><input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>"><input type="hidden" name="action" value="request_email_change"><label>New email address<input type="email" name="new_email" maxlength="255" autocomplete="email" required></label><label>Current password<input type="password" name="current_password" autocomplete="current-password" required></label><div class="modal-actions"><button class="button button-secondary" type="button" data-modal-close>Cancel</button><button class="button button-primary" type="submit">Send verification</button></div></form></dialog>
+                    <dialog class="dashboard-modal settings-modal" id="deactivateAccountModal" aria-labelledby="deactivateTitle"><div class="modal-heading"><div><h2 id="deactivateTitle">Deactivate account?</h2><p>Your donor listing will be hidden. Existing published requests and offers remain unchanged.</p></div><button class="modal-close" type="button" data-modal-close aria-label="Close">×</button></div><form class="modal-form stacked-form" method="post" action="action.php" data-confirm-action="Deactivate your account now?"><input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>"><input type="hidden" name="action" value="deactivate_account"><input type="hidden" name="confirm_deactivation" value="1"><label>Current password<input type="password" name="current_password" autocomplete="current-password" required></label><div class="modal-actions"><button class="button button-secondary" type="button" data-modal-close>Cancel</button><button class="button button-primary" type="submit">Deactivate account</button></div></form></dialog>
+                    <dialog class="dashboard-modal settings-modal" id="deleteAccountModal" aria-labelledby="deleteTitle"><div class="modal-heading"><div><h2 id="deleteTitle">Request account deletion</h2><p>This submits a review request; it does not immediately erase conversations or related records.</p></div><button class="modal-close" type="button" data-modal-close aria-label="Close">×</button></div><form class="modal-form stacked-form" method="post" action="action.php" data-confirm-action="Send an account deletion request for review?"><input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>"><input type="hidden" name="action" value="request_account_deletion"><input type="hidden" name="confirm_deletion" value="1"><label>Current password<input type="password" name="current_password" autocomplete="current-password" required></label><div class="modal-actions"><button class="button button-secondary" type="button" data-modal-close>Cancel</button><button class="button button-danger" type="submit">Submit request</button></div></form></dialog>
                 <?php elseif ($activePage === 'help'): ?>
                     <section class="help-grid">
                         <article class="panel"><h2>Using BLife PH safely</h2><p>BLife PH helps members find one another. It does not confirm medical eligibility, blood inventory, or a donor's ability to donate.</p><p>Screening, storage, transportation, and transfusion must be performed by an authorized hospital or blood bank.</p></article>

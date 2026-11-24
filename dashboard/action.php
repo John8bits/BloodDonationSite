@@ -4,6 +4,7 @@ session_start();
 require_once __DIR__ . '/../config/auth.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/post_location_validation.php';
+require_once __DIR__ . '/../includes/member_session_security.php';
 $philippineProvinces = require __DIR__ . '/../config/philippine_provinces.php';
 
 require_login('../login.php');
@@ -71,6 +72,21 @@ if (is_clinic() && !in_array($action, ['request_message', 'accept_request_respon
 
 try {
     $pdo = (new Database())->getConnection();
+    if (current_role() === 'user' && !member_session_is_active($pdo, $userId)) {
+        $_SESSION = [];
+        session_destroy();
+        header('Location: ../login.php?session_revoked=1');
+        exit;
+    }
+    $memberSecurityActions = ['privacy_settings', 'change_password', 'request_email_change', 'revoke_session', 'deactivate_account', 'request_account_deletion'];
+    if (current_role() === 'user' && in_array($action, $memberSecurityActions, true)) {
+        $securitySchema = $pdo->prepare("SELECT (SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('member_privacy_preferences','member_sessions','member_email_change_tokens','member_account_deletion_requests')) AS tables_ready, (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'uinfo' AND COLUMN_NAME = 'member_deactivated_at') AS deactivation_ready");
+        $securitySchema->execute();
+        $securityState = $securitySchema->fetch(PDO::FETCH_ASSOC);
+        if ((int)($securityState['tables_ready'] ?? 0) !== 4 || (int)($securityState['deactivation_ready'] ?? 0) !== 1) {
+            redirect_member('Run database_sql/member_privacy_security_migration.sql before using account security settings.', 'error', 'settings');
+        }
+    }
     $accountStatusCheck = $pdo->prepare(
         "SELECT COUNT(*) FROM information_schema.COLUMNS
          WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'uinfo' AND COLUMN_NAME = 'account_status'"
@@ -112,7 +128,6 @@ try {
             $phone = trim($_POST['phone'] ?? '');
             $city = trim($_POST['city'] ?? '');
             $bloodType = $_POST['btype'] ?? '';
-            $available = ($_POST['donor_available'] ?? '') === '1';
             $errors = [];
 
             if ($firstName === '' || strlen($firstName) > 100) {
@@ -130,9 +145,6 @@ try {
             if (!in_array($bloodType, $bloodTypes, true)) {
                 $errors[] = 'Select a blood type.';
             }
-            if ($available && ($bloodType === '' || $phone === '')) {
-                $errors[] = 'Add your blood type and phone number before appearing in donor search.';
-            }
             if ($errors) {
                 redirect_member(implode(' ', $errors), 'error', 'profile');
             }
@@ -142,7 +154,7 @@ try {
             $completionAvailable = (int) $completionColumn->fetchColumn() > 0;
             $stmt = $pdo->prepare(
                 'UPDATE uinfo SET fname = :fname, lname = :lname, phone = :phone,
-                    city = :city, btype = :btype, donor_available = :available' . ($completionAvailable ? ', profile_completed_at = COALESCE(profile_completed_at, NOW())' : '') . '
+                    city = :city, btype = :btype' . ($completionAvailable ? ', profile_completed_at = COALESCE(profile_completed_at, NOW())' : '') . '
                  WHERE id = :id AND role = \'user\''
             );
             $stmt->execute([
@@ -151,7 +163,6 @@ try {
                 ':phone' => $phone,
                 ':city' => $city,
                 ':btype' => $bloodType === '' ? null : $bloodType,
-                ':available' => $available ? 1 : 0,
                 ':id' => $userId
             ]);
             $_SESSION['first_name'] = $firstName;
@@ -174,7 +185,109 @@ try {
                 ':notify_comments' => $notifyComments,
                 ':id' => $userId
             ]);
-            redirect_member('Your notification preferences have been saved.', 'success', 'settings');
+            redirect_member('Your notification preferences have been saved.', 'success', 'notifications');
+
+        case 'privacy_settings':
+            if (current_role() !== 'user') {
+                redirect_member('This setting is available to member accounts only.', 'error', 'settings');
+            }
+            $privacyTable = $pdo->query("SHOW TABLES LIKE 'member_privacy_preferences'")->fetchColumn();
+            if (!$privacyTable) {
+                redirect_member('Run database_sql/member_privacy_security_migration.sql before changing privacy settings.', 'error', 'settings');
+            }
+            $directoryVisible = ($_POST['donor_available'] ?? '') === '1' ? 1 : 0;
+            $privacyValues = [
+                'show_first_name' => ($_POST['show_first_name'] ?? '') === '1' ? 1 : 0,
+                'show_blood_type' => ($_POST['show_blood_type'] ?? '') === '1' ? 1 : 0,
+                'show_province' => ($_POST['show_province'] ?? '') === '1' ? 1 : 0,
+                'location_discovery_enabled' => ($_POST['location_discovery_enabled'] ?? '') === '1' ? 1 : 0,
+                'optional_privacy_consent' => ($_POST['optional_privacy_consent'] ?? '') === '1' ? 1 : 0
+            ];
+            $pdo->beginTransaction();
+            $pdo->prepare('UPDATE uinfo SET donor_available = :visible WHERE id = :id AND role = \'user\'')->execute([':visible' => $directoryVisible, ':id' => $userId]);
+            $privacyUpdate = $pdo->prepare('INSERT INTO member_privacy_preferences (user_id, show_first_name, show_blood_type, show_province, location_discovery_enabled, optional_privacy_consent, privacy_consent_updated_at) VALUES (:id, :first_name, :blood_type, :province, :location, :consent, IF(:consent_timestamp = 1, NOW(), NULL)) ON DUPLICATE KEY UPDATE show_first_name = VALUES(show_first_name), show_blood_type = VALUES(show_blood_type), show_province = VALUES(show_province), location_discovery_enabled = VALUES(location_discovery_enabled), optional_privacy_consent = VALUES(optional_privacy_consent), privacy_consent_updated_at = IF(VALUES(optional_privacy_consent) = 1, COALESCE(privacy_consent_updated_at, NOW()), NULL)');
+            $privacyUpdate->execute([':id' => $userId, ':first_name' => $privacyValues['show_first_name'], ':blood_type' => $privacyValues['show_blood_type'], ':province' => $privacyValues['show_province'], ':location' => $privacyValues['location_discovery_enabled'], ':consent' => $privacyValues['optional_privacy_consent'], ':consent_timestamp' => $privacyValues['optional_privacy_consent']]);
+            $pdo->commit();
+            redirect_member('Your privacy settings have been saved.', 'success', 'settings');
+
+        case 'change_password':
+            if (current_role() !== 'user') redirect_member('This action is available to members only.', 'error', 'settings');
+            $currentPassword = $_POST['current_password'] ?? '';
+            $newPassword = $_POST['new_password'] ?? '';
+            $confirmPassword = $_POST['confirm_password'] ?? '';
+            $passwordStmt = $pdo->prepare("SELECT password FROM uinfo WHERE id = :id AND role = 'user' LIMIT 1");
+            $passwordStmt->execute([':id' => $userId]);
+            $passwordHash = $passwordStmt->fetchColumn();
+            if (!$passwordHash || !password_verify($currentPassword, $passwordHash)) redirect_member('Your current password is incorrect.', 'error', 'settings');
+            if (strlen($newPassword) < 12 || strlen($newPassword) > 200 || $newPassword !== $confirmPassword) redirect_member('Use a matching new password with at least 12 characters.', 'error', 'settings');
+            $pdo->prepare('UPDATE uinfo SET password = :password WHERE id = :id')->execute([':password' => password_hash($newPassword, PASSWORD_DEFAULT), ':id' => $userId]);
+            $pdo->prepare('UPDATE member_sessions SET revoked_at = NOW() WHERE user_id = :id AND session_hash <> :current_hash AND revoked_at IS NULL')->execute([':id' => $userId, ':current_hash' => hash('sha256', session_id())]);
+            redirect_member('Password updated. Other active sessions were signed out.', 'success', 'settings');
+
+        case 'request_email_change':
+            if (current_role() !== 'user') redirect_member('This action is available to members only.', 'error', 'settings');
+            $newEmail = strtolower(trim($_POST['new_email'] ?? ''));
+            $currentPassword = $_POST['current_password'] ?? '';
+            if (!filter_var($newEmail, FILTER_VALIDATE_EMAIL) || strlen($newEmail) > 255) redirect_member('Enter a valid email address.', 'error', 'settings');
+            $accountStmt = $pdo->prepare("SELECT email, password FROM uinfo WHERE id = :id AND role = 'user' LIMIT 1");
+            $accountStmt->execute([':id' => $userId]);
+            $account = $accountStmt->fetch();
+            if (!$account || !password_verify($currentPassword, $account['password'])) redirect_member('Your current password is incorrect.', 'error', 'settings');
+            if (strcasecmp($newEmail, (string)$account['email']) === 0) redirect_member('That is already your account email.', 'error', 'settings');
+            $duplicateEmail = $pdo->prepare('SELECT id FROM uinfo WHERE email = :email LIMIT 1');
+            $duplicateEmail->execute([':email' => $newEmail]);
+            if ($duplicateEmail->fetchColumn()) redirect_member('That email address is already in use.', 'error', 'settings');
+            $baseUrl = rtrim((string)getenv('BLIFE_PUBLIC_BASE_URL'), '/');
+            $fromEmail = (string)getenv('BLIFE_MAIL_FROM');
+            if (!filter_var($fromEmail, FILTER_VALIDATE_EMAIL) || !preg_match('#^https://#i', $baseUrl)) redirect_member('Email verification is not configured. Contact the site administrator.', 'error', 'settings');
+            $rawToken = rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
+            $pdo->prepare('DELETE FROM member_email_change_tokens WHERE user_id = :id')->execute([':id' => $userId]);
+            $pdo->prepare('INSERT INTO member_email_change_tokens (user_id, new_email, token_hash, expires_at) VALUES (:id, :email, :token, DATE_ADD(NOW(), INTERVAL 30 MINUTE))')->execute([':id' => $userId, ':email' => $newEmail, ':token' => hash('sha256', $rawToken)]);
+            $verifyUrl = $baseUrl . '/dashboard/verify_email.php?token=' . rawurlencode($rawToken);
+            $headers = "From: BLife PH <{$fromEmail}>\r\n" . "Content-Type: text/plain; charset=UTF-8\r\n";
+            if (!mail($newEmail, 'Verify your BLife PH email change', "Use this link within 30 minutes to confirm your new account email:\n\n{$verifyUrl}\n\nIf you did not request this change, you can ignore this message.", $headers)) {
+                $pdo->prepare('DELETE FROM member_email_change_tokens WHERE user_id = :id')->execute([':id' => $userId]);
+                redirect_member('We could not send the verification email. Please try again later.', 'error', 'settings');
+            }
+            redirect_member('A verification link was sent to the new email address.', 'success', 'settings');
+
+        case 'revoke_session':
+            if (current_role() !== 'user') redirect_member('This action is available to members only.', 'error', 'settings');
+            $sessionRecordId = filter_var($_POST['session_record_id'] ?? '', FILTER_VALIDATE_INT);
+            if (!$sessionRecordId) redirect_member('Choose a valid session.', 'error', 'settings');
+            $currentHash = hash('sha256', session_id());
+            $sessionRevoke = $pdo->prepare('UPDATE member_sessions SET revoked_at = NOW() WHERE id = :session_id AND user_id = :user_id AND session_hash <> :current_hash AND revoked_at IS NULL');
+            $sessionRevoke->execute([':session_id' => $sessionRecordId, ':user_id' => $userId, ':current_hash' => $currentHash]);
+            redirect_member($sessionRevoke->rowCount() ? 'That session has been signed out.' : 'Your current session cannot be revoked here.', 'success', 'settings');
+
+        case 'deactivate_account':
+            if (current_role() !== 'user' || ($_POST['confirm_deactivation'] ?? '') !== '1') redirect_member('Confirm the deactivation request to continue.', 'error', 'settings');
+            $currentPassword = $_POST['current_password'] ?? '';
+            $checkPassword = $pdo->prepare("SELECT password FROM uinfo WHERE id = :id AND role = 'user'");
+            $checkPassword->execute([':id' => $userId]);
+            if (!password_verify($currentPassword, (string)$checkPassword->fetchColumn())) redirect_member('Your current password is incorrect.', 'error', 'settings');
+            $pdo->prepare('UPDATE uinfo SET member_deactivated_at = NOW(), donor_available = 0 WHERE id = :id AND role = \'user\'')->execute([':id' => $userId]);
+            $pdo->prepare('UPDATE member_sessions SET revoked_at = NOW() WHERE user_id = :id AND revoked_at IS NULL')->execute([':id' => $userId]);
+            $_SESSION = [];
+            session_destroy();
+            header('Location: ../login.php?deactivated=1');
+            exit;
+
+        case 'request_account_deletion':
+            if (current_role() !== 'user' || ($_POST['confirm_deletion'] ?? '') !== '1') redirect_member('Confirm the deletion request to continue.', 'error', 'settings');
+            $currentPassword = $_POST['current_password'] ?? '';
+            $checkPassword = $pdo->prepare("SELECT password FROM uinfo WHERE id = :id AND role = 'user'");
+            $checkPassword->execute([':id' => $userId]);
+            if (!password_verify($currentPassword, (string)$checkPassword->fetchColumn())) redirect_member('Your current password is incorrect.', 'error', 'settings');
+            $pdo->beginTransaction();
+            $pdo->prepare('SELECT id FROM uinfo WHERE id = :id AND role = \'user\' FOR UPDATE')->execute([':id' => $userId]);
+            $pendingCheck = $pdo->prepare("SELECT id FROM member_account_deletion_requests WHERE user_id = :id AND status = 'pending' LIMIT 1");
+            $pendingCheck->execute([':id' => $userId]);
+            if (!$pendingCheck->fetchColumn()) {
+                $pdo->prepare("INSERT INTO member_account_deletion_requests (user_id, status) VALUES (:id, 'pending')")->execute([':id' => $userId]);
+            }
+            $pdo->commit();
+            redirect_member('Your deletion request was recorded for administrator review. Your account and related records have not been deleted.', 'success', 'settings');
 
         case 'post':
             $postType = $_POST['post_type'] ?? '';

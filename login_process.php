@@ -101,6 +101,10 @@ try {
     $accountStatusCheck->execute();
     $accountStatusAvailable = (int) $accountStatusCheck->fetchColumn() > 0;
     $accountStatusSelect = $accountStatusAvailable ? ', account_status' : '';
+    $deactivationCheck = $pdo->prepare("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'uinfo' AND COLUMN_NAME = 'member_deactivated_at'");
+    $deactivationCheck->execute();
+    $deactivationAvailable = (int) $deactivationCheck->fetchColumn() > 0;
+    $deactivationSelect = $deactivationAvailable ? ', u.member_deactivated_at' : ', NULL AS member_deactivated_at';
     $clinicFieldsAvailable = false;
     $clinicTableCheck = $pdo->prepare("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'clinic_profiles'");
     $clinicTableCheck->execute();
@@ -115,7 +119,7 @@ try {
 
     $stmt = $pdo->prepare("
         SELECT u.id, u.fname, u.lname, u.email, u.btype, u.phone, u.city, u.password, u.role
-            {$accountStatusSelect}{$extraAccountSelect}{$clinicSelect}
+            {$accountStatusSelect}{$extraAccountSelect}{$clinicSelect}{$deactivationSelect}
         FROM uinfo u
         " . ($clinicFieldsAvailable ? 'LEFT JOIN clinic_profiles cp ON cp.user_id = u.id' : '') . "
         WHERE u.email = :email
@@ -155,6 +159,13 @@ try {
         ]);
         exit;
     }
+    if (($user['member_deactivated_at'] ?? null) !== null) {
+        echo json_encode([
+            'success' => false,
+            'message' => 'This account was deactivated. Contact a BLife PH administrator if you need it reactivated.'
+        ]);
+        exit;
+    }
 
 
     // Login successful
@@ -170,6 +181,19 @@ try {
     $_SESSION['must_change_password'] = (int) ($user['must_change_password'] ?? 0);
     $_SESSION['clinic_verified'] = (int) ($user['clinic_verified'] ?? 0);
     $_SESSION['profile_completed_at'] = $user['profile_completed_at'] ?? null;
+
+    $sessionTableCheck = $pdo->prepare("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'member_sessions'");
+    $sessionTableCheck->execute();
+    if ((int) $sessionTableCheck->fetchColumn() > 0 && $_SESSION['role'] === 'user') {
+        $sessionHash = hash('sha256', session_id());
+        $recordSession = $pdo->prepare('INSERT INTO member_sessions (user_id, session_hash, user_agent) VALUES (:user_id, :session_hash, :user_agent)');
+        $recordSession->execute([
+            ':user_id' => (int) $user['id'],
+            ':session_hash' => $sessionHash,
+            ':user_agent' => substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 255)
+        ]);
+        $pdo->prepare('UPDATE member_sessions SET revoked_at = COALESCE(revoked_at, NOW()) WHERE user_id = :user_id AND last_seen_at < DATE_SUB(NOW(), INTERVAL 30 DAY)')->execute([':user_id' => (int) $user['id']]);
+    }
 
 
     unset($_SESSION['login_errors']);
