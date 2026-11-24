@@ -1204,12 +1204,23 @@ input:disabled {
 }
 
 .profile-dropdown a {
+    display: flex;
+    align-items: center;
+    gap: 11px;
     padding: 10px 11px;
     color: #475569;
     border-radius: 7px;
     font-size: 13px;
     font-weight: 600;
     text-decoration: none;
+}
+
+.profile-dropdown a > i {
+    width: 17px;
+    flex: 0 0 17px;
+    color: #64748b;
+    font-size: 14px;
+    text-align: center;
 }
 
 .profile-dropdown a:hover {
@@ -1222,6 +1233,10 @@ input:disabled {
     color: var(--primary);
     border-top: 1px solid var(--line);
     border-radius: 0 0 7px 7px;
+}
+
+.profile-dropdown a:last-child > i {
+    color: var(--primary);
 }
 
 .dashboard-layout {

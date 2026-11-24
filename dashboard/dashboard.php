@@ -1008,10 +1008,10 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                     <span aria-hidden="true">⌄</span>
                 </summary>
                 <div class="profile-dropdown">
-                    <a href="dashboard.php?page=profile">My Profile</a>
-                    <a href="dashboard.php?page=settings">Settings &amp; Privacy</a>
-                    <a href="dashboard.php?page=help">Help &amp; Support</a>
-                    <a href="../logout.php">Sign Out</a>
+                    <a href="dashboard.php?page=profile"><i class="fa-regular fa-user" aria-hidden="true"></i><span>My Profile</span></a>
+                    <a href="dashboard.php?page=settings"><i class="fa-solid fa-gear" aria-hidden="true"></i><span>Settings &amp; Privacy</span></a>
+                    <a href="dashboard.php?page=help"><i class="fa-regular fa-circle-question" aria-hidden="true"></i><span>Help &amp; Support</span></a>
+                    <a href="../logout.php"><i class="fa-solid fa-arrow-right-from-bracket" aria-hidden="true"></i><span>Sign Out</span></a>
                 </div>
             </details>
         </div>
