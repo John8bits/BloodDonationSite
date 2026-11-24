@@ -803,6 +803,7 @@ $navGroups = [
         'help' => ['?', 'Help & Support']
     ]
 ];
+unset($navGroups['Account']);
 $pageTitles = [
     'home' => 'Community Feed',
     'find-blood' => 'Find Blood',
@@ -959,6 +960,7 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                 <div class="profile-dropdown">
                     <a href="dashboard.php?page=profile">My Profile</a>
                     <a href="dashboard.php?page=settings">Settings &amp; Privacy</a>
+                    <a href="dashboard.php?page=help">Help &amp; Support</a>
                     <a href="../logout.php">Sign Out</a>
                 </div>
             </details>
