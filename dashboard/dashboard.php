@@ -1455,8 +1455,9 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                         </form>
                     </section>
                 <?php elseif ($activePage === 'settings'): ?>
+                    <div class="settings-intro"><span class="settings-intro-icon"><i class="fa-solid fa-lock" aria-hidden="true"></i></span><div><strong>Your account, your choices</strong><p>Manage sign-in security, profile visibility, and your personal data.</p></div><span class="settings-private-badge"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> Private by default</span></div>
                     <?php if (!$privacySecurityAvailable): ?><div class="notice notice-info" role="status">Account security and privacy controls need <code>database_sql/member_privacy_security_migration.sql</code> before they can be used.</div><?php endif; ?>
-                    <div class="settings-grid">
+                    <div class="settings-grid" aria-label="Settings and privacy options">
                         <section class="panel settings-section"><header><span class="settings-icon"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i></span><div><h2>Account &amp; Security</h2><p>Manage credentials and signed-in devices.</p></div></header>
                             <div class="settings-action-row"><div><strong>Password</strong><small>Update your password using your current password.</small></div><button class="button button-secondary button-small" type="button" data-modal-open="changePasswordModal">Change password</button></div>
                             <div class="settings-action-row"><div><strong>Email address</strong><small>Current: <?= h($profile['email']) ?><?php if ($pendingEmailChange): ?> · Verification sent to <?= h($pendingEmailChange['new_email']) ?><?php endif; ?></small></div><button class="button button-secondary button-small" type="button" data-modal-open="changeEmailModal">Update email</button></div>
