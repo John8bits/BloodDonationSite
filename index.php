@@ -187,10 +187,20 @@ $steps = [
         <div class="footer-brand"><a class="brand" href="index.php" aria-label="BLife PH home"><img class="brand-logo" src="images/BlifePH_no_bg.png" alt="BLife PH" width="70" height="70"></a><p>A community platform for blood requests, donation offers, and connection.</p><small class="footer-disclaimer">Not a substitute for medical evaluation or emergency care.</small></div>
         <div class="footer-column"><h2>Explore</h2><a href="#features">Features</a><a href="#how-it-works">How It Works</a><a href="#about">About Us</a><a href="#healthcare-partners">For Facilities</a><a href="#contact">Contact</a></div>
         <div class="footer-column"><h2>Platform</h2><a href="<?= htmlspecialchars($requestHref, ENT_QUOTES, 'UTF-8') ?>">Blood Requests</a><a href="<?= htmlspecialchars($offerHref, ENT_QUOTES, 'UTF-8') ?>">Donation Offers</a><a href="<?= htmlspecialchars($mapHref, ENT_QUOTES, 'UTF-8') ?>">Blood Donation Map</a><a href="#faq">FAQs</a></div>
-        <div class="footer-column footer-legal"><h2>Policies</h2><span>Privacy Policy <small>Not published yet</small></span><span>Terms &amp; Conditions <small>Not published yet</small></span><a href="login.php">Account Sign In</a></div>
+        <div class="footer-column footer-legal"><h2>Policies</h2><a href="privacy.php" data-policy-dialog-open="privacyPolicyDialog">Privacy Policy</a><a href="terms.php" data-policy-dialog-open="termsDialog">Terms &amp; Conditions</a><a href="login.php">Account Sign In</a></div>
     </div>
     <div class="container footer-bottom"><span>© <?= date('Y') ?> BLife PH. All rights reserved.</span></div>
 </footer>
+<dialog class="legal-dialog" id="privacyPolicyDialog" aria-labelledby="privacyPolicyDialogTitle">
+    <header class="legal-dialog-header"><div><span class="section-kicker">BLife PH</span><h2 id="privacyPolicyDialogTitle">Privacy Policy</h2></div><button type="button" class="legal-dialog-close" data-policy-dialog-close aria-label="Close Privacy Policy">×</button></header>
+    <div class="legal-dialog-body"><?php require __DIR__ . '/includes/privacy_policy_content.php'; ?></div>
+    <footer class="legal-dialog-footer"><span>Updated November 25, 2026</span><button type="button" class="btn btn-primary btn-small" data-policy-dialog-close>Close</button></footer>
+</dialog>
+<dialog class="legal-dialog" id="termsDialog" aria-labelledby="termsDialogTitle">
+    <header class="legal-dialog-header"><div><span class="section-kicker">BLife PH</span><h2 id="termsDialogTitle">Terms &amp; Conditions</h2></div><button type="button" class="legal-dialog-close" data-policy-dialog-close aria-label="Close Terms and Conditions">×</button></header>
+    <div class="legal-dialog-body"><?php require __DIR__ . '/includes/terms_content.php'; ?></div>
+    <footer class="legal-dialog-footer"><span>Updated November 25, 2026</span><button type="button" class="btn btn-primary btn-small" data-policy-dialog-close>Close</button></footer>
+</dialog>
 <script src="assets/landing.js" defer></script>
 </body>
 </html>

@@ -6,6 +6,7 @@
     const menuButton = document.getElementById('menuToggle');
     const navigation = document.getElementById('mainNavigation');
     const navLinks = Array.from(document.querySelectorAll('.nav-link[href^="#"]'));
+    let policyDialogTrigger = null;
 
     body.classList.add('js-ready');
 
@@ -44,6 +45,35 @@
             if (!window.matchMedia('(max-width: 800px)').matches) setMenuOpen(false);
         }, { passive: true });
     }
+
+    document.querySelectorAll('[data-policy-dialog-open]').forEach(function (link) {
+        link.addEventListener('click', function (event) {
+            const dialog = document.getElementById(link.dataset.policyDialogOpen);
+            if (!(dialog instanceof HTMLDialogElement)) return;
+            event.preventDefault();
+            policyDialogTrigger = link;
+            dialog.showModal();
+            document.body.classList.add('legal-dialog-open');
+            const closeButton = dialog.querySelector('[data-policy-dialog-close]');
+            if (closeButton) closeButton.focus();
+        });
+    });
+
+    document.querySelectorAll('.legal-dialog').forEach(function (dialog) {
+        dialog.querySelectorAll('[data-policy-dialog-close]').forEach(function (button) {
+            button.addEventListener('click', function () { dialog.close(); });
+        });
+        dialog.addEventListener('click', function (event) {
+            if (event.target === dialog) dialog.close();
+        });
+        dialog.addEventListener('close', function () {
+            if (!document.querySelector('.legal-dialog[open]')) document.body.classList.remove('legal-dialog-open');
+            if (policyDialogTrigger) {
+                policyDialogTrigger.focus();
+                policyDialogTrigger = null;
+            }
+        });
+    });
 
     function updateHeader() {
         if (header) header.classList.toggle('scrolled', window.scrollY > 12);
