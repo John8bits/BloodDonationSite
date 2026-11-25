@@ -3563,14 +3563,17 @@ input:disabled {
 .settings-action-row > div, .settings-link-row > div, .session-list li > div { display: grid; gap: 4px; min-width: 0; }
 .settings-action-row strong, .settings-link-row strong, .session-list strong { color: var(--ink); font-size: 13px; }
 .settings-action-row small, .settings-link-row small, .session-list small, .settings-toggle small { color: var(--muted); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
-.settings-privacy-form { display: grid; gap: 11px; }
-.settings-toggle { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 12px 0; border-top: 1px solid #e8edf3; cursor: pointer; }
-.settings-toggle > span { display: grid; gap: 4px; }
+.settings-privacy-form { display: grid; gap: 8px; }
+.settings-privacy-form > .settings-toggle { display: grid; grid-template-columns: minmax(0, 1fr) 20px; align-items: center; gap: 12px; margin: 0; padding: 12px 0; border-top: 1px solid #e8edf3; cursor: pointer; }
+.settings-toggle > span { display: grid; gap: 3px; }
 .settings-toggle strong { font-size: 13px; }
-.settings-toggle input { width: 18px; height: 18px; margin-top: 2px; accent-color: #c9232b; flex: 0 0 18px; }
+.settings-privacy-form .settings-toggle input[type="checkbox"] { display: block; width: 18px; height: 18px; min-width: 18px; margin: 0; padding: 0; justify-self: end; accent-color: #c9232b; cursor: pointer; }
 .settings-suboptions { display: grid; gap: 7px; margin-left: 4px; padding: 0 0 5px 12px; border-left: 2px solid #fee2e2; }
 .settings-suboptions .form-help { margin: 0 0 2px; }
 .settings-section .checkbox-label { margin: 0; }
+.settings-privacy-form .settings-suboptions .checkbox-label { display: flex; align-items: center; gap: 9px; margin: 0; padding: 3px 0; }
+.settings-privacy-form .settings-suboptions .checkbox-label input[type="checkbox"],
+.settings-privacy-form > .checkbox-label input[type="checkbox"] { width: 17px; height: 17px; min-width: 17px; margin: 0; padding: 0; accent-color: #c9232b; }
 .session-list { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; }
 .session-list li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px solid #edf0f4; }
 .session-list li > div { overflow-wrap: anywhere; }
