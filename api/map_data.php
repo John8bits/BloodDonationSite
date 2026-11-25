@@ -62,7 +62,7 @@ try {
     if (!in_array($role, ['user', 'admin', 'clinic'], true)) {
         map_json_response(403, ['success' => false, 'error' => ['code' => 'forbidden', 'message' => 'This account cannot access map data.']]);
     }
-    $account = $pdo->prepare('SELECT u.role, u.account_status, u.must_change_password, u.fname, u.lname, u.phone, u.btype, u.city AS profile_city, c.city AS facility_city, c.province AS facility_province FROM uinfo u LEFT JOIN clinic_profiles c ON c.user_id = u.id WHERE u.id = :id LIMIT 1');
+    $account = $pdo->prepare('SELECT u.role, u.account_status, u.must_change_password, u.fname, u.lname, u.phone, u.btype, u.city AS profile_province, u.municipality AS profile_municipality, u.barangay AS profile_barangay, c.city AS facility_city, c.province AS facility_province FROM uinfo u LEFT JOIN clinic_profiles c ON c.user_id = u.id WHERE u.id = :id LIMIT 1');
     $account->execute([':id' => $userId]);
     $accountRow = $account->fetch();
     if (!$accountRow || $accountRow['role'] !== $role || $accountRow['account_status'] !== 'active') {
@@ -73,7 +73,7 @@ try {
     }
     if ($role === 'user' && (
         trim((string) $accountRow['fname']) === '' || trim((string) $accountRow['lname']) === '' ||
-        trim((string) $accountRow['phone']) === '' || trim((string) $accountRow['profile_city']) === '' ||
+        trim((string) $accountRow['phone']) === '' || trim((string) $accountRow['profile_province']) === '' || trim((string) $accountRow['profile_municipality']) === '' ||
         trim((string) $accountRow['btype']) === ''
     )) {
         map_json_response(403, ['success' => false, 'error' => ['code' => 'profile_completion_required', 'message' => 'Complete your profile before accessing map data.']]);
@@ -83,7 +83,7 @@ try {
     if ($role === 'clinic') {
         $viewerLocation = blife_map_resolve_location(null, null, '', '', '', (string) $accountRow['facility_city'], (string) $accountRow['facility_province']);
     } elseif ($role === 'user') {
-        $viewerLocation = blife_map_resolve_location(null, null, '', '', '', (string) $accountRow['profile_city']);
+        $viewerLocation = blife_map_resolve_location(null, null, '', '', '', (string) $accountRow['profile_municipality'], (string) $accountRow['profile_province'], (string) $accountRow['profile_barangay']);
     }
     if ($viewerLocation !== null) {
         $viewerLocation['latitude'] = round((float) $viewerLocation['latitude'], 2);
@@ -94,8 +94,8 @@ try {
     $items = [];
     $unmappedCount = 0;
     if (in_array($requestedType, ['all', 'request'], true)) {
-        $sql = "SELECT br.id, br.requester_id = :viewer_id AS is_owner, br.blood_type, br.units, br.hospital, br.location AS province, br.city, br.latitude, br.longitude, br.urgency, br.status, br.needed_by,
-                       u.role AS publisher_role, u.fname, u.lname, u.city AS profile_city, clinic.city AS facility_city, clinic.province AS facility_province, clinic.facility_name, clinic.is_verified
+        $sql = "SELECT br.id, br.requester_id = :viewer_id AS is_owner, br.blood_type, br.units, br.hospital, br.location AS province, br.city, br.barangay, br.latitude, br.longitude, br.urgency, br.status, br.needed_by,
+                       u.role AS publisher_role, u.fname, u.lname, u.city AS profile_province, u.municipality AS profile_municipality, u.barangay AS profile_barangay, clinic.city AS facility_city, clinic.province AS facility_province, clinic.facility_name, clinic.is_verified
                 FROM blood_requests br
                 JOIN uinfo u ON u.id = br.requester_id
                 LEFT JOIN clinic_profiles clinic ON clinic.user_id = u.id AND u.role = 'clinic'
@@ -108,8 +108,10 @@ try {
         foreach ($stmt->fetchAll() as $row) {
             $location = blife_map_resolve_location(
                 $row['latitude'], $row['longitude'], (string) ($row['city'] ?? ''), (string) ($row['province'] ?? ''), (string) ($row['province'] ?? ''),
-                $row['publisher_role'] === 'clinic' ? (string) ($row['facility_city'] ?? '') : (string) ($row['profile_city'] ?? ''),
-                $row['publisher_role'] === 'clinic' ? (string) ($row['facility_province'] ?? '') : ''
+                $row['publisher_role'] === 'clinic' ? (string) ($row['facility_city'] ?? '') : (string) ($row['profile_municipality'] ?? ''),
+                $row['publisher_role'] === 'clinic' ? (string) ($row['facility_province'] ?? '') : (string) ($row['profile_province'] ?? ''),
+                $row['publisher_role'] === 'clinic' ? '' : (string) ($row['profile_barangay'] ?? ''),
+                (string) ($row['barangay'] ?? '')
             );
             if ($location === null) { $unmappedCount++; continue; }
             $lat = round((float) $location['latitude'], 2); $lng = round((float) $location['longitude'], 2);
@@ -131,9 +133,9 @@ try {
     }
 
     if (in_array($requestedType, ['all', 'donation'], true)) {
-        $sql = "SELECT cp.id, cp.user_id = :viewer_id AS is_owner, cp.donation_blood_type AS blood_type, cp.donation_province AS province, cp.donation_city AS city,
+        $sql = "SELECT cp.id, cp.user_id = :viewer_id AS is_owner, cp.donation_blood_type AS blood_type, cp.donation_province AS province, cp.donation_city AS city, cp.donation_barangay AS barangay,
                        cp.donation_location, cp.donation_latitude AS latitude, cp.donation_longitude AS longitude, cp.donation_status, cp.donation_available_date,
-                       u.role AS publisher_role, u.fname, u.lname, u.city AS profile_city, clinic.city AS facility_city, clinic.province AS facility_province, clinic.facility_name, clinic.is_verified
+                       u.role AS publisher_role, u.fname, u.lname, u.city AS profile_province, u.municipality AS profile_municipality, u.barangay AS profile_barangay, clinic.city AS facility_city, clinic.province AS facility_province, clinic.facility_name, clinic.is_verified
                 FROM community_posts cp
                 JOIN uinfo u ON u.id = cp.user_id
                 LEFT JOIN clinic_profiles clinic ON clinic.user_id = u.id AND u.role = 'clinic'
@@ -147,8 +149,10 @@ try {
         foreach ($stmt->fetchAll() as $row) {
             $location = blife_map_resolve_location(
                 $row['latitude'], $row['longitude'], (string) ($row['city'] ?? ''), (string) ($row['province'] ?? ''), (string) ($row['donation_location'] ?? ''),
-                $row['publisher_role'] === 'clinic' ? (string) ($row['facility_city'] ?? '') : (string) ($row['profile_city'] ?? ''),
-                $row['publisher_role'] === 'clinic' ? (string) ($row['facility_province'] ?? '') : ''
+                $row['publisher_role'] === 'clinic' ? (string) ($row['facility_city'] ?? '') : (string) ($row['profile_municipality'] ?? ''),
+                $row['publisher_role'] === 'clinic' ? (string) ($row['facility_province'] ?? '') : (string) ($row['profile_province'] ?? ''),
+                $row['publisher_role'] === 'clinic' ? '' : (string) ($row['profile_barangay'] ?? ''),
+                (string) ($row['barangay'] ?? '')
             );
             if ($location === null) { $unmappedCount++; continue; }
             $lat = round((float) $location['latitude'], 2); $lng = round((float) $location['longitude'], 2);

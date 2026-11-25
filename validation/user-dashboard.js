@@ -5,6 +5,79 @@ document.addEventListener("DOMContentLoaded", function () {
     const sidebarLinks = document.querySelectorAll(".sidebar-link");
     const notificationMenu = document.querySelector(".notification-menu");
 
+    const profileLocationForm = document.querySelector("[data-profile-location-form]");
+    if (profileLocationForm) {
+        const provinceSelect = profileLocationForm.querySelector("[data-profile-province]");
+        const citySelect = profileLocationForm.querySelector("[data-profile-city]");
+        const barangaySelect = profileLocationForm.querySelector("[data-profile-barangay]");
+        const status = profileLocationForm.querySelector("[data-profile-location-status]");
+        const api = profileLocationForm.dataset.locationApi;
+        const currentCity = profileLocationForm.dataset.currentCity || "";
+        const currentBarangay = profileLocationForm.dataset.currentBarangay || "";
+        let profileLocationRequest = 0;
+
+        function updateProfileLocationStatus() {
+            const selectedBarangay = barangaySelect.options[barangaySelect.selectedIndex];
+            if (selectedBarangay && selectedBarangay.textContent.includes("approximate city point")) {
+                status.textContent = "No barangay map point is available here. The map will use the approximate city center.";
+            } else {
+                status.textContent = "Your profile location is private. Public map points are approximate.";
+            }
+        }
+
+        function fillProfileLocationSelect(select, rows, placeholder, selectedValue) {
+            select.replaceChildren(new Option(placeholder, ""));
+            rows.forEach(function (row) {
+                const isRecord = typeof row === "object";
+                const name = isRecord ? row.name : row;
+                if (!name) return;
+                const label = isRecord && !row.has_map_point ? name + " (approximate city point)" : name;
+                select.add(new Option(label, name));
+            });
+            select.disabled = rows.length === 0;
+            if (selectedValue && Array.from(select.options).some(function (option) { return option.value === selectedValue; })) {
+                select.value = selectedValue;
+            }
+        }
+
+        async function loadProfileLocations(cityValue, barangayValue) {
+            const requestId = ++profileLocationRequest;
+            const province = provinceSelect.value;
+            fillProfileLocationSelect(citySelect, [], province ? "Loading cities / municipalities…" : "Select a province first");
+            fillProfileLocationSelect(barangaySelect, [], "Select a city / municipality first");
+            if (!province) return;
+            try {
+                const cityUrl = new URL(api, window.location.href);
+                cityUrl.searchParams.set("province", province);
+                const cityResponse = await fetch(cityUrl, { headers: { Accept: "application/json" } });
+                const cityPayload = await cityResponse.json();
+                if (requestId !== profileLocationRequest || province !== provinceSelect.value) return;
+                if (!cityResponse.ok || !cityPayload.success) throw new Error(cityPayload.error || "Could not load city / municipality choices.");
+                fillProfileLocationSelect(citySelect, cityPayload.data.cities || [], "Select city / municipality", cityValue);
+                if (!citySelect.value) return;
+                const barangayUrl = new URL(api, window.location.href);
+                barangayUrl.searchParams.set("province", province);
+                barangayUrl.searchParams.set("city", citySelect.value);
+                const barangayResponse = await fetch(barangayUrl, { headers: { Accept: "application/json" } });
+                const barangayPayload = await barangayResponse.json();
+                if (requestId !== profileLocationRequest || province !== provinceSelect.value || citySelect.value !== cityValue) return;
+                if (!barangayResponse.ok || !barangayPayload.success) throw new Error(barangayPayload.error || "Could not load barangay choices.");
+                fillProfileLocationSelect(barangaySelect, barangayPayload.data.barangays || [], "Select barangay (optional)", barangayValue);
+                updateProfileLocationStatus();
+            } catch (error) {
+                if (requestId !== profileLocationRequest) return;
+                fillProfileLocationSelect(citySelect, [], "Location list unavailable");
+                fillProfileLocationSelect(barangaySelect, [], "Select a city / municipality first");
+                status.textContent = error.message || "Could not load Philippine location choices.";
+            }
+        }
+
+        provinceSelect.addEventListener("change", function () { loadProfileLocations("", ""); });
+        citySelect.addEventListener("change", function () { loadProfileLocations(citySelect.value, ""); });
+        barangaySelect.addEventListener("change", updateProfileLocationStatus);
+        if (provinceSelect.value) loadProfileLocations(currentCity, currentBarangay);
+    }
+
     document.querySelectorAll(".my-post-sections").forEach(function (tabContainer) {
         const tabs = Array.from(tabContainer.querySelectorAll("[data-my-post-tab]"));
         const panels = Array.from(tabContainer.querySelectorAll("[data-my-post-panel]"));

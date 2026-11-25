@@ -118,7 +118,7 @@ try {
 
 
     $stmt = $pdo->prepare("
-        SELECT u.id, u.fname, u.lname, u.email, u.btype, u.phone, u.city, u.password, u.role
+        SELECT u.id, u.fname, u.lname, u.email, u.btype, u.phone, u.city, u.municipality, u.password, u.role
             {$accountStatusSelect}{$extraAccountSelect}{$clinicSelect}{$deactivationSelect}
         FROM uinfo u
         " . ($clinicFieldsAvailable ? 'LEFT JOIN clinic_profiles cp ON cp.user_id = u.id' : '') . "
@@ -204,7 +204,7 @@ try {
         ? 'admin/dashboard.php?login=success'
         : ($_SESSION['role'] === 'clinic'
             ? 'clinic/dashboard.php?login=success'
-            : ((trim((string) $user['fname']) === '' || trim((string) $user['lname']) === '' || trim((string) $user['phone']) === '' || empty($user['btype']) || trim((string) ($user['city'] ?? '')) === '')
+            : ((trim((string) $user['fname']) === '' || trim((string) $user['lname']) === '' || trim((string) $user['phone']) === '' || empty($user['btype']) || trim((string) ($user['city'] ?? '')) === '' || trim((string) ($user['municipality'] ?? '')) === '')
                 ? 'dashboard/dashboard.php?page=profile&welcome=1'
                 : 'dashboard/dashboard.php?login=success'));
 

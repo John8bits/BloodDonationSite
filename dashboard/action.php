@@ -4,6 +4,7 @@ session_start();
 require_once __DIR__ . '/../config/auth.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/post_location_validation.php';
+require_once __DIR__ . '/../includes/philippine_psgc_locations.php';
 require_once __DIR__ . '/../includes/member_session_security.php';
 $philippineProvinces = require __DIR__ . '/../config/philippine_provinces.php';
 
@@ -126,7 +127,9 @@ try {
             $firstName = trim($_POST['fname'] ?? '');
             $lastName = trim($_POST['lname'] ?? '');
             $phone = trim($_POST['phone'] ?? '');
-            $city = trim($_POST['city'] ?? '');
+            $province = trim($_POST['province'] ?? $_POST['city'] ?? '');
+            $municipality = trim($_POST['municipality'] ?? '');
+            $barangay = trim($_POST['barangay'] ?? '');
             $bloodType = $_POST['btype'] ?? '';
             $errors = [];
 
@@ -139,8 +142,8 @@ try {
             if ($phone === '' || strlen($phone) > 20) {
                 $errors[] = 'Enter a phone number of up to 20 characters.';
             }
-            if (!in_array($city, $philippineProvinces, true)) {
-                $errors[] = 'Select a valid province.';
+            if ($province === '' || strlen($province) > 120 || $municipality === '' || strlen($municipality) > 120 || strlen($barangay) > 120 || !blife_psgc_valid_profile_location($province, $municipality, $barangay)) {
+                $errors[] = 'Select a valid province, city / municipality, and barangay.';
             }
             if (!in_array($bloodType, $bloodTypes, true)) {
                 $errors[] = 'Select a blood type.';
@@ -154,14 +157,16 @@ try {
             $completionAvailable = (int) $completionColumn->fetchColumn() > 0;
             $stmt = $pdo->prepare(
                 'UPDATE uinfo SET fname = :fname, lname = :lname, phone = :phone,
-                    city = :city, btype = :btype' . ($completionAvailable ? ', profile_completed_at = COALESCE(profile_completed_at, NOW())' : '') . '
+                    city = :province, municipality = :municipality, barangay = :barangay, btype = :btype' . ($completionAvailable ? ', profile_completed_at = COALESCE(profile_completed_at, NOW())' : '') . '
                  WHERE id = :id AND role = \'user\''
             );
             $stmt->execute([
                 ':fname' => $firstName,
                 ':lname' => $lastName,
                 ':phone' => $phone,
-                ':city' => $city,
+                ':province' => $province,
+                ':municipality' => $municipality,
+                ':barangay' => $barangay,
                 ':btype' => $bloodType === '' ? null : $bloodType,
                 ':id' => $userId
             ]);

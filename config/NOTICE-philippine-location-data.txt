@@ -1,0 +1,6 @@
+Philippine place names and PSGC codes are sourced from the Philippine Statistics Authority (PSA), Philippine Standard Geographic Code, 2026-Q2. Credit PSA as the source when this data is displayed.
+https://psa.gov.ph/classification/psgc
+
+Approximate barangay map points were computed from administrative boundary data in philippines-json-maps (PSA/NAMRIA boundary source; PSGC 4Q 2023). The map dataset is licensed under MIT; underlying administrative boundaries carry CC-BY-IGO terms. These points are approximate and are not official address coordinates.
+https://github.com/faeldon/philippines-json-maps
+https://github.com/Tenasia/ph-psgc

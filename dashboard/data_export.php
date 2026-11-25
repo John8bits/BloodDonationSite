@@ -9,7 +9,7 @@ try {
     $pdo = (new Database())->getConnection();
     if (!member_session_is_active($pdo, (int)current_user_id())) { http_response_code(401); exit('Session expired'); }
     $id = (int)current_user_id();
-    $profile = $pdo->prepare("SELECT id, fname, lname, email, btype, phone, city, donor_available, created_at FROM uinfo WHERE id = :id AND role = 'user'");
+    $profile = $pdo->prepare("SELECT id, fname, lname, email, btype, phone, city, municipality, barangay, donor_available, created_at FROM uinfo WHERE id = :id AND role = 'user'");
     $profile->execute([':id' => $id]);
     $account = $profile->fetch(PDO::FETCH_ASSOC);
     if (!$account) { http_response_code(404); exit('Account not found'); }

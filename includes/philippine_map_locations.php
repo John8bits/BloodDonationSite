@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__ . '/philippine_psgc_locations.php';
 
 /**
  * Resolve public map points from saved locality names only. Boundary centroids
@@ -22,9 +23,17 @@ function blife_map_location_data(): array
 
 function blife_map_normalize_location(string $value): string
 {
-    $value = trim(function_exists('mb_strtolower') ? mb_strtolower($value, 'UTF-8') : strtolower($value));
-    $value = str_replace(['ñ', 'Ñ'], 'n', $value);
-    return preg_replace('/[^a-z0-9]+/u', '', $value) ?? '';
+    return blife_psgc_key($value);
+}
+
+function blife_map_location_name_matches(string $candidate, string $requested): bool
+{
+    $normalize = static function (string $value): string {
+        $value = blife_map_normalize_location($value);
+        $value = preg_replace('/^cityof/', '', $value) ?? $value;
+        return preg_replace('/city$/', '', $value) ?? $value;
+    };
+    return $normalize($candidate) !== '' && $normalize($candidate) === $normalize($requested);
 }
 
 function blife_map_valid_coordinates(mixed $latitude, mixed $longitude): ?array
@@ -43,7 +52,9 @@ function blife_map_resolve_location(
     string $postProvince,
     string $legacyLocation,
     string $fallbackCity = '',
-    string $fallbackProvince = ''
+    string $fallbackProvince = '',
+    string $fallbackBarangay = '',
+    string $postBarangay = ''
 ): ?array {
     $explicitCoordinates = blife_map_valid_coordinates($latitude, $longitude);
     $city = trim($postCity);
@@ -60,20 +71,14 @@ function blife_map_resolve_location(
         $province = $legacyLocation;
     }
 
-    // The member profile currently stores its province in uinfo.city. Clinic
-    // profiles have a distinct city and province pair.
+    $usingProfileLocation = ($city === '' || ($fallbackCity !== '' && blife_map_location_name_matches($city, $fallbackCity)))
+        && ($province === '' || blife_map_normalize_location($province) === blife_map_normalize_location($fallbackProvince));
+
+    // Member profiles store province in the legacy uinfo.city column and have
+    // separate municipality / barangay values after the member location migration.
     if ($city === '' && $province === '' && $fallbackCity !== '') {
-        $profileProvinceKey = blife_map_normalize_location($fallbackCity);
-        foreach (($data['provinces'] ?? []) as $item) {
-            if (blife_map_normalize_location((string) ($item['name'] ?? '')) === $profileProvinceKey) {
-                $province = (string) $item['name'];
-                break;
-            }
-        }
-        if ($province === '') {
-            $city = trim($fallbackCity);
-            $province = trim($fallbackProvince);
-        }
+        $city = trim($fallbackCity);
+        $province = trim($fallbackProvince);
     }
 
     // Clinic posts without a city use the registered facility locality when
@@ -83,8 +88,6 @@ function blife_map_resolve_location(
         if ($province === '') $province = trim($fallbackProvince);
     }
 
-    // Member profiles currently store a single city/province selector. Apply
-    // it only when the post has no explicit locality at all.
     if ($city === '' && $province === '' && $fallbackProvince !== '') $province = trim($fallbackProvince);
 
     $provinceAlias = [
@@ -103,11 +106,29 @@ function blife_map_resolve_location(
         ];
     }
 
+    $barangayName = trim($postBarangay) !== '' ? trim($postBarangay) : ($usingProfileLocation ? trim($fallbackBarangay) : '');
+    if ($city !== '' && $province !== '' && $barangayName !== '') {
+        $barangay = blife_psgc_barangay($province, $city, $barangayName);
+        $barangayCoordinates = $barangay === null ? null : blife_map_valid_coordinates($barangay['latitude'], $barangay['longitude']);
+        if ($barangay !== null && $barangayCoordinates !== null) {
+            return [
+                'latitude' => $barangayCoordinates[0], 'longitude' => $barangayCoordinates[1],
+                'city' => $city, 'province' => $province, 'location_level' => 'barangay',
+                'approximate' => true, 'coordinate_source' => 'barangay_boundary_point',
+            ];
+        }
+    }
+
     if ($city !== '' && $provinceKey !== '') {
         foreach (($data['cities'] ?? []) as $item) {
-            if (blife_map_normalize_location((string) ($item['province'] ?? '')) === $provinceKey && blife_map_normalize_location((string) ($item['name'] ?? '')) === blife_map_normalize_location($city)) {
+            if (blife_map_normalize_location((string) ($item['province'] ?? '')) === $provinceKey && blife_map_location_name_matches((string) ($item['name'] ?? ''), $city)) {
                 return ['latitude' => (float) $item['latitude'], 'longitude' => (float) $item['longitude'], 'city' => $item['name'], 'province' => $item['province'], 'location_level' => 'city', 'approximate' => true, 'coordinate_source' => 'municipality_centroid'];
             }
+        }
+        $psgcCity = blife_psgc_city($province, $city);
+        $psgcCityCoordinates = $psgcCity === null ? null : blife_map_valid_coordinates($psgcCity['latitude'], $psgcCity['longitude']);
+        if ($psgcCity !== null && $psgcCityCoordinates !== null) {
+            return ['latitude' => $psgcCityCoordinates[0], 'longitude' => $psgcCityCoordinates[1], 'city' => $psgcCity['name'], 'province' => $province, 'location_level' => 'city', 'approximate' => true, 'coordinate_source' => 'municipality_centroid'];
         }
     } elseif ($city !== '') {
         $matches = array_values(array_filter($data['cities'] ?? [], static fn(array $item): bool => blife_map_normalize_location((string) ($item['name'] ?? '')) === blife_map_normalize_location($city)));

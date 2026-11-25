@@ -98,6 +98,8 @@ $profile = [
     'btype' => $_SESSION['blood_type'] ?? '',
     'phone' => $_SESSION['phone'] ?? '',
     'city' => '',
+    'municipality' => '',
+    'barangay' => '',
     'donor_available' => 0,
     'notify_request_responses' => 1,
     'notify_post_comments' => 1,
@@ -155,7 +157,7 @@ try {
         && in_array('member_email_change_tokens', $availableTables, true)
         && in_array('member_account_deletion_requests', $availableTables, true);
     $requiredColumns = [
-        'uinfo' => ['fname', 'lname', 'email', 'btype', 'phone', 'city', 'donor_available', 'notify_request_responses', 'notify_post_comments'],
+        'uinfo' => ['fname', 'lname', 'email', 'btype', 'phone', 'city', 'municipality', 'barangay', 'donor_available', 'notify_request_responses', 'notify_post_comments'],
         'community_posts' => ['id', 'user_id', 'post_type', 'content', 'event_date', 'created_at'],
         'blood_requests' => ['id', 'requester_id', 'blood_type', 'units', 'hospital', 'location', 'needed_by', 'urgency', 'details', 'status', 'created_at'],
         'request_responses' => ['id', 'request_id', 'user_id', 'message', 'status', 'created_at'],
@@ -244,7 +246,7 @@ try {
         $accountStatusCheck->execute();
         $accountStatusAvailable = (int) $accountStatusCheck->fetchColumn() > 0;
         $accountStatusSelect = $accountStatusAvailable ? ', account_status' : '';
-        $profileStmt = $pdo->prepare('SELECT fname, lname, email, btype, phone, city, donor_available, notify_request_responses, notify_post_comments' . $accountStatusSelect . ' FROM uinfo WHERE id = :id LIMIT 1');
+        $profileStmt = $pdo->prepare('SELECT fname, lname, email, btype, phone, city, municipality, barangay, donor_available, notify_request_responses, notify_post_comments' . $accountStatusSelect . ' FROM uinfo WHERE id = :id LIMIT 1');
         $profileStmt->execute([':id' => $userId]);
         $storedProfile = $profileStmt->fetch();
         if (!$storedProfile) {
@@ -283,7 +285,8 @@ try {
             && trim((string) ($storedProfile['lname'] ?? '')) !== ''
             && trim((string) ($storedProfile['phone'] ?? '')) !== ''
             && !empty($storedProfile['btype'])
-            && trim((string) ($storedProfile['city'] ?? '')) !== '';
+            && trim((string) ($storedProfile['city'] ?? '')) !== ''
+            && trim((string) ($storedProfile['municipality'] ?? '')) !== '';
         if (!$memberProfileComplete && $activePage !== 'profile') {
             header('Location: dashboard.php?page=profile&welcome=1');
             exit;
@@ -1450,7 +1453,12 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
                             <div class="form-row"><label>First name<input type="text" name="fname" maxlength="100" value="<?= h($profile['fname']) ?>" required></label><label>Last name<input type="text" name="lname" maxlength="100" value="<?= h($profile['lname']) ?>" required></label></div>
                             <label>Email<input type="email" value="<?= h($profile['email']) ?>" disabled></label>
                             <div class="form-row"><label>Phone number <span class="optional">(private)</span><input type="tel" name="phone" maxlength="20" value="<?= h($profile['phone']) ?>" required></label><label>Blood type<select name="btype" required><option value="">Select blood type</option><?php foreach ($bloodTypes as $type): ?><option value="<?= h($type) ?>" <?= $profile['btype'] === $type ? 'selected' : '' ?>><?= h($type) ?></option><?php endforeach; ?></select></label></div>
-                            <label>Province<select name="city" required><option value="">Select province</option><?php foreach ($philippineProvinces as $province): ?><option value="<?= h($province) ?>" <?= $profile['city'] === $province ? 'selected' : '' ?>><?= h($province) ?></option><?php endforeach; ?></select></label>
+                            <div class="form-row profile-location-row" data-profile-location-form data-location-api="../api/philippine_locations.php" data-current-city="<?= h($profile['municipality'] ?? '') ?>" data-current-barangay="<?= h($profile['barangay'] ?? '') ?>">
+                                <label>Province / Region<select name="province" data-profile-province required><option value="">Select province / region</option><?php foreach ($philippineProvinces as $province): ?><option value="<?= h($province) ?>" <?= $profile['city'] === $province ? 'selected' : '' ?>><?= h($province) ?></option><?php endforeach; ?><?php foreach (['Metro Manila (NCR)', 'Special Geographic Area', 'Independent Cities'] as $extraArea): ?><option value="<?= h($extraArea) ?>" <?= $profile['city'] === $extraArea ? 'selected' : '' ?>><?= h($extraArea) ?></option><?php endforeach; ?></select></label>
+                                <label>City / Municipality<select name="municipality" data-profile-city required disabled><option value="">Select a province first</option></select></label>
+                                <label>Barangay <span class="optional">(optional)</span><select name="barangay" data-profile-barangay disabled><option value="">Select a city / municipality first</option></select></label>
+                                <p class="form-help profile-location-help" data-profile-location-status role="status">Choose your saved profile location. The map uses approximate public points and does not show your exact address.</p>
+                            </div>
                             <button class="button button-primary" type="submit">Save Profile</button>
                         </form>
                     </section>
