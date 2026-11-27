@@ -205,7 +205,7 @@ try {
         : ($_SESSION['role'] === 'clinic'
             ? 'clinic/dashboard.php?login=success'
             : ((trim((string) $user['fname']) === '' || trim((string) $user['lname']) === '' || trim((string) $user['phone']) === '' || empty($user['btype']) || trim((string) ($user['city'] ?? '')) === '' || trim((string) ($user['municipality'] ?? '')) === '')
-                ? 'dashboard/dashboard.php?page=profile&welcome=1'
+                ? 'dashboard/dashboard.php?page=profile&welcome=1&login=success'
                 : 'dashboard/dashboard.php?login=success'));
 
     echo json_encode([

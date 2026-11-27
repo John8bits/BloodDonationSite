@@ -411,7 +411,7 @@ $showEventCreateAction = $currentPage === 'events' && $schema['event_fields'] &&
                 <a href="dashboard.php?page=settings" class="<?= $currentPage === 'settings' ? 'active' : '' ?>" <?= $currentPage === 'settings' ? 'aria-current="page"' : '' ?>>
                     <i class="admin-nav-icon fa-solid fa-gear" aria-hidden="true"></i><span class="admin-nav-label">Settings</span>
                 </a>
-                <a href="../logout.php" class="admin-logout"><i class="admin-nav-icon fa-solid fa-right-from-bracket" aria-hidden="true"></i><span class="admin-nav-label">Logout</span></a>
+                <a href="../logout.php" class="admin-logout"><i class="admin-nav-icon fa-solid fa-right-from-bracket" aria-hidden="true"></i><span class="admin-nav-label">Sign Out</span></a>
             </div>
         </nav>
         <div class="admin-sidebar-user">
@@ -844,6 +844,7 @@ $showEventCreateAction = $currentPage === 'events' && $schema['event_fields'] &&
         <?php endif; ?>
     </main>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="../validation/auth-notices.js"></script>
     <script>
         const menuButton = document.getElementById('adminMenuToggle');
         const sidebar = document.getElementById('adminSidebar');
