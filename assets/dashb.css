@@ -776,6 +776,8 @@ table.admin-table th {
 .clinic-edit-grid label{display:grid;align-content:start;gap:6px;min-width:0;color:#515965;font-size:13px;font-weight:600}
 .clinic-edit-grid input,.clinic-edit-grid select,.clinic-edit-grid textarea{width:100%;min-width:0;min-height:42px;padding:10px 12px;border:1px solid #dfe2e7;border-radius:8px;background:#fff;color:#343a43;font:inherit;font-weight:400;transition:border-color .16s,box-shadow .16s}
 .clinic-edit-grid input:focus,.clinic-edit-grid select:focus,.clinic-edit-grid textarea:focus{outline:0;border-color:#d62839;box-shadow:0 0 0 3px rgba(214,40,57,.14)}
+.clinic-create-dialog .admin-dialog-grid input,.clinic-create-dialog .admin-dialog-grid select,.clinic-create-dialog .admin-dialog-grid textarea,.clinic-create-dialog .clinic-location-fields select{width:100%;min-width:0;min-height:42px;padding:10px 12px;border:1px solid #dfe2e7;border-radius:8px;background:#fff;color:#343a43;font:inherit;font-weight:400;transition:border-color .16s,box-shadow .16s}
+.clinic-create-dialog .admin-dialog-grid input:focus,.clinic-create-dialog .admin-dialog-grid select:focus,.clinic-create-dialog .admin-dialog-grid textarea:focus,.clinic-create-dialog .clinic-location-fields select:focus{outline:0;border-color:#d62839;box-shadow:0 0 0 3px rgba(214,40,57,.14)}
 .clinic-edit-grid textarea{min-height:105px;resize:vertical}
 .clinic-edit-grid .clinic-edit-description{grid-column:1/-1}
 .clinic-edit-footer{position:sticky;bottom:0;z-index:2;flex:0 0 auto;margin:0;padding:14px 26px 20px;border-top:1px solid #edf0f3;background:#fff}
@@ -808,11 +810,9 @@ table.admin-table th {
 .clinic-create-dialog .admin-dialog-grid{gap:10px 14px}
 .clinic-create-dialog .admin-dialog-grid>div{gap:10px}
 .clinic-create-dialog .admin-dialog-actions{padding:10px 0 14px}
-.clinic-create-dialog .clinic-location-fields{grid-column:1/-1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 14px;align-items:start}
+.clinic-create-dialog .clinic-location-fields{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 14px;align-items:start}
 .clinic-create-dialog .clinic-location-fields label{display:grid;gap:6px;min-width:0;color:#515965;font-size:13px;font-weight:600}
-.clinic-create-dialog .clinic-location-fields select{width:100%;min-width:0;min-height:42px;padding:10px 12px;border:1px solid #dfe2e7;border-radius:8px;background:#fff;color:#343a43;font:inherit;font-weight:400}
 .clinic-create-dialog .clinic-location-fields select:disabled{background:#f5f6f8;color:#87909d}
-.clinic-create-dialog .admin-dialog-grid input:focus,.clinic-create-dialog .admin-dialog-grid select:focus,.clinic-create-dialog .admin-dialog-grid textarea:focus,.clinic-create-dialog .clinic-location-fields select:focus{outline:0;border-color:#d62839;box-shadow:0 0 0 3px rgba(214,40,57,.14)}
 .clinic-create-dialog .clinic-location-error{grid-column:1/-1;margin:0;color:#b32631;font-size:12px}
 .admin-event-dialog{width:min(760px,calc(100vw - 28px))}
 .admin-event-dialog-inner>.admin-panel{margin:0;padding:18px 26px 24px;border:0;border-radius:0;box-shadow:none}
