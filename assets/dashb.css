@@ -758,7 +758,7 @@ table.admin-table th {
 .clinic-admin-actions-row .admin-inline-form{margin:0}
 .clinic-admin-actions-row .admin-inline-form label{display:grid;gap:5px;color:#59616c;font-size:12px;font-weight:600}
 .clinic-admin-actions-row input{min-height:40px;padding:8px 10px;border:1px solid #dfe2e7;border-radius:8px}
-.clinic-edit-dialog{width:min(680px,calc(100vw - 28px));max-width:680px;overflow:hidden}
+.admin-dialog.clinic-edit-dialog{width:min(680px,calc(100vw - 28px));max-width:680px;overflow:hidden}
 .clinic-edit-dialog[open]{animation:clinicDialogEnter .16s ease-out both}
 .clinic-create-dialog[open]{animation:clinicDialogEnter .16s ease-out both}
 .clinic-edit-dialog[open]::backdrop{animation:clinicBackdropEnter .16s ease-out both}
