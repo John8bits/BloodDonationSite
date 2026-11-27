@@ -2,6 +2,7 @@
 session_start();
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../config/auth.php';
+require_once __DIR__ . '/../includes/philippine_psgc_locations.php';
 require_admin('../login.php', '../dashboard/dashboard.php');
 
 function admin_action_redirect(string $message, string $type = 'success', string $page = 'overview'): void
@@ -158,17 +159,17 @@ try {
             admin_action_redirect('The private-message report has been marked reviewed.', 'success', 'reports');
 
         case 'clinic_create':
-            if (!admin_action_column_exists($pdo, 'uinfo', 'must_change_password') || !admin_action_column_exists($pdo, 'uinfo', 'account_status') || !admin_action_column_exists($pdo, 'clinic_profiles', 'created_by')) throw new RuntimeException('Apply the clinic account and admin enhancement migrations first.');
+            if (!admin_action_column_exists($pdo, 'uinfo', 'must_change_password') || !admin_action_column_exists($pdo, 'uinfo', 'account_status') || !admin_action_column_exists($pdo, 'clinic_profiles', 'created_by') || !admin_action_column_exists($pdo, 'clinic_profiles', 'barangay')) throw new RuntimeException('Apply the clinic account, admin enhancement, and facility barangay migrations first.');
             $facilityName = trim($_POST['facility_name'] ?? ''); $facilityType = $_POST['facility_type'] ?? ''; $facilityAddress = trim($_POST['facility_address'] ?? '');
-            $city = trim($_POST['city'] ?? ''); $province = trim($_POST['province'] ?? ''); $contact = trim($_POST['contact_number'] ?? '');
+            $city = trim($_POST['city'] ?? ''); $province = trim($_POST['province'] ?? ''); $barangay = trim($_POST['barangay'] ?? ''); $contact = trim($_POST['contact_number'] ?? '');
             $officialEmail = trim($_POST['official_email'] ?? ''); $representative = trim($_POST['authorized_representative'] ?? ''); $description = trim($_POST['description'] ?? '');
             $loginEmail = trim($_POST['login_email'] ?? ''); $temporaryPassword = $_POST['temporary_password'] ?? '';
-            if ($facilityName === '' || strlen($facilityName) > 180 || !in_array($facilityType, ['clinic','blood_bank'], true) || $facilityAddress === '' || strlen($facilityAddress) > 255 || $city === '' || strlen($city) > 120 || $province === '' || strlen($province) > 120 || $contact === '' || strlen($contact) > 30 || !filter_var($officialEmail, FILTER_VALIDATE_EMAIL) || strlen($officialEmail) > 255 || $representative === '' || strlen($representative) > 160 || strlen($description) > 1000 || !filter_var($loginEmail, FILTER_VALIDATE_EMAIL) || strlen($loginEmail) > 255 || strlen($temporaryPassword) < 12) throw new InvalidArgumentException('Review the facility details, account email, and password length.');
+            if ($facilityName === '' || strlen($facilityName) > 180 || !in_array($facilityType, ['clinic','blood_bank'], true) || $facilityAddress === '' || strlen($facilityAddress) > 255 || strlen($barangay) > 120 || !blife_psgc_valid_profile_location($province, $city, $barangay) || $contact === '' || strlen($contact) > 30 || !filter_var($officialEmail, FILTER_VALIDATE_EMAIL) || strlen($officialEmail) > 255 || $representative === '' || strlen($representative) > 160 || strlen($description) > 1000 || !filter_var($loginEmail, FILTER_VALIDATE_EMAIL) || strlen($loginEmail) > 255 || strlen($temporaryPassword) < 12) throw new InvalidArgumentException('Review the facility details, selected province, city / municipality, barangay, account email, and password length.');
             $duplicate = $pdo->prepare('SELECT id FROM uinfo WHERE email=:email LIMIT 1'); $duplicate->execute([':email'=>$loginEmail]);
             if ($duplicate->fetchColumn()) throw new InvalidArgumentException('That login email is already in use.');
             $pdo->prepare("INSERT INTO uinfo (fname,lname,email,btype,phone,city,password,role,account_status,must_change_password) VALUES (:fname,'',:email,NULL,:phone,:city,:password,'clinic','active',1)")->execute([':fname'=>$facilityName, ':email'=>$loginEmail, ':phone'=>$contact, ':city'=>$city, ':password'=>password_hash($temporaryPassword, PASSWORD_DEFAULT)]);
             $clinicId = (int) $pdo->lastInsertId();
-            $pdo->prepare('INSERT INTO clinic_profiles (user_id,facility_name,facility_type,facility_address,city,province,contact_number,official_email,authorized_representative,description,created_by,is_verified) VALUES (:user_id,:name,:type,:address,:city,:province,:contact,:official_email,:representative,:description,:admin_id,1)')->execute([':user_id'=>$clinicId, ':name'=>$facilityName, ':type'=>$facilityType, ':address'=>$facilityAddress, ':city'=>$city, ':province'=>$province, ':contact'=>$contact, ':official_email'=>$officialEmail, ':representative'=>$representative, ':description'=>$description, ':admin_id'=>$adminId]);
+            $pdo->prepare('INSERT INTO clinic_profiles (user_id,facility_name,facility_type,facility_address,city,province,barangay,contact_number,official_email,authorized_representative,description,created_by,is_verified) VALUES (:user_id,:name,:type,:address,:city,:province,:barangay,:contact,:official_email,:representative,:description,:admin_id,1)')->execute([':user_id'=>$clinicId, ':name'=>$facilityName, ':type'=>$facilityType, ':address'=>$facilityAddress, ':city'=>$city, ':province'=>$province, ':barangay'=>$barangay !== '' ? $barangay : null, ':contact'=>$contact, ':official_email'=>$officialEmail, ':representative'=>$representative, ':description'=>$description, ':admin_id'=>$adminId]);
             $log('create_clinic_account', 'clinic_profiles', $clinicId, 'Administrator created a verified ' . $facilityType . ' account.');
             $pdo->commit(); admin_action_redirect('Clinic / Blood Bank account created successfully.', 'success', 'clinics');
 
