@@ -814,6 +814,7 @@ table.admin-table th {
 .clinic-create-dialog .admin-form-section{padding:14px 22px 2px}
 .clinic-create-dialog .admin-form-section h3{margin-bottom:10px}
 .clinic-create-dialog .admin-dialog-grid{gap:10px 14px}
+.clinic-create-dialog .clinic-account-grid{grid-template-columns:1fr}
 .clinic-create-dialog .admin-dialog-grid>div{gap:10px}
 .clinic-create-footer{position:sticky;bottom:0;z-index:2;display:flex;flex:0 0 auto;justify-content:flex-end;gap:10px;margin:0;padding:14px 26px 20px;border-top:1px solid #edf0f3;background:#fff}
 .clinic-create-footer .admin-button{min-width:125px;min-height:42px;padding:10px 17px;font-size:13px}
