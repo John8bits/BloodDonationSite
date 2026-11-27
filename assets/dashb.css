@@ -801,6 +801,13 @@ table.admin-table th {
 .admin-dialog-actions{grid-column:1/-1;display:flex;justify-content:flex-end;gap:10px;padding:16px 26px 22px}
 .admin-dialog-actions .admin-button{min-height:42px;padding:10px 17px;font-size:13px}
 .admin-dialog-actions .admin-button:disabled{opacity:.55;cursor:not-allowed}
+.clinic-create-dialog .admin-dialog-heading{padding:16px 22px}
+.clinic-create-dialog .admin-form-section{padding:14px 22px 2px}
+.clinic-create-dialog .admin-form-section h3{margin-bottom:10px}
+.clinic-create-dialog .admin-dialog-grid{gap:10px 14px}
+.clinic-create-dialog .admin-dialog-grid>div{gap:10px}
+.clinic-create-dialog .admin-dialog-actions{padding:10px 0 14px}
+.clinic-create-dialog .admin-dialog-grid textarea{min-height:72px}
 .admin-event-dialog{width:min(760px,calc(100vw - 28px))}
 .admin-event-dialog-inner>.admin-panel{margin:0;padding:18px 26px 24px;border:0;border-radius:0;box-shadow:none}
 .admin-event-dialog-inner>.admin-panel>h2{display:none}
