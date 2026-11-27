@@ -758,7 +758,7 @@ table.admin-table th {
 .clinic-admin-actions-row .admin-inline-form{margin:0}
 .clinic-admin-actions-row .admin-inline-form label{display:grid;gap:5px;color:#59616c;font-size:12px;font-weight:600}
 .clinic-admin-actions-row input{min-height:40px;padding:8px 10px;border:1px solid #dfe2e7;border-radius:8px}
-.clinic-edit-dialog{width:min(740px,calc(100vw - 28px));max-width:740px;overflow:hidden}
+.clinic-edit-dialog{width:min(680px,calc(100vw - 28px));max-width:680px;overflow:hidden}
 .clinic-edit-dialog[open]{animation:clinicDialogEnter .16s ease-out both}
 .clinic-create-dialog[open]{animation:clinicDialogEnter .16s ease-out both}
 .clinic-edit-dialog[open]::backdrop{animation:clinicBackdropEnter .16s ease-out both}
@@ -806,7 +806,7 @@ table.admin-table th {
 .admin-dialog-actions{grid-column:1/-1;display:flex;justify-content:flex-end;gap:10px;padding:16px 26px 22px}
 .admin-dialog-actions .admin-button{min-height:42px;padding:10px 17px;font-size:13px}
 .admin-dialog-actions .admin-button:disabled{opacity:.55;cursor:not-allowed}
-.clinic-create-dialog{width:min(740px,calc(100vw - 28px));max-width:740px}
+.clinic-create-dialog{width:min(680px,calc(100vw - 28px));max-width:680px}
 .clinic-create-dialog .admin-dialog-form{display:flex;flex-direction:column;max-height:min(90vh,90dvh)}
 .clinic-create-dialog .admin-dialog-heading{flex:0 0 auto;padding:22px 26px}
 .clinic-create-dialog .admin-dialog-heading span{display:block;margin-top:5px;color:#68717e;font-size:13px;font-weight:400}
