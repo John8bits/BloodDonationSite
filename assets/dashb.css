@@ -758,7 +758,7 @@ table.admin-table th {
 .clinic-admin-actions-row .admin-inline-form{margin:0}
 .clinic-admin-actions-row .admin-inline-form label{display:grid;gap:5px;color:#59616c;font-size:12px;font-weight:600}
 .clinic-admin-actions-row input{min-height:40px;padding:8px 10px;border:1px solid #dfe2e7;border-radius:8px}
-.clinic-edit-dialog{overflow:hidden}
+.clinic-edit-dialog{width:min(740px,calc(100vw - 28px));max-width:740px;overflow:hidden}
 .clinic-edit-dialog[open]{animation:clinicDialogEnter .16s ease-out both}
 .clinic-edit-dialog[open]::backdrop{animation:clinicBackdropEnter .16s ease-out both}
 .clinic-edit-dialog.clinic-dialog-closing{animation:clinicDialogExit .16s ease-in both}
@@ -771,11 +771,11 @@ table.admin-table th {
 .clinic-edit-dialog .clinic-edit-form{display:flex;flex-direction:column;max-height:min(90vh,90dvh)}
 .clinic-edit-dialog .admin-dialog-heading{flex:0 0 auto}
 .clinic-edit-dialog .admin-dialog-heading span{display:block;margin-top:5px;color:#68717e;font-size:13px;font-weight:400}
-.clinic-edit-body{min-height:0;overflow-y:auto;padding:22px 26px}
-.clinic-edit-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 18px}
-.clinic-edit-grid label{display:grid;align-content:start;gap:7px;min-width:0;color:#515965;font-size:13px;font-weight:600}
+.clinic-edit-body{min-height:0;overflow-y:auto;padding:14px 22px 2px}
+.clinic-edit-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 14px}
+.clinic-edit-grid label{display:grid;align-content:start;gap:6px;min-width:0;color:#515965;font-size:13px;font-weight:600}
 .clinic-edit-grid input,.clinic-edit-grid select,.clinic-edit-grid textarea{width:100%;min-width:0;min-height:42px;padding:10px 12px;border:1px solid #dfe2e7;border-radius:8px;background:#fff;color:#343a43;font:inherit;font-weight:400;transition:border-color .16s,box-shadow .16s}
-.clinic-edit-grid input:focus,.clinic-edit-grid select:focus,.clinic-edit-grid textarea:focus{outline:0;border-color:#d62839;box-shadow:0 0 0 3px rgba(214,40,57,.12)}
+.clinic-edit-grid input:focus,.clinic-edit-grid select:focus,.clinic-edit-grid textarea:focus{outline:0;border-color:#d62839;box-shadow:0 0 0 3px rgba(214,40,57,.14)}
 .clinic-edit-grid textarea{min-height:105px;resize:vertical}
 .clinic-edit-grid .clinic-edit-description{grid-column:1/-1}
 .clinic-edit-footer{position:sticky;bottom:0;z-index:2;flex:0 0 auto;margin:0;padding:14px 26px 20px;border-top:1px solid #edf0f3;background:#fff}
