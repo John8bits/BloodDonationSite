@@ -23,22 +23,7 @@ document.addEventListener("DOMContentLoaded", function () {
             return payload.data;
         }
 
-        async function loadProvinces() {
-            try {
-                const url = new URL(endpoint, window.location.href);
-                const data = await load(url);
-                fill(provinceSelect, data.provinces || [], "Select province", function (name) { return name; });
-            } catch (exception) {
-                error.textContent = exception.message || "Could not load provinces. Refresh the page and try again.";
-                error.hidden = false;
-                fill(provinceSelect, [], "Location list unavailable", function () { return ""; });
-            }
-        }
-
-        provinceSelect.addEventListener("change", async function () {
-            const sequence = ++requestSequence;
-            const province = provinceSelect.value;
-            error.hidden = true;
+        async function loadCities(province, selectedCity, selectedBarangay, sequence) {
             fill(citySelect, [], province ? "Loading cities / municipalities..." : "Select province first", function () { return ""; });
             fill(barangaySelect, [], "Select city / municipality first", function () { return ""; });
             if (!province) return;
@@ -47,20 +32,21 @@ document.addEventListener("DOMContentLoaded", function () {
                 url.searchParams.set("province", province);
                 const data = await load(url);
                 if (sequence !== requestSequence || province !== provinceSelect.value) return;
-                fill(citySelect, data.cities || [], "Select city / municipality", function (name) { return name; });
+                const cities = data.cities || [];
+                fill(citySelect, cities, "Select city / municipality", function (name) { return name; });
+                if (selectedCity && cities.includes(selectedCity)) {
+                    citySelect.value = selectedCity;
+                    await loadBarangays(province, selectedCity, selectedBarangay, sequence);
+                }
             } catch (exception) {
                 if (sequence !== requestSequence) return;
                 error.textContent = exception.message || "Could not load cities / municipalities.";
                 error.hidden = false;
                 fill(citySelect, [], "Location list unavailable", function () { return ""; });
             }
-        });
+        }
 
-        citySelect.addEventListener("change", async function () {
-            const sequence = ++requestSequence;
-            const province = provinceSelect.value;
-            const city = citySelect.value;
-            error.hidden = true;
+        async function loadBarangays(province, city, selectedBarangay, sequence) {
             fill(barangaySelect, [], city ? "Loading barangays..." : "Select city / municipality first", function () { return ""; });
             if (!province || !city) return;
             try {
@@ -69,15 +55,50 @@ document.addEventListener("DOMContentLoaded", function () {
                 url.searchParams.set("city", city);
                 const data = await load(url);
                 if (sequence !== requestSequence || province !== provinceSelect.value || city !== citySelect.value) return;
-                fill(barangaySelect, data.barangays || [], "Select barangay (optional)", function (barangay) { return barangay.name; });
+                const barangays = data.barangays || [];
+                fill(barangaySelect, barangays, "Select barangay (optional)", function (barangay) { return barangay.name; });
+                if (selectedBarangay && barangays.some(function (barangay) { return barangay.name === selectedBarangay; })) {
+                    barangaySelect.value = selectedBarangay;
+                }
             } catch (exception) {
                 if (sequence !== requestSequence) return;
                 error.textContent = exception.message || "Could not load barangays.";
                 error.hidden = false;
                 fill(barangaySelect, [], "Barangay list unavailable", function () { return ""; });
             }
+        }
+
+        provinceSelect.addEventListener("change", function () {
+            const sequence = ++requestSequence;
+            error.hidden = true;
+            loadCities(provinceSelect.value, "", "", sequence);
         });
 
-        loadProvinces();
+        citySelect.addEventListener("change", function () {
+            const sequence = ++requestSequence;
+            error.hidden = true;
+            loadBarangays(provinceSelect.value, citySelect.value, "", sequence);
+        });
+
+        async function initialize() {
+            try {
+                const url = new URL(endpoint, window.location.href);
+                const data = await load(url);
+                const provinces = data.provinces || [];
+                fill(provinceSelect, provinces, "Select province", function (name) { return name; });
+                const savedProvince = root.dataset.currentProvince || "";
+                if (savedProvince && provinces.includes(savedProvince)) {
+                    provinceSelect.value = savedProvince;
+                    const sequence = ++requestSequence;
+                    await loadCities(savedProvince, root.dataset.currentCity || "", root.dataset.currentBarangay || "", sequence);
+                }
+            } catch (exception) {
+                error.textContent = exception.message || "Could not load provinces. Refresh the page and try again.";
+                error.hidden = false;
+                fill(provinceSelect, [], "Location list unavailable", function () { return ""; });
+            }
+        }
+
+        initialize();
     });
 });

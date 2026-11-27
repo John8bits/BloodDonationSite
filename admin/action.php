@@ -177,11 +177,11 @@ try {
         case 'clinic_update':
             $clinicId = filter_var($_POST['clinic_id'] ?? null, FILTER_VALIDATE_INT);
             $facilityName = trim($_POST['facility_name'] ?? ''); $facilityType = $_POST['facility_type'] ?? ''; $facilityAddress = trim($_POST['facility_address'] ?? '');
-            $city = trim($_POST['city'] ?? ''); $province = trim($_POST['province'] ?? ''); $contact = trim($_POST['contact_number'] ?? '');
-            $officialEmail = trim($_POST['official_email'] ?? ''); $representative = trim($_POST['authorized_representative'] ?? ''); $description = trim($_POST['description'] ?? '');
-            if (!$clinicId || $facilityName === '' || strlen($facilityName) > 180 || !in_array($facilityType, ['clinic','blood_bank'], true) || $facilityAddress === '' || strlen($facilityAddress) > 255 || $city === '' || strlen($city) > 120 || $province === '' || strlen($province) > 120 || $contact === '' || strlen($contact) > 30 || !filter_var($officialEmail, FILTER_VALIDATE_EMAIL) || strlen($officialEmail) > 255 || $representative === '' || strlen($representative) > 160 || strlen($description) > 1000) throw new InvalidArgumentException('Enter valid institutional information.');
-            $update = $pdo->prepare("UPDATE clinic_profiles cp JOIN uinfo u ON u.id=cp.user_id SET cp.facility_name=:name, cp.facility_type=:type, cp.facility_address=:address, cp.city=:city, cp.province=:province, cp.contact_number=:contact, cp.official_email=:official_email, cp.authorized_representative=:representative, cp.description=:description, u.fname=:login_name, u.phone=:login_phone, u.city=:login_city WHERE cp.user_id=:id AND u.role='clinic'");
-            $update->execute([':name'=>$facilityName, ':type'=>$facilityType, ':address'=>$facilityAddress, ':city'=>$city, ':province'=>$province, ':contact'=>$contact, ':official_email'=>$officialEmail, ':representative'=>$representative, ':description'=>$description, ':login_name'=>$facilityName, ':login_phone'=>$contact, ':login_city'=>$city, ':id'=>$clinicId]);
+            $city = trim($_POST['city'] ?? ''); $province = trim($_POST['province'] ?? ''); $barangay = trim($_POST['barangay'] ?? ''); $contact = trim($_POST['contact_number'] ?? '');
+            $officialEmail = trim($_POST['official_email'] ?? ''); $representative = trim($_POST['authorized_representative'] ?? '');
+            if (!$clinicId || !admin_action_column_exists($pdo, 'clinic_profiles', 'barangay') || $facilityName === '' || strlen($facilityName) > 180 || !in_array($facilityType, ['clinic','blood_bank'], true) || $facilityAddress === '' || strlen($facilityAddress) > 255 || strlen($barangay) > 120 || !blife_psgc_valid_profile_location($province, $city, $barangay) || $contact === '' || strlen($contact) > 30 || !filter_var($officialEmail, FILTER_VALIDATE_EMAIL) || strlen($officialEmail) > 255 || $representative === '' || strlen($representative) > 160) throw new InvalidArgumentException('Enter valid institutional information and select a valid province, city / municipality, and barangay.');
+            $update = $pdo->prepare("UPDATE clinic_profiles cp JOIN uinfo u ON u.id=cp.user_id SET cp.facility_name=:name, cp.facility_type=:type, cp.facility_address=:address, cp.city=:city, cp.province=:province, cp.barangay=:barangay, cp.contact_number=:contact, cp.official_email=:official_email, cp.authorized_representative=:representative, u.fname=:login_name, u.phone=:login_phone, u.city=:login_city WHERE cp.user_id=:id AND u.role='clinic'");
+            $update->execute([':name'=>$facilityName, ':type'=>$facilityType, ':address'=>$facilityAddress, ':city'=>$city, ':province'=>$province, ':barangay'=>$barangay !== '' ? $barangay : null, ':contact'=>$contact, ':official_email'=>$officialEmail, ':representative'=>$representative, ':login_name'=>$facilityName, ':login_phone'=>$contact, ':login_city'=>$city, ':id'=>$clinicId]);
             $exists = $pdo->prepare("SELECT 1 FROM clinic_profiles cp JOIN uinfo u ON u.id=cp.user_id WHERE cp.user_id=:id AND u.role='clinic'"); $exists->execute([':id'=>$clinicId]);
             if (!$exists->fetchColumn()) throw new InvalidArgumentException('Clinic account not found.');
             $log('update_clinic_profile', 'clinic_profiles', $clinicId, 'Administrator updated institutional information.');
@@ -392,7 +392,7 @@ try {
     if ($action === 'clinic_update') {
         $_SESSION['clinic_edit_failure'] = [
             'clinic_id' => filter_var($_POST['clinic_id'] ?? null, FILTER_VALIDATE_INT) ?: 0,
-            'values' => array_intersect_key($_POST, array_flip(['facility_name', 'facility_type', 'facility_address', 'city', 'province', 'contact_number', 'official_email', 'authorized_representative', 'description']))
+            'values' => array_intersect_key($_POST, array_flip(['facility_name', 'facility_type', 'facility_address', 'city', 'province', 'barangay', 'contact_number', 'official_email', 'authorized_representative']))
         ];
     }
     admin_action_redirect($e->getMessage(), 'error', [
@@ -411,7 +411,7 @@ try {
     if ($action === 'clinic_update') {
         $_SESSION['clinic_edit_failure'] = [
             'clinic_id' => filter_var($_POST['clinic_id'] ?? null, FILTER_VALIDATE_INT) ?: 0,
-            'values' => array_intersect_key($_POST, array_flip(['facility_name', 'facility_type', 'facility_address', 'city', 'province', 'contact_number', 'official_email', 'authorized_representative', 'description']))
+            'values' => array_intersect_key($_POST, array_flip(['facility_name', 'facility_type', 'facility_address', 'city', 'province', 'barangay', 'contact_number', 'official_email', 'authorized_representative']))
         ];
     }
     admin_action_redirect('The admin action failed. Please verify the database migration and try again.', 'error', in_array($action, ['clinic_create','clinic_update','clinic_status','clinic_verification','clinic_password_reset'], true) ? 'clinics' : 'overview');
