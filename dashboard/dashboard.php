@@ -832,31 +832,6 @@ $fullName = trim(($profile['fname'] ?? '') . ' ' . ($profile['lname'] ?? ''));
 $displayName = $fullName !== '' ? $fullName : ($profile['email'] ?? 'Member');
 $firstName = trim((string) ($profile['fname'] ?? ''));
 $initials = member_initials($displayName);
-$navGroups = [
-    'Main Menu' => [
-        'home' => ['🏠︎', 'Home'],
-        'blood-requests' => ['+', 'Blood Requests'],
-        'donation-offers' => ['♥', 'Donation Offers'],
-        'blood-map' => ['⌖', 'Blood Donation Map'],
-        // 'events' => ['◷', 'Donation Events']
-    ],
-    'Activities' => [
-        'activity' => ['▤', 'My Activity'],
-        'messages' => ['🗨', 'Messages'],
-        'my-posts' => ['▧', 'My Post'],
-        'responded' => ['↗', "My Resposes"],
-        'saved' => ['☆', 'Saved Posts']
-    ],
-    // 'Communication' => [
-    //     'messages' => ['✉', 'Messages']
-    // ],
-    'Account' => [
-        'profile' => ['👤', 'My Profile'],
-        'settings' => ['⚙', 'Settings & Privacy'],
-        'help' => ['?', 'Help & Support']
-    ]
-];
-unset($navGroups['Account']);
 $pageTitles = [
     'home' => 'Community Feed',
     'find-blood' => 'Find Blood',
@@ -964,90 +939,82 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 </head>
 <body>
-    <header class="topbar">
-        <button class="icon-button sidebar-toggle" id="sidebarToggle" type="button" aria-label="Toggle navigation" aria-expanded="false" aria-controls="memberSidebar">
-            <span aria-hidden="true">☰</span>
-        </button>
-        <a class="brand" href="dashboard.php?page=home" aria-label="BLife PH home">
-            <img src="../images/BlifePH_no_bg.png" alt="">
-            <span>BLife PH</span>
-        </a>
-        <form class="global-search" method="get" action="dashboard.php" role="search">
-            <input type="hidden" name="page" value="search">
-            <label class="visually-hidden" for="globalSearch">Search posts and blood requests</label>
-            <span aria-hidden="true">⌕</span>
-            <input id="globalSearch" type="search" name="q" value="<?= $activePage === 'search' ? h($searchQuery) : '' ?>" placeholder="Search posts, blood requests, events..." maxlength="120">
-            <button type="submit" aria-label="Search">Search</button>
-        </form>
-        <div class="topbar-actions">
-            <details class="notification-menu">
-                <summary class="notification-link" aria-label="Notifications<?= $unreadNotifications ? ', ' . $unreadNotifications . ' unread' : '' ?>" aria-controls="notificationDropdown">
-                    <span aria-hidden="true">🕭</span>
-                    <?php if ($unreadNotifications > 0): ?><span class="notification-count"><?= $unreadNotifications > 99 ? '99+' : (int) $unreadNotifications ?></span><?php endif; ?>
-                </summary>
-                <div class="notification-dropdown" id="notificationDropdown">
-                    <div class="notification-dropdown-heading">
-                        <strong>Notifications</strong>
-                        <a href="dashboard.php?page=notifications">View all</a>
+    <header class="topbar member-topbar">
+        <div class="member-topbar-primary">
+            <button class="icon-button member-nav-toggle" id="memberNavToggle" type="button" aria-label="Open navigation" aria-expanded="false" aria-controls="memberMainNavigation">
+                <i class="fa-solid fa-bars" aria-hidden="true"></i>
+            </button>
+            <a class="brand" href="dashboard.php?page=home" aria-label="BLife PH home">
+                <img src="../images/BlifePH_no_bg.png" alt="">
+                <span>BLife PH</span>
+            </a>
+            <form class="global-search" method="get" action="dashboard.php" role="search">
+                <input type="hidden" name="page" value="search">
+                <label class="visually-hidden" for="globalSearch">Search posts and blood requests</label>
+                <span aria-hidden="true"><i class="fa-solid fa-magnifying-glass"></i></span>
+                <input id="globalSearch" type="search" name="q" value="<?= $activePage === 'search' ? h($searchQuery) : '' ?>" placeholder="Search posts, blood requests, events..." maxlength="120">
+                <button type="submit" aria-label="Search">Search</button>
+            </form>
+            <div class="topbar-actions">
+                <details class="notification-menu header-dropdown">
+                    <summary class="notification-link" aria-label="Notifications<?= $unreadNotifications ? ', ' . $unreadNotifications . ' unread' : '' ?>" aria-controls="notificationDropdown">
+                        <i class="fa-regular fa-bell" aria-hidden="true"></i>
+                        <?php if ($unreadNotifications > 0): ?><span class="notification-count"><?= $unreadNotifications > 99 ? '99+' : (int) $unreadNotifications ?></span><?php endif; ?>
+                    </summary>
+                    <div class="notification-dropdown" id="notificationDropdown">
+                        <div class="notification-dropdown-heading">
+                            <strong>Notifications</strong>
+                            <a href="dashboard.php?page=notifications">View all</a>
+                        </div>
+                        <?php if ($unreadNotifications > 0): ?>
+                            <form class="notification-mark-all" method="post" action="action.php">
+                                <input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>">
+                                <input type="hidden" name="action" value="notifications_read_all">
+                                <button class="text-button" type="submit">Mark all as read</button>
+                            </form>
+                        <?php endif; ?>
+                        <?php if (!$notificationRows): ?>
+                            <div class="empty-state notification-empty"><strong>You're all caught up.</strong><span>Replies to your requests and comments on your posts will appear here.</span></div>
+                        <?php else: ?>
+                            <div class="notification-list"><?php render_notification_items(array_slice($notificationRows, 0, 5), $csrfToken); ?></div>
+                        <?php endif; ?>
                     </div>
-                    <?php if ($unreadNotifications > 0): ?>
-                        <form class="notification-mark-all" method="post" action="action.php">
-                            <input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>">
-                            <input type="hidden" name="action" value="notifications_read_all">
-                            <button class="text-button" type="submit">Mark all as read</button>
-                        </form>
-                    <?php endif; ?>
-                    <?php if (!$notificationRows): ?>
-                        <div class="empty-state notification-empty"><strong>You're all caught up.</strong><span>Replies to your requests and comments on your posts will appear here.</span></div>
-                    <?php else: ?>
-                        <div class="notification-list"><?php render_notification_items(array_slice($notificationRows, 0, 5), $csrfToken); ?></div>
-                    <?php endif; ?>
-                </div>
-            </details>
-            <details class="profile-menu">
-                <summary aria-label="Open profile menu">
-                    <span class="avatar"><?= h($initials) ?></span>
-                    <span class="profile-menu-name"><?= h($displayName) ?></span>
-                    <span aria-hidden="true">⌄</span>
-                </summary>
-                <div class="profile-dropdown">
-                    <a href="dashboard.php?page=profile"><i class="fa-regular fa-user" aria-hidden="true"></i><span>My Profile</span></a>
-                    <a href="dashboard.php?page=settings"><i class="fa-solid fa-gear" aria-hidden="true"></i><span>Settings &amp; Privacy</span></a>
-                    <a href="dashboard.php?page=help"><i class="fa-regular fa-circle-question" aria-hidden="true"></i><span>Help &amp; Support</span></a>
-                    <a href="../logout.php"><i class="fa-solid fa-arrow-right-from-bracket" aria-hidden="true"></i><span>Sign Out</span></a>
-                </div>
-            </details>
+                </details>
+                <details class="profile-menu header-dropdown">
+                    <summary aria-label="Open account menu">
+                        <span class="avatar"><?= h($initials) ?></span>
+                        <span class="profile-menu-name"><?= h($displayName) ?></span>
+                        <i class="fa-solid fa-chevron-down account-chevron" aria-hidden="true"></i>
+                    </summary>
+                    <div class="profile-dropdown" aria-label="Account">
+                        <a href="dashboard.php?page=profile"><i class="fa-regular fa-user" aria-hidden="true"></i><span>My Profile</span></a>
+                        <a href="dashboard.php?page=settings"><i class="fa-solid fa-gear" aria-hidden="true"></i><span>Settings &amp; Privacy</span></a>
+                        <a href="dashboard.php?page=help"><i class="fa-regular fa-circle-question" aria-hidden="true"></i><span>Help &amp; Support</span></a>
+                        <a href="../logout.php"><i class="fa-solid fa-arrow-right-from-bracket" aria-hidden="true"></i><span>Logout</span></a>
+                    </div>
+                </details>
+            </div>
         </div>
+        <nav class="member-main-navigation" id="memberMainNavigation" aria-label="Member navigation">
+            <a class="member-nav-link <?= $activePage === 'home' ? 'active' : '' ?>" href="dashboard.php?page=home" <?= $activePage === 'home' ? 'aria-current="page"' : '' ?>><i class="fa-solid fa-house" aria-hidden="true"></i><span>Home</span></a>
+            <a class="member-nav-link <?= $activePage === 'blood-requests' ? 'active' : '' ?>" href="dashboard.php?page=blood-requests" <?= $activePage === 'blood-requests' ? 'aria-current="page"' : '' ?>><i class="fa-solid fa-droplet" aria-hidden="true"></i><span>Blood Requests</span></a>
+            <a class="member-nav-link <?= $activePage === 'donation-offers' ? 'active' : '' ?>" href="dashboard.php?page=donation-offers" <?= $activePage === 'donation-offers' ? 'aria-current="page"' : '' ?>><i class="fa-solid fa-hand-holding-droplet" aria-hidden="true"></i><span>Donation Offers</span></a>
+            <a class="member-nav-link <?= $activePage === 'blood-map' ? 'active' : '' ?>" href="dashboard.php?page=blood-map" <?= $activePage === 'blood-map' ? 'aria-current="page"' : '' ?>><i class="fa-solid fa-map-location-dot" aria-hidden="true"></i><span>Blood Donation Map</span></a>
+            <?php $activityPages = ['activity', 'messages', 'my-posts', 'responded', 'saved']; ?>
+            <details class="member-activities-menu header-dropdown <?= in_array($activePage, $activityPages, true) ? 'has-active' : '' ?>">
+                <summary class="member-nav-link <?= in_array($activePage, $activityPages, true) ? 'active' : '' ?>"><i class="fa-solid fa-layer-group" aria-hidden="true"></i><span>Activities</span><i class="fa-solid fa-chevron-down menu-chevron" aria-hidden="true"></i></summary>
+                <div class="member-nav-dropdown" aria-label="Activities">
+                    <a href="dashboard.php?page=activity" <?= $activePage === 'activity' ? 'aria-current="page"' : '' ?>><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i><span>My Activity</span></a>
+                    <a href="dashboard.php?page=messages" <?= $activePage === 'messages' ? 'aria-current="page"' : '' ?>><i class="fa-solid fa-comments" aria-hidden="true"></i><span>Messages</span></a>
+                    <a href="dashboard.php?page=my-posts" <?= $activePage === 'my-posts' ? 'aria-current="page"' : '' ?>><i class="fa-solid fa-file-lines" aria-hidden="true"></i><span>My Post</span></a>
+                    <a href="dashboard.php?page=responded" <?= $activePage === 'responded' ? 'aria-current="page"' : '' ?>><i class="fa-solid fa-reply" aria-hidden="true"></i><span>My Responses</span></a>
+                    <a href="dashboard.php?page=saved" <?= $activePage === 'saved' ? 'aria-current="page"' : '' ?>><i class="fa-solid fa-bookmark" aria-hidden="true"></i><span>Saved Posts</span></a>
+                </div>
+            </details>
+        </nav>
     </header>
 
-    <div class="mobile-scrim" id="mobileScrim"></div>
     <div class="dashboard-layout">
-        <aside class="sidebar" id="memberSidebar" aria-label="Dashboard sidebar">
-            <nav class="sidebar-nav">
-                <?php foreach ($navGroups as $groupName => $links): ?>
-                    <div class="nav-group">
-                        <p class="nav-group-title"><?= h($groupName) ?></p>
-                        <?php foreach ($links as $page => $item): ?>
-                            <a class="sidebar-link <?= $activePage === $page ? 'active' : '' ?>"
-                               href="dashboard.php?page=<?= h($page) ?>"
-                               aria-label="<?= h($item[1]) ?>"
-                               title="<?= h($item[1]) ?>"
-                               <?= $activePage === $page ? 'aria-current="page"' : '' ?>>
-                               <span class="nav-icon" aria-hidden="true"><i class="fa-solid <?= h([
-                                   'home' => 'fa-house', 'blood-requests' => 'fa-droplet', 'donation-offers' => 'fa-hand-holding-droplet', 'blood-map' => 'fa-map-location-dot',
-                                   'activity' => 'fa-clock-rotate-left', 'messages' => 'fa-comments', 'my-posts' => 'fa-file-lines',
-                                   'responded' => 'fa-reply', 'saved' => 'fa-bookmark', 'profile' => 'fa-user',
-                                   'settings' => 'fa-gear', 'help' => 'fa-circle-question'
-                               ][$page] ?? 'fa-circle') ?>"></i></span>
-                               <span class="nav-label"><?= h($item[1]) ?></span>
-                            </a>
-                        <?php endforeach; ?>
-                    </div>
-                <?php endforeach; ?>
-            </nav>
-            
-        </aside>
-
         <main class="dashboard-main">
             <?php if ($profileWelcome): ?><div class="notice notice-info" role="status">Welcome to BLife PH! Please complete your profile before continuing.</div><?php endif; ?>
             <?php if ($loginSuccess): ?>

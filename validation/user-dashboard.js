@@ -1,9 +1,7 @@
 document.addEventListener("DOMContentLoaded", function () {
-    const layout = document.querySelector(".dashboard-layout");
-    const sidebarToggle = document.getElementById("sidebarToggle");
-    const scrim = document.getElementById("mobileScrim");
-    const sidebarLinks = document.querySelectorAll(".sidebar-link");
-    const notificationMenu = document.querySelector(".notification-menu");
+    const memberHeader = document.querySelector(".member-topbar");
+    const memberNavToggle = document.getElementById("memberNavToggle");
+    const memberNavigation = document.getElementById("memberMainNavigation");
 
     const profileLocationForm = document.querySelector("[data-profile-location-form]");
     if (profileLocationForm) {
@@ -121,9 +119,9 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     document.addEventListener("click", function (event) {
-        if (notificationMenu && !notificationMenu.contains(event.target)) {
-            notificationMenu.removeAttribute("open");
-        }
+        document.querySelectorAll(".header-dropdown[open]").forEach(function (menu) {
+            if (!menu.contains(event.target)) menu.removeAttribute("open");
+        });
     });
 
     document.querySelectorAll("[data-modal-open]").forEach(function (button) {
@@ -216,75 +214,35 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     }
 
-    function isMobile() {
-        return window.matchMedia("(max-width: 760px)").matches;
+    function closeMemberNavigation() {
+        if (!memberHeader || !memberNavToggle) return;
+        memberHeader.classList.remove("member-nav-open");
+        memberNavToggle.setAttribute("aria-expanded", "false");
+        memberNavToggle.setAttribute("aria-label", "Open navigation");
     }
 
-    function closeSidebar() {
-        if (!layout || !sidebarToggle || !scrim) {
-            return;
-        }
-
-        layout.classList.remove("sidebar-open");
-        scrim.classList.remove("visible");
-        sidebarToggle.setAttribute("aria-expanded", "false");
-    }
-
-    if (layout && sidebarToggle && scrim) {
-        if (!isMobile()) {
-            sidebarToggle.setAttribute(
-                "aria-expanded",
-                String(!window.matchMedia("(max-width: 1100px)").matches)
-            );
-        }
-
-        sidebarToggle.addEventListener("click", function () {
-            if (isMobile()) {
-                const isOpen = layout.classList.toggle("sidebar-open");
-                scrim.classList.toggle("visible", isOpen);
-                sidebarToggle.setAttribute("aria-expanded", String(isOpen));
-                return;
-            }
-
-            if (window.matchMedia("(max-width: 1100px)").matches) {
-                const isExpanded = layout.classList.toggle("sidebar-expanded");
-                sidebarToggle.setAttribute("aria-expanded", String(isExpanded));
-            } else {
-                const isCollapsed = layout.classList.toggle("sidebar-collapsed");
-                sidebarToggle.setAttribute("aria-expanded", String(!isCollapsed));
-            }
+    if (memberHeader && memberNavToggle && memberNavigation) {
+        memberNavToggle.addEventListener("click", function () {
+            const isOpen = memberHeader.classList.toggle("member-nav-open");
+            memberNavToggle.setAttribute("aria-expanded", String(isOpen));
+            memberNavToggle.setAttribute("aria-label", isOpen ? "Close navigation" : "Open navigation");
+            memberNavToggle.querySelector("i").className = isOpen ? "fa-solid fa-xmark" : "fa-solid fa-bars";
         });
 
-        scrim.addEventListener("click", closeSidebar);
-        sidebarLinks.forEach(function (link) {
-            link.addEventListener("click", closeSidebar);
+        memberNavigation.querySelectorAll("a").forEach(function (link) {
+            link.addEventListener("click", closeMemberNavigation);
         });
 
         window.addEventListener("resize", function () {
-            if (!isMobile()) {
-                closeSidebar();
-                sidebarToggle.setAttribute(
-                    "aria-expanded",
-                    String(window.matchMedia("(max-width: 1100px)").matches
-                        ? layout.classList.contains("sidebar-expanded")
-                        : !layout.classList.contains("sidebar-collapsed"))
-                );
-            } else {
-                layout.classList.remove("sidebar-collapsed");
-                layout.classList.remove("sidebar-expanded");
-            }
+            if (window.matchMedia("(min-width: 761px)").matches) closeMemberNavigation();
         });
 
         document.addEventListener("keydown", function (event) {
             if (event.key === "Escape") {
-                closeSidebar();
-                if (notificationMenu) {
-                    notificationMenu.removeAttribute("open");
-                }
-                const profileMenu = document.querySelector(".profile-menu");
-                if (profileMenu) {
-                    profileMenu.removeAttribute("open");
-                }
+                closeMemberNavigation();
+                document.querySelectorAll(".header-dropdown[open]").forEach(function (menu) {
+                    menu.removeAttribute("open");
+                });
             }
         });
     }
