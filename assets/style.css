@@ -178,6 +178,57 @@ body {
         0 0 0 3px rgba(164, 18, 20, 0.12);
 }
 
+.input-wrapper input.password-input {
+    padding-right: 50px;
+}
+
+.password-toggle {
+    position: absolute;
+    top: 50%;
+    right: 12px;
+    display: inline-flex;
+    width: 32px;
+    height: 32px;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    transform: translateY(-50%);
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: #68717e;
+    cursor: pointer;
+}
+
+.password-toggle:hover,
+.password-toggle:focus-visible {
+    background: #fff0f1;
+    color: #a41214;
+}
+
+.password-toggle:focus-visible {
+    outline: 2px solid #a41214;
+    outline-offset: 1px;
+}
+
+.password-toggle svg {
+    width: 19px;
+    height: 19px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.password-toggle-slash {
+    display: none;
+}
+
+.password-toggle[aria-pressed="true"] .password-toggle-slash {
+    display: block;
+}
+
 /* login btn */
 .btn {
     width: 100%;

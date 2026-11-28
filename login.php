@@ -98,8 +98,11 @@ $success =
                     <div class="input-wrapper">
 
                         <img src="images/padlock.png" alt="Password icon">
-                        <input type="password" id="password" name="password" autocomplete="current-password"
+                        <input type="password" class="password-input" id="password" name="password" autocomplete="current-password"
                             placeholder="******">
+                        <button type="button" class="password-toggle" data-password-toggle aria-label="Show password" aria-pressed="false">
+                            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M2.1 12s3.6-7 9.9-7 9.9 7 9.9 7-3.6 7-9.9 7-9.9-7-9.9-7Z"/><circle cx="12" cy="12" r="3"/><path class="password-toggle-slash" d="m4 4 16 16"/></svg>
+                        </button>
 
                     </div>
                     <?php if (isset($errors['password'])): ?>
@@ -124,6 +127,7 @@ $success =
     </div>
 
     <script src="validation/login.js"></script>
+    <script src="validation/password-visibility.js"></script>
 
 </body>
 
