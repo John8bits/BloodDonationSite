@@ -1015,7 +1015,7 @@ function render_post_composer(string $csrfToken, string $initials, bool $donatio
     </header>
 
     <div class="dashboard-layout">
-        <main class="dashboard-main">
+        <main class="dashboard-main<?= $activePage === 'home' ? ' member-feed-page' : '' ?>">
             <?php if ($profileWelcome): ?><div class="notice notice-info" role="status">Welcome to BLife PH! Please complete your profile before continuing.</div><?php endif; ?>
             <?php if ($loginSuccess): ?>
                 <!-- <div class="notice notice-success" role="status">Welcome back to BloodLife.</div> -->
