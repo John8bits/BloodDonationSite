@@ -3821,6 +3821,23 @@ input:disabled {
     width: 100%;
 }
 
+.member-profile-page {
+    width: 100%;
+    max-width: 1020px;
+    padding-inline: 30px;
+}
+
+.member-profile-page .profile-panel {
+    width: 100%;
+    max-width: none;
+}
+
+.member-profile-page .profile-form,
+.member-profile-page .profile-location-row {
+    width: 100%;
+    max-width: none;
+}
+
 @media (max-width: 1050px) {
     .member-topbar-primary {
         gap: 12px;
@@ -3951,6 +3968,10 @@ input:disabled {
     }
 
     .member-feed-page {
+        padding-inline: 15px;
+    }
+
+    .member-profile-page {
         padding-inline: 15px;
     }
 }
