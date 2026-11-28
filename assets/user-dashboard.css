@@ -3839,6 +3839,21 @@ input:disabled {
     max-width: none;
 }
 
+.member-content-page {
+    width: 100%;
+    max-width: 1080px;
+    padding-inline: 30px;
+}
+
+.member-content-page .dashboard-columns {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.member-content-page .feed-column,
+.member-content-page .donation-offer-list {
+    width: 100%;
+}
+
 @media (max-width: 1050px) {
     .member-topbar-primary {
         gap: 12px;
@@ -3973,6 +3988,10 @@ input:disabled {
     }
 
     .member-profile-page {
+        padding-inline: 15px;
+    }
+
+    .member-content-page {
         padding-inline: 15px;
     }
 }
